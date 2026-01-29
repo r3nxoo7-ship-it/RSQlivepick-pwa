@@ -64,6 +64,11 @@
       "purpose": "any maskable"
     }
   ],
+  "splash_screens": [
+    { "src": "/icons/splash-1125x2436.svg", "sizes": "1125x2436", "type": "image/svg+xml" },
+    { "src": "/icons/splash-1242x2688.svg", "sizes": "1242x2688", "type": "image/svg+xml" },
+    { "src": "/icons/splash-1536x2048.svg", "sizes": "1536x2048", "type": "image/svg+xml" }
+  ],
   "shortcuts": [
     {
       "name": "Live Matches",
