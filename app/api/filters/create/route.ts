@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     console.log('📝 API /filters/create: Creating filter for user:', user_id);
 
     // ============================================
-    // VALIDACIÓN 1: CONDICIONES
+    // VALIDATION 1: CONDITIONS
     // ============================================
     const conditionValidation = validateFilterConditions(conditions);
     if (!conditionValidation.isValid) {
@@ -50,22 +50,22 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // VALIDACIÓN 2: CONDICIONES COMPLETAS
+    // VALIDATION 2: COMPLETE CONDITIONS
     // ============================================
     const conditionsComplete = areConditionsComplete(conditions);
     if (!conditionsComplete && notification_enabled) {
       console.warn('⚠️ Cannot enable notifications with incomplete conditions');
       return NextResponse.json(
         { 
-          error: 'Las notificaciones requieren condiciones completas',
-          details: ['Define al menos un valor (min o max) para una condición']
+          error: 'Notifications require complete conditions',
+          details: ['Define at least one value (min or max) for a condition']
         },
         { status: 400 }
       );
     }
 
     // ============================================
-    // VALIDACIÓN 3: DUPLICADOS
+    // VALIDATION 3: DUPLICATES
     // ============================================
     // Obtener todos los filtros del usuario
     const { data: existingFilters, error: fetchError } = await supabaseAdmin

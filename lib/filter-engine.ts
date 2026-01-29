@@ -1,8 +1,8 @@
 // ============================================
-// R$Q - FILTER ENGINE
+// FILTER ENGINE
 // ============================================
-// Motorul care verifică dacă meciurile match-uiesc filtrele
-// Pentru începători: învață logic de filtrare, type checking
+// Engine that verifies whether matches satisfy filters
+// For beginners: learn filtering logic, type checking
 
 import type { LiveMatch } from '@/lib/football-data';
 import type { Filter } from '@/lib/supabase';
@@ -14,14 +14,14 @@ import { parseMatchStats } from '@/lib/api-football';
 // ============================================
 
 /**
- * Result al verificării unui filtru pe un meci
+ * Result of checking a filter against a match
  */
 export interface FilterMatchResult {
-  matches: boolean;              // True dacă meciul match-uiește filtrul
-  filter: Filter;                // Filtrul care a fost verificat
-  match: LiveMatch;              // Meciul verificat
-  matchedConditions: string[];   // Lista condițiilor care au match-uit
-  failedConditions: string[];    // Lista condițiilor care NU au match-uit
+  matches: boolean;              // True if match satisfies the filter
+  filter: Filter;                // The filter that was checked
+  match: LiveMatch;              // The match that was checked
+  matchedConditions: string[];   // List of conditions that matched
+  failedConditions: string[];    // List of conditions that did NOT match
 }
 
 // ============================================
@@ -29,18 +29,18 @@ export interface FilterMatchResult {
 // ============================================
 
 /**
- * Verifică dacă un meci match-uiește un filtru
+ * Check if a match satisfies a filter
  * 
- * @param match - Meciul live de verificat
- * @param filter - Filtrul cu condițiile
- * @param stats - Statistici detaliate (opțional, pentru performance)
+ * @param match - The live match to check
+ * @param filter - The filter with conditions
+ * @param stats - Detailed statistics (optional, for performance)
  * @returns FilterMatchResult
  * 
- * EXPLICAȚIE LOGICĂ:
- * - Pentru fiecare condiție din filtru
- * - Verifică dacă meciul îndeplinește condiția
- * - Dacă TOATE condițiile sunt îndeplinite → MATCH!
- * - Dacă măcar una EȘUEAZĂ → NO MATCH
+ * LOGIC EXPLANATION:
+ * - For each condition in the filter
+ * - Check if the match meets the condition
+ * - If ALL conditions are met → MATCH!
+ * - If at least one FAILS → NO MATCH
  */
 export async function matchesFilter(
   match: LiveMatch,
@@ -51,7 +51,7 @@ export async function matchesFilter(
   const matchedConditions: string[] = [];
   const failedConditions: string[] = [];
   
-  // Dacă filtrul nu e activ, automat nu match-uiește
+  // If the filter is not active, it automatically does not match
   if (!filter.is_active) {
     return {
       matches: false,
@@ -64,7 +64,7 @@ export async function matchesFilter(
   
   const conditions = filter.conditions;
   
-  // Dacă nu avem condiții, nu match-uiește
+  // If we have no conditions, it does not match
   if (!conditions || Object.keys(conditions).length === 0) {
     return {
       matches: false,
@@ -76,10 +76,10 @@ export async function matchesFilter(
   }
   
   // ============================================
-  // VERIFICĂ CONDIȚII
+  // CHECK CONDITIONS
   // ============================================
   
-  // 1. MATCH TIME (verificăm primul pentru că e simplu)
+  // 1. MATCH TIME (check first because it is simple)
   if (conditions.match_time) {
     const currentMinute = match.fixture.status.elapsed || 0;
     const { min, max } = conditions.match_time;
@@ -91,8 +91,8 @@ export async function matchesFilter(
       matchedConditions.push(`Time: ${currentMinute}' (${min || 0}'-${max || 90}')`);
     } else {
       failedConditions.push(`Time: ${currentMinute}' not in range ${min || 0}'-${max || 90}'`);
-      // Dacă time range nu match-uiește, oprim verificarea
-      // (nu are rost să facem request la API pentru stats)
+      // If time range does not match, stop checking
+      // (no point making API request for stats)
       return {
         matches: false,
         filter,
@@ -103,10 +103,10 @@ export async function matchesFilter(
     }
   }
   
-  // 2. STATISTICI (cornere, șuturi, cards, etc.)
-  // Avem nevoie de statistici detaliate din API
+  // 2. STATISTICS (corners, shots, cards, etc.)
+  // We need detailed statistics from API
   
-  // Dacă nu avem stats deja, le luăm din API
+  // If we don't already have stats, fetch them from API
   if (!stats) {
     try {
       const matchStats = await getMatchStatistics(match.fixture.id);
@@ -124,7 +124,7 @@ export async function matchesFilter(
     }
   }
   
-  // Dacă stats e null (meciul nu are stats încă)
+  // If stats is null (match doesn't have stats yet)
   if (!stats) {
     failedConditions.push('Match statistics not available yet');
     return {
@@ -136,7 +136,7 @@ export async function matchesFilter(
     };
   }
   
-  // 3. CORNERE
+  // 3. CORNERS
   if (conditions.corners) {
     const { min, max, team = 'total' } = conditions.corners;
     

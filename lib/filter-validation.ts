@@ -1,7 +1,7 @@
 // ============================================
-// R$Q - FILTER VALIDATION ENGINE
+// FILTER VALIDATION ENGINE
 // ============================================
-// Validación de filtros: duplicados, condiciones contradictorias, etc.
+// Validation of filters: duplicates, contradictory conditions, etc.
 
 import type { FilterConditions, Filter } from '@/lib/supabase';
 
@@ -26,185 +26,185 @@ export interface DuplicateCheckResult {
 // ============================================
 
 /**
- * Verifica si las condiciones del filtro son válidas y no contradictorias
+ * Verify if filter conditions are valid and non-contradictory
  */
 export function validateFilterConditions(conditions: FilterConditions): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   if (!conditions || Object.keys(conditions).length === 0) {
-    errors.push('El filtro debe tener al menos una condición');
+    errors.push('Filter must have at least one condition');
     return { isValid: false, errors, warnings };
   }
 
   // ============================================
-  // VALIDACIÓN: CORNERS
+  // VALIDATION: CORNERS
   // ============================================
   if (conditions.corners) {
     const { min, max, team } = conditions.corners;
 
-    // Validar que min <= max
+    // Validate that min <= max
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Corners: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Corners: min (${min}) cannot be greater than max (${max})`);
     }
 
-    // Validar rangos realistas (0-30)
-    if (min !== undefined && min < 0) errors.push('Corners min no puede ser negativo');
-    if (max !== undefined && max > 30) warnings.push('Corners max (${max}) es muy alto');
+    // Validate realistic ranges (0-30)
+    if (min !== undefined && min < 0) errors.push('Corners min cannot be negative');
+    if (max !== undefined && max > 30) warnings.push(`Corners max (${max}) is very high`);
 
-    // Validar team
+    // Validate team
     if (team && !['home', 'away', 'total'].includes(team)) {
-      errors.push(`Corners team inválido: ${team}`);
+      errors.push(`Corners team invalid: ${team}`);
     }
   }
 
   // ============================================
-  // VALIDACIÓN: GOALS
+  // VALIDATION: GOALS
   // ============================================
   if (conditions.goals) {
     const { min, max, team } = conditions.goals;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Goals: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Goals: min (${min}) cannot be greater than max (${max})`);
     }
 
-    if (min !== undefined && min < 0) errors.push('Goals min no puede ser negativo');
-    if (max !== undefined && max > 15) warnings.push(`Goals max (${max}) es muy alto`);
+    if (min !== undefined && min < 0) errors.push('Goals min cannot be negative');
+    if (max !== undefined && max > 15) warnings.push(`Goals max (${max}) is very high`);
 
     if (team && !['home', 'away', 'total'].includes(team)) {
-      errors.push(`Goals team inválido: ${team}`);
+      errors.push(`Goals team invalid: ${team}`);
     }
   }
 
   // ============================================
-  // VALIDACIÓN: SHOTS
+  // VALIDATION: SHOTS
   // ============================================
   if (conditions.shots_on_target) {
     const { min, max } = conditions.shots_on_target;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Shots on target: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Shots on target: min (${min}) cannot be greater than max (${max})`);
     }
 
-    if (min !== undefined && min < 0) errors.push('Shots on target min no puede ser negativo');
+    if (min !== undefined && min < 0) errors.push('Shots on target min cannot be negative');
   }
 
   if (conditions.shots_off_target) {
     const { min, max } = conditions.shots_off_target;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Shots off target: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Shots off target: min (${min}) cannot be greater than max (${max})`);
     }
 
-    if (min !== undefined && min < 0) errors.push('Shots off target min no puede ser negativo');
+    if (min !== undefined && min < 0) errors.push('Shots off target min cannot be negative');
   }
 
   if (conditions.total_shots) {
     const { min, max } = conditions.total_shots;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Total shots: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Total shots: min (${min}) cannot be greater than max (${max})`);
     }
 
-    if (min !== undefined && min < 0) errors.push('Total shots min no puede ser negativo');
+    if (min !== undefined && min < 0) errors.push('Total shots min cannot be negative');
   }
 
   // ============================================
-  // VALIDACIÓN: DANGEROUS ATTACKS
+  // VALIDATION: DANGEROUS ATTACKS
   // ============================================
   if (conditions.dangerous_attacks) {
     const { min, max } = conditions.dangerous_attacks;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Dangerous attacks: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Dangerous attacks: min (${min}) cannot be greater than max (${max})`);
     }
 
-    if (min !== undefined && min < 0) errors.push('Dangerous attacks min no puede ser negativo');
+    if (min !== undefined && min < 0) errors.push('Dangerous attacks min cannot be negative');
   }
 
   // ============================================
-  // VALIDACIÓN: CARDS
+  // VALIDATION: CARDS
   // ============================================
   if (conditions.yellow_cards) {
     const { min, max } = conditions.yellow_cards;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Yellow cards: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Yellow cards: min (${min}) cannot be greater than max (${max})`);
     }
 
-    if (min !== undefined && min < 0) errors.push('Yellow cards min no puede ser negativo');
-    if (max !== undefined && max > 10) warnings.push(`Yellow cards max (${max}) es muy alto`);
+    if (min !== undefined && min < 0) errors.push('Yellow cards min cannot be negative');
+    if (max !== undefined && max > 10) warnings.push(`Yellow cards max (${max}) is very high`);
   }
 
   if (conditions.red_cards) {
     const { min, max } = conditions.red_cards;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Red cards: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Red cards: min (${min}) cannot be greater than max (${max})`);
     }
 
-    if (min !== undefined && min < 0) errors.push('Red cards min no puede ser negativo');
-    if (max !== undefined && max > 5) warnings.push(`Red cards max (${max}) es muy alto`);
+    if (min !== undefined && min < 0) errors.push('Red cards min cannot be negative');
+    if (max !== undefined && max > 5) warnings.push(`Red cards max (${max}) is very high`);
   }
 
   // ============================================
-  // VALIDACIÓN: POSSESSION
+  // VALIDATION: POSSESSION
   // ============================================
   if (conditions.possession) {
     const { min, max } = conditions.possession;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Possession: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Possession: min (${min}) cannot be greater than max (${max})`);
     }
 
     if (min !== undefined && (min < 0 || min > 100)) {
-      errors.push('Possession min debe estar entre 0-100');
+      errors.push('Possession min must be between 0-100');
     }
 
     if (max !== undefined && (max < 0 || max > 100)) {
-      errors.push('Possession max debe estar entre 0-100');
+      errors.push('Possession max must be between 0-100');
     }
   }
 
   // ============================================
-  // VALIDACIÓN: MATCH TIME
+  // VALIDATION: MATCH TIME
   // ============================================
   if (conditions.match_time) {
     const { min, max } = conditions.match_time;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Match time: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Match time: min (${min}) cannot be greater than max (${max})`);
     }
 
     if (min !== undefined && (min < 0 || min > 120)) {
-      errors.push('Match time min debe estar entre 0-120');
+      errors.push('Match time min must be between 0-120');
     }
 
     if (max !== undefined && (max < 0 || max > 120)) {
-      errors.push('Match time max debe estar entre 0-120');
+      errors.push('Match time max must be between 0-120');
     }
   }
 
   // ============================================
-  // VALIDACIÓN: ODDS
+  // VALIDATION: ODDS
   // ============================================
   if (conditions.odds) {
     const { min, max } = conditions.odds;
 
     if (min !== undefined && max !== undefined && min > max) {
-      errors.push(`Odds: min (${min}) no puede ser mayor que max (${max})`);
+      errors.push(`Odds: min (${min}) cannot be greater than max (${max})`);
     }
 
     if (min !== undefined && min < 0.5) {
-      warnings.push(`Odds min (${min}) es muy bajo`);
+      warnings.push(`Odds min (${min}) is very low`);
     }
   }
 
   // ============================================
-  // VALIDACIÓN: CONDICIONES CONTRADICTORIAS
+  // VALIDATION: CONTRADICTORY CONDITIONS
   // ============================================
 
-  // Validación: total_shots vs shots_on_target + shots_off_target
+  // Validation: total_shots vs shots_on_target + shots_off_target
   if (conditions.total_shots && (conditions.shots_on_target || conditions.shots_off_target)) {
     const totalMin = conditions.total_shots.min || 0;
     const onTargetMax = conditions.shots_on_target?.max || Infinity;
@@ -212,12 +212,12 @@ export function validateFilterConditions(conditions: FilterConditions): Validati
 
     if (totalMin > onTargetMax + offTargetMax) {
       errors.push(
-        'Condición contradictoria: total_shots min es mayor que shots_on_target + shots_off_target máximo'
+        'Contradictory condition: total_shots min is greater than shots_on_target + shots_off_target maximum'
       );
     }
   }
 
-  // Validación: corners duplicadas
+  // Validation: duplicate corners
   if (conditions.corners) {
     const minOccurrences = (conditions.corners.min !== undefined ? 1 : 0);
     const maxOccurrences = (conditions.corners.max !== undefined ? 1 : 0);
@@ -225,7 +225,7 @@ export function validateFilterConditions(conditions: FilterConditions): Validati
     if (conditions.corners.min !== undefined &&
         conditions.corners.max !== undefined &&
         conditions.corners.min === conditions.corners.max) {
-      warnings.push('Corners tiene rango fijo (min = max)');
+      warnings.push('Corners has fixed range (min = max)');
     }
   }
 
@@ -237,10 +237,10 @@ export function validateFilterConditions(conditions: FilterConditions): Validati
 }
 
 /**
- * Verifica si un filtro es duplicado de un existente
- * Considera duplicados si:
- * - Nombre exacto igual
- * - Condiciones idénticas
+ * Check if a filter is a duplicate of an existing one
+ * Considers duplicates if:
+ * - Exact same name
+ * - Identical conditions
  */
 export function checkDuplicate(
   newFilter: { name: string; conditions: FilterConditions },
@@ -248,9 +248,9 @@ export function checkDuplicate(
 ): DuplicateCheckResult {
   
   for (const existing of existingFilters) {
-    // Checklist de duplicación (en orden de importancia):
-    // 1. Mismo nombre
-    // 2. Mismas condiciones
+    // Duplication checklist (in order of importance):
+    // 1. Same name
+    // 2. Same conditions
 
     const sameNameAndConditions =
       existing.name.toLowerCase() === newFilter.name.toLowerCase() &&
@@ -260,17 +260,17 @@ export function checkDuplicate(
       return {
         isDuplicate: true,
         existingFilter: existing,
-        reason: `Filtro duplicado: "${existing.name}" con condiciones idénticas`,
+        reason: `Duplicate filter: "${existing.name}" with identical conditions`,
       };
     }
 
-    // Validación más suave: mismo nombre pero condiciones diferentes
+    // Softer validation: same name but different conditions
     const sameName = existing.name.toLowerCase() === newFilter.name.toLowerCase();
     if (sameName) {
       return {
         isDuplicate: true,
         existingFilter: existing,
-        reason: `Ya existe un filtro con el nombre "${existing.name}". Por favor cambia el nombre.`,
+        reason: `A filter with the name "${existing.name}" already exists. Please change the name.`,
       };
     }
   }
@@ -279,15 +279,15 @@ export function checkDuplicate(
 }
 
 /**
- * Verifica si las condiciones son completas (no vacías)
- * para permitir activar notificaciones
+ * Check if conditions are complete (not empty)
+ * to allow enabling notifications
  */
 export function areConditionsComplete(conditions: FilterConditions): boolean {
   if (!conditions || Object.keys(conditions).length === 0) {
     return false;
   }
 
-  // Al menos una condición debe tener valores definidos
+  // At least one condition must have values defined
   const hasValues =
     (conditions.corners?.min !== undefined || conditions.corners?.max !== undefined) ||
     (conditions.goals?.min !== undefined || conditions.goals?.max !== undefined) ||
@@ -305,35 +305,35 @@ export function areConditionsComplete(conditions: FilterConditions): boolean {
 }
 
 /**
- * Obtiene un resumen legible de las condiciones del filtro
+ * Get a readable summary of the filter conditions
  */
 export function getConditionsSummary(conditions: FilterConditions): string[] {
   const summary: string[] = [];
 
   if (conditions.goals?.min !== undefined) {
-    summary.push(`Minimo ${conditions.goals.min} goles`);
+    summary.push(`Minimum ${conditions.goals.min} goals`);
   }
   if (conditions.goals?.max !== undefined) {
-    summary.push(`Máximo ${conditions.goals.max} goles`);
+    summary.push(`Maximum ${conditions.goals.max} goals`);
   }
 
   if (conditions.corners?.min !== undefined) {
-    summary.push(`Minimo ${conditions.corners.min} corneres`);
+    summary.push(`Minimum ${conditions.corners.min} corners`);
   }
   if (conditions.corners?.max !== undefined) {
-    summary.push(`Máximo ${conditions.corners.max} corneres`);
+    summary.push(`Maximum ${conditions.corners.max} corners`);
   }
 
   if (conditions.shots_on_target?.min !== undefined) {
-    summary.push(`Minimo ${conditions.shots_on_target.min} tiros a puerta`);
+    summary.push(`Minimum ${conditions.shots_on_target.min} shots on target`);
   }
 
   if (conditions.yellow_cards?.min !== undefined) {
-    summary.push(`Minimo ${conditions.yellow_cards.min} tarjetas amarillas`);
+    summary.push(`Minimum ${conditions.yellow_cards.min} yellow cards`);
   }
 
   if (conditions.match_time?.min !== undefined && conditions.match_time?.max !== undefined) {
-    summary.push(`Entre minuto ${conditions.match_time.min}' y ${conditions.match_time.max}'`);
+    summary.push(`Between minute ${conditions.match_time.min}' and ${conditions.match_time.max}'`);
   }
 
   return summary;

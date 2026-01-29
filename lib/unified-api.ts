@@ -43,7 +43,7 @@ export async function getLiveMatches() {
   } catch (primaryError) {
     console.error('❌ PRIMARY API failed:', primaryError);
     
-    // Dacă fallback e enabled, încearcă al doilea API
+    // If fallback is enabled, try the second API
     if (ENABLE_FALLBACK) {
       try {
         if (PRIMARY_API === 'football-data') {

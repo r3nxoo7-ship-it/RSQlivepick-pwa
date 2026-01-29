@@ -14,7 +14,7 @@ const BASE_URL = 'https://api.football-data.org/v4';
 // ============================================
 
 export async function GET(request: NextRequest) {
-  // Verifică API key
+  // Check API key
   if (!FOOTBALL_DATA_API_KEY) {
     return NextResponse.json(
       { error: 'Football-Data API key not configured' },

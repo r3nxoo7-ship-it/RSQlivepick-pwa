@@ -1,8 +1,8 @@
 // ============================================
-// R$Q - NOTIFICATION HELPERS
+// NOTIFICATION HELPERS
 // ============================================
-// Funcții pentru browser push notifications
-// Pentru începători: învață Notification API, Service Workers
+// Functions for browser push notifications
+// For beginners: learn Notification API, Service Workers
 
 // ============================================
 // TYPES
@@ -22,21 +22,21 @@ export interface NotificationPayload {
 // ============================================
 
 /**
- * Verifică dacă browser-ul suportă notificări
+ * Check if browser supports notifications
  */
 export function isNotificationSupported(): boolean {
   return 'Notification' in window && 'serviceWorker' in navigator;
 }
 
 /**
- * Obține status-ul permisiunii pentru notificări
+ * Get the status of notification permission
  * 
  * @returns 'granted' | 'denied' | 'default'
  * 
- * EXPLICAȚIE:
- * - granted = utilizatorul a dat permisiune
- * - denied = utilizatorul a refuzat
- * - default = încă nu a fost întrebat
+ * EXPLANATION:
+ * - granted = user has granted permission
+ * - denied = user has denied permission
+ * - default = user hasn't been asked yet
  */
 export function getNotificationPermission(): NotificationPermission {
   if (!isNotificationSupported()) {
@@ -47,13 +47,13 @@ export function getNotificationPermission(): NotificationPermission {
 }
 
 /**
- * Cere permisiune pentru notificări
+ * Request notification permission
  * 
- * @returns Promise<boolean> - true dacă s-a dat permisiune
+ * @returns Promise<boolean> - true if permission was granted
  * 
- * EXPLICAȚIE:
- * Afișează un popup browser cu "Allow" sau "Block"
- * User-ul decide dacă vrea notificări
+ * EXPLANATION:
+ * Shows a browser popup with "Allow" or "Block"
+ * User decides whether they want notifications
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!isNotificationSupported()) {
@@ -61,21 +61,20 @@ export async function requestNotificationPermission(): Promise<boolean> {
     return false;
   }
   
-  // Dacă deja avem permisiune, returnăm true
+  // If we already have permission, return true
   if (Notification.permission === 'granted') {
     console.log('✅ Notification permission already granted');
     return true;
   }
   
-  // Dacă a fost refuzat, nu mai putem cere din nou
+  // If it was denied, we can't ask again
   if (Notification.permission === 'denied') {
     console.warn('❌ Notification permission denied by user');
     return false;
   }
-  
+
   try {
-    // Cerem permisiune
-    const permission = await Notification.requestPermission();
+    // Request permission
     
     if (permission === 'granted') {
       console.log('✅ Notification permission granted!');
