@@ -67,9 +67,6 @@ export default function DashboardPage() {
       const activeFilters = userFilters.filter(f => f.is_active);
       const withNotifications = userFilters.filter(f => f.is_active && f.notification_enabled);
       const totalTriggers = userFilters.reduce((sum, f) => sum + (f.trigger_count || 0), 0);
-      const avgSuccessRate = userFilters.length > 0
-        ? userFilters.reduce((sum, f) => sum + (f.success_rate || 0), 0) / userFilters.length
-        : 0;
       
       setStats({
         totalFilters: userFilters.length,
@@ -77,7 +74,7 @@ export default function DashboardPage() {
         withNotifications: withNotifications.length,
         liveMatches: matches.length,
         todayTriggers: totalTriggers,
-        successRate: avgSuccessRate,
+        successRate: 0, // Removed - use analytics page instead
       });
       
     } catch (err) {
@@ -135,7 +132,7 @@ export default function DashboardPage() {
           </div>
           
           {/* STATS GRID */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
             {/* Live Matches Card */}
             <motion.div
@@ -153,81 +150,103 @@ export default function DashboardPage() {
               <div className="stat-label">Matches Scanning</div>
             </motion.div>
 
-            {/* Active Filters Card */}
+            {/* Active Filters + Notifications Combined Card */}
             <motion.div
               whileHover={{ y: -5 }}
-              onClick={() => router.push('/dashboard/filters')}
-              className="glass-card-hover p-6 cursor-pointer border-l-4 border-l-accent-cyan"
+              className="glass-card-hover p-6 border-l-4 border-l-accent-cyan"
             >
-              <div className="flex justify-between mb-4">
-                <div className="p-3 rounded-xl bg-accent-cyan/10 text-accent-cyan">
-                  <FilterIcon size={24} />
+              <div className="space-y-4">
+                {/* Active Filters Section */}
+                <div 
+                  onClick={() => router.push('/dashboard/filters')}
+                  className="cursor-pointer pb-4 border-b border-glass-medium"
+                >
+                  <div className="flex justify-between mb-3">
+                    <div className="p-2 rounded-lg bg-accent-cyan/10 text-accent-cyan">
+                      <FilterIcon size={20} />
+                    </div>
+                    <Zap size={16} className="text-accent-amber" />
+                  </div>
+                  <div className="stat-value text-lg">{stats.activeFilters}</div>
+                  <div className="stat-label text-sm">Active Filters</div>
                 </div>
-                <Zap size={18} className="text-accent-amber" />
+                
+                {/* Notifications Section */}
+                <div 
+                  onClick={() => router.push('/dashboard/notifications')}
+                  className="cursor-pointer pt-2"
+                >
+                  <div className="flex justify-between mb-3">
+                    <div className="p-2 rounded-lg bg-accent-red/10 text-accent-red">
+                      <Bell size={20} />
+                    </div>
+                    <AlertCircle size={16} className="text-text-muted" />
+                  </div>
+                  <div className="stat-value text-lg">{stats.withNotifications}</div>
+                  <div className="stat-label text-sm">Telegram Alerts</div>
+                </div>
               </div>
-              <div className="stat-value">{stats.activeFilters}</div>
-              <div className="stat-label">Active Filters</div>
             </motion.div>
 
-            {/* Success Rate Card */}
+            {/* Total Triggers Card */}
             <motion.div
               whileHover={{ y: -5 }}
-              className="glass-card-hover p-6 border-l-4 border-l-accent-amber"
+              className="glass-card-hover p-6 border-l-4 border-l-accent-purple"
             >
               <div className="flex justify-between mb-4">
-                <div className="p-3 rounded-xl bg-accent-amber/10 text-accent-amber">
+                <div className="p-3 rounded-xl bg-accent-purple/10 text-accent-purple">
                   <TrendingUp size={24} />
                 </div>
                 <CheckCircle size={18} className="text-accent-green" />
               </div>
-              <div className="stat-value">{Math.round(stats.successRate)}%</div>
-              <div className="stat-label">Success Rate</div>
-            </motion.div>
-
-            {/* Alerts Card */}
-            <motion.div
-              whileHover={{ y: -5 }}
-              onClick={() => router.push('/dashboard/notifications')}
-              className="glass-card-hover p-6 cursor-pointer border-l-4 border-l-accent-red"
-            >
-              <div className="flex justify-between mb-4">
-                <div className="p-3 rounded-xl bg-accent-red/10 text-accent-red">
-                  <Bell size={24} />
-                </div>
-                <AlertCircle size={18} className="text-text-muted" />
-              </div>
-              <div className="stat-value">{stats.withNotifications}</div>
-              <div className="stat-label">Telegram Alerts</div>
+              <div className="stat-value">{stats.todayTriggers}</div>
+              <div className="stat-label">Total Triggers</div>
             </motion.div>
 
           </div>
 
           {/* QUICK ACTIONS / INFO */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card p-8">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="glass-card p-8">
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                 <Zap className="text-accent-cyan" size={20} /> Recent Activity
               </h3>
               <div className="space-y-4">
-                {liveMatches.length > 0 ? (
-                   <p className="text-text-secondary italic text-sm text-center py-10">Live matches are being processed in the background...</p>
-                ) : (
-                  <div className="text-center py-10 border border-dashed border-white/10 rounded-xl">
-                    <p className="text-text-muted">No triggers detected in the last 60 seconds.</p>
-                  </div>
-                )}
+                <p className="text-text-secondary italic text-sm text-center py-10">
+                  Live matches are being processed in the background. Last 5 triggers will appear here...
+                </p>
               </div>
+              <button 
+                onClick={() => router.push('/dashboard/analytics')}
+                className="mt-6 w-full btn-secondary"
+              >
+                View Full History (30 min)
+              </button>
             </div>
 
-            <div className="glass-card p-8 bg-gradient-to-br from-accent-cyan/5 to-transparent">
-              <h3 className="text-xl font-bold mb-4">Quick Setup</h3>
-              <p className="text-sm text-text-secondary mb-6">Create a new filter to receive instant notifications.</p>
-              <button 
-                onClick={() => router.push('/dashboard/filters/new')}
-                className="btn-primary w-full flex items-center justify-center gap-2"
-              >
-                Create New Filter
-              </button>
+            {/* Quick Start Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="glass-card p-6 bg-gradient-to-br from-accent-cyan/5 to-transparent">
+                <h3 className="text-sm font-bold mb-3">Create Filters</h3>
+                <p className="text-xs text-text-secondary mb-4">Set up custom filters for instant notifications.</p>
+                <button 
+                  onClick={() => router.push('/dashboard/filters')}
+                  className="btn-primary w-full text-sm py-2"
+                >
+                  Go to Filters
+                </button>
+              </div>
+
+              <div className="glass-card p-6 bg-gradient-to-br from-accent-purple/5 to-transparent">
+                <h3 className="text-sm font-bold mb-3">Notifications</h3>
+                <p className="text-xs text-text-secondary mb-4">Configure Telegram & web notifications.</p>
+                <button 
+                  onClick={() => router.push('/dashboard/notifications')}
+                  className="btn-primary w-full text-sm py-2"
+                >
+                  Configure
+                </button>
+              </div>
             </div>
           </div>
 

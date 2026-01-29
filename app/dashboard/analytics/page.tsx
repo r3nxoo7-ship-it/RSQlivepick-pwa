@@ -138,7 +138,7 @@ export default function AnalyticsPage() {
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 rounded-full border-4 border-accent-cyan border-t-transparent animate-spin mx-auto mb-4" />
-            <p className="text-text-secondary">Se încarcă analytics...</p>
+            <p className="text-text-secondary">Loading analytics...</p>
           </div>
         </div>
       </AuthWrapper>
@@ -152,16 +152,16 @@ export default function AnalyticsPage() {
           <div className="text-center max-w-md">
             <BarChart3 className="w-20 h-20 text-text-muted mx-auto mb-4" />
             <h2 className="text-2xl font-display font-bold mb-2">
-              Nicio Statistică Disponibilă
+              No Statistics Available
             </h2>
             <p className="text-text-muted mb-6">
-              Creează primul filtru pentru a vedea analize și statistici
+              Create your first filter to see analytics and statistics
             </p>
             <button
               onClick={() => router.push('/dashboard/filters/new')}
               className="btn-primary"
             >
-              Creează Primul Filtru
+              Create First Filter
             </button>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function AnalyticsPage() {
                 Analytics & History
               </h1>
               <p className="text-text-secondary">
-                Statistici și performanța filtrelor tale
+                Filter stats and performance analysis
               </p>
             </div>
             
@@ -199,8 +199,8 @@ export default function AnalyticsPage() {
                 onChange={(e) => setTimeRange(Number(e.target.value) as 7 | 30)}
                 className="input-field w-full sm:w-40"
               >
-                <option value={7}>Ultim 7 zile</option>
-                <option value={30}>Ultim 30 zile</option>
+                <option value={7}>Last 7 days</option>
+                <option value={30}>Last 30 days</option>
               </select>
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
                 <h3 className="text-3xl font-display font-bold mb-1">
                   {overallStats.total}
                 </h3>
-                <p className="text-sm text-text-muted">Total Filtre</p>
+                <p className="text-sm text-text-muted">Total Filters</p>
                 <p className="text-xs text-accent-cyan mt-2">
                   {overallStats.active} active
                 </p>
@@ -259,7 +259,7 @@ export default function AnalyticsPage() {
                 <h3 className="text-3xl font-display font-bold mb-1">
                   {formatSuccessRate(overallStats.avgSuccessRate)}
                 </h3>
-                <p className="text-sm text-text-muted">Success Rate Mediu</p>
+                <p className="text-sm text-text-muted">Average Success Rate</p>
               </motion.div>
               
               <motion.div
@@ -276,7 +276,7 @@ export default function AnalyticsPage() {
                 <h3 className="text-3xl font-display font-bold mb-1">
                   {overallStats.withNotifications + overallStats.withTelegram}
                 </h3>
-                <p className="text-sm text-text-muted">Cu Notificări</p>
+                <p className="text-sm text-text-muted">With Notifications</p>
                 <p className="text-xs text-text-muted mt-2">
                   {overallStats.withNotifications} browser, {overallStats.withTelegram} Telegram
                 </p>
@@ -323,7 +323,7 @@ export default function AnalyticsPage() {
             <div className="glass-card p-6">
               <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
                 <Award className="w-5 h-5 text-accent-amber" />
-                Top 5 Filtre
+                Top 5 Filters
               </h2>
               
               {topFilters.length > 0 ? (
@@ -366,7 +366,7 @@ export default function AnalyticsPage() {
                         <div className="flex gap-2 mt-2">
                           {filterStat.isActive && (
                             <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green text-xs">
-                              Activ
+                              Active
                             </span>
                           )}
                           {filterStat.notificationsEnabled && (
@@ -382,7 +382,7 @@ export default function AnalyticsPage() {
                 </div>
               ) : (
                 <p className="text-center text-text-muted py-8">
-                  Niciun filtru cu triggers încă
+                  No filters with triggers yet
                 </p>
               )}
             </div>
@@ -391,7 +391,7 @@ export default function AnalyticsPage() {
             {categoryStats && (
               <div className="glass-card p-6">
                 <h2 className="text-xl font-display font-semibold mb-4">
-                  Filtre pe Categorii
+                  Filters by Category
                 </h2>
                 
                 <div className="space-y-4">

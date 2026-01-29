@@ -333,8 +333,8 @@ export default function LiveMatchesPage() {
                 {!notificationsReady && (
                   <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-accent-amber/10 text-xs">
                     <Bell className="w-3 h-3 text-accent-amber" />
-                    <span className="text-accent-amber hidden sm:inline">Permisiune necesară</span>
-                    <span className="text-accent-amber sm:hidden">Permisiune</span>
+                    <span className="text-accent-amber hidden sm:inline">Permission needed</span>
+                    <span className="text-accent-amber sm:hidden">Permission</span>
                   </div>
                 )}
                 
@@ -351,14 +351,14 @@ export default function LiveMatchesPage() {
                   {scannerEnabled ? (
                     <>
                       <BellOff className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="hidden sm:inline">Oprește Scanner</span>
-                      <span className="sm:hidden">Oprește</span>
+                      <span className="hidden sm:inline">Stop Scanner</span>
+                      <span className="sm:hidden">Stop</span>
                     </>
                   ) : (
                     <>
                       <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="hidden sm:inline">Pornește Scanner</span>
-                      <span className="sm:hidden">Pornește</span>
+                      <span className="hidden sm:inline">Start Scanner</span>
+                      <span className="sm:hidden">Start</span>
                     </>
                   )}
                 </button>
@@ -384,20 +384,16 @@ export default function LiveMatchesPage() {
               >
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
                   <div>
-                    <p className="text-text-muted mb-1">Filtre monitorizate</p>
+                    <p className="text-text-muted mb-1">Filters Monitored</p>
                     <p className="font-semibold text-accent-cyan">{filtersWithNotifications}</p>
                   </div>
                   <div>
-                    <p className="text-text-muted mb-1">Meciuri scanate</p>
-                    <p className="font-semibold">{matches.length} × {scannerStats.totalScans} = {matches.length * scannerStats.totalScans}</p>
+                    <p className="text-text-muted mb-1">Matches Scanned</p>
+                    <p className="font-semibold">{matches.length}</p>
                   </div>
                   <div>
-                    <p className="text-text-muted mb-1">Success rate</p>
-                    <p className="font-semibold text-accent-green">
-                      {scannerStats.totalScans > 0 
-                        ? ((scannerStats.notificationsSent / (scannerStats.totalScans * matches.length || 1)) * 100).toFixed(1) 
-                        : '0'}%
-                    </p>
+                    <p className="text-text-muted mb-1">Total Scans</p>
+                    <p className="font-semibold text-accent-amber">{scannerStats.totalScans}</p>
                   </div>
                 </div>
               </motion.div>
@@ -412,7 +408,7 @@ export default function LiveMatchesPage() {
               >
                 <p className="text-xs sm:text-sm text-accent-amber flex items-center gap-2">
                   <Bell className="w-4 h-4 flex-shrink-0" />
-                  Nu ai filtre active cu notificări! Activează notificări la filtre în secțiunea Filtre.
+                  No active filters with notifications! Enable notifications in the Filters section.
                 </p>
               </motion.div>
             )}
@@ -422,14 +418,14 @@ export default function LiveMatchesPage() {
           <div className="glass-card p-4">
             <div className="flex items-center gap-4 flex-wrap">
               <FilterIcon className="w-5 h-5 text-accent-cyan" />
-              <span className="font-display font-semibold">Filtre:</span>
+              <span className="font-display font-semibold">Filters:</span>
               
               <select
                 value={selectedLeague}
                 onChange={(e) => setSelectedLeague(e.target.value)}
                 className="input-field max-w-xs"
               >
-                <option value="all">Toate ligile ({matches.length})</option>
+                <option value="all">All Leagues ({matches.length})</option>
                 {leagues.map(league => {
                   const count = matches.filter(m => m.league.name === league).length;
                   return (
@@ -450,7 +446,7 @@ export default function LiveMatchesPage() {
                   />
                   <span className="text-sm">
                     <Target className="w-4 h-4 inline mr-1 text-accent-green" />
-                    Doar cu filtre ({matchesWithFilters})
+                    Matched Only ({matchesWithFilters})
                   </span>
                 </label>
               )}
@@ -479,7 +475,7 @@ export default function LiveMatchesPage() {
           {loading && matches.length === 0 && (
             <div className="glass-card p-12 text-center">
               <div className="w-16 h-16 rounded-full border-4 border-accent-cyan border-t-transparent animate-spin mx-auto mb-4" />
-              <p className="text-text-secondary">Se încarcă meciuri live...</p>
+              <p className="text-text-secondary">Loading live matches...</p>
             </div>
           )}
           
@@ -487,11 +483,11 @@ export default function LiveMatchesPage() {
           {error && (
             <div className="glass-card p-6 border-l-4 border-accent-red">
               <h3 className="text-accent-red font-semibold mb-2">
-                ❌ Eroare la încărcare
+                ❌ Loading Error
               </h3>
               <p className="text-text-secondary text-sm mb-3">{error}</p>
               <button onClick={handleRefresh} className="btn-primary">
-                Încearcă din nou
+                Try Again
               </button>
             </div>
           )}
@@ -526,7 +522,7 @@ export default function LiveMatchesPage() {
             <div className="glass-card p-12 text-center">
               <Activity className="w-16 h-16 text-text-muted mx-auto mb-4" />
               <h3 className="text-xl font-display font-semibold mb-2">
-                Nu sunt meciuri live în acest moment
+                No live matches at the moment
               </h3>
               <p className="text-text-secondary mb-4">
                 {matches.length > 0 
@@ -543,14 +539,14 @@ export default function LiveMatchesPage() {
           {/* ========== INFO ========== */}
           <div className="glass-card p-4 text-sm">
             <h4 className="font-semibold text-accent-cyan mb-2">
-              💡 Cum funcționează Auto-Scanner-ul?
+              💡 How does the Auto-Scanner work?
             </h4>
             <ul className="space-y-1 text-text-muted">
-              <li>• Scanner-ul verifică meciurile la fiecare 45 secunde</li>
-              <li>• Când un meci match-uiește un filtru activ → primești notificare automat!</li>
-              <li>• Notificările se trimit o singură dată per meci + filtru (nu primești duplicate)</li>
-              <li>• Poți activa/dezactiva notificări per filtru în secțiunea Filtre</li>
-              <li>• Refresh-ul meciurilor ruleată la 30s, scanner-ul la 45s (pentru optimizare API)</li>
+              <li>• The scanner checks matches every 45 seconds</li>
+              <li>• When a match matches an active filter → you get automatic notification!</li>
+              <li>• Notifications are sent only once per match + filter (no duplicates)</li>
+              <li>• You can enable/disable notifications per filter in the Filters section</li>
+              <li>• Match refresh runs every 30s, scanner every 45s (for API optimization)</li>
             </ul>
           </div>
         </div>

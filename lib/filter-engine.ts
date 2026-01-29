@@ -359,6 +359,115 @@ export async function applyFiltersToMatches(
 }
 
 // ============================================
+// FILTER GROUP COMBINATION
+// ============================================
+
+/**
+ * Apply filter groups with combination logic (AND/OR)
+ * Allows combining multiple filters for better accuracy
+ * 
+ * @param match - The live match to check
+ * @param filter - The main filter with combined_filter_ids
+ * @param allFilters - All available filters for lookup
+ * @returns true if the combination logic is satisfied
+ * 
+ * LOGIC:
+ * - OR: Match if ANY of the combined filters match
+ * - AND: Match if ALL of the combined filters match
+ */
+export async function evaluateFilterGroup(
+  match: LiveMatch,
+  filter: Filter,
+  allFilters: Filter[]
+): Promise<boolean> {
+  // If no combined filters, evaluate normally
+  if (!filter.combined_filter_ids || filter.combined_filter_ids.length === 0) {
+    const result = await matchesFilter(match, filter);
+    return result.matches;
+  }
+  
+  const combinedFilters = allFilters.filter(f => 
+    filter.combined_filter_ids?.includes(f.id)
+  );
+  
+  if (combinedFilters.length === 0) {
+    // Fallback to normal matching if combined filters not found
+    const result = await matchesFilter(match, filter);
+    return result.matches;
+  }
+  
+  const combinationLogic = filter.combination_logic || 'OR';
+  
+  // Evaluate all combined filters
+  const results = await Promise.all(
+    combinedFilters.map(f => matchesFilter(match, f))
+  );
+  
+  if (combinationLogic === 'OR') {
+    // At least one filter must match
+    const anyMatched = results.some(r => r.matches);
+    // AND also check the main filter
+    const mainMatches = await matchesFilter(match, filter);
+    return anyMatched && mainMatches.matches;
+  } else {
+    // ALL filters must match
+    const allMatched = results.every(r => r.matches);
+    // AND also check the main filter
+    const mainMatches = await matchesFilter(match, filter);
+    return allMatched && mainMatches.matches;
+  }
+}
+
+/**
+ * Apply filters to matches with group support
+ */
+export async function applyFiltersToMatchesWithGroups(
+  matches: LiveMatch[],
+  filters: Filter[]
+): Promise<Map<number, FilterMatchResult[]>> {
+  const resultsMap = new Map<number, FilterMatchResult[]>();
+  
+  for (const match of matches) {
+    const matchResults: FilterMatchResult[] = [];
+    
+    for (const filter of filters) {
+      // Check if this filter is part of a group
+      const includesInGroup = filters.some(f => 
+        f.combined_filter_ids?.includes(filter.id)
+      );
+      
+      // Skip filters that are only part of groups (will be evaluated by parent)
+      if (includesInGroup && !filter.combined_filter_ids) {
+        continue;
+      }
+      
+      // If it's a group filter, use group logic
+      if (filter.combined_filter_ids && filter.combined_filter_ids.length > 0) {
+        const groupMatches = await evaluateFilterGroup(match, filter, filters);
+        if (groupMatches) {
+          const result = await matchesFilter(match, filter);
+          if (result.matches) {
+            matchResults.push(result);
+          }
+        }
+      } else {
+        // Regular filter matching
+        const result = await matchesFilter(match, filter);
+        if (result.matches) {
+          matchResults.push(result);
+        }
+      }
+    }
+    
+    if (matchResults.length > 0) {
+      resultsMap.set(match.fixture.id, matchResults);
+    }
+  }
+  
+  return resultsMap;
+}
+
+// ============================================
 // EXPORT
 // ============================================
 
@@ -366,6 +475,8 @@ export default {
   matchesFilter,
   applyFiltersToMatch,
   applyFiltersToMatches,
+  evaluateFilterGroup,
+  applyFiltersToMatchesWithGroups,
 };
 
 // ============================================

@@ -106,7 +106,7 @@ export default function FiltersPage() {
    */
   const handleDelete = async (filterId: string, filterName: string) => {
     // Confirmare
-    const confirmed = confirm(`Sigur vrei să ștergi filtrul "${filterName}"?`);
+    const confirmed = confirm(`Are you sure you want to delete the filter "${filterName}"?`);
     if (!confirmed) {
       console.log('❌ Delete cancelled by user');
       return;
@@ -214,33 +214,21 @@ export default function FiltersPage() {
               </p>
             </div>
             
-            <div className="flex gap-3">
-              {/* Browse Templates Button */}
-              <button
-                onClick={() => router.push('/dashboard/filters/templates')}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                Templates
-              </button>
-              
-              {/* Buton Create New */}
-              <button
-                onClick={handleCreateNew}
-                className="btn-primary flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Filtru Nou
-              </button>
-            </div>
+            <button
+              onClick={() => router.push('/dashboard/filters/templates')}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              Templates
+            </button>
           </div>
           
           {/* ========== STATS ========== */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="stat-card">
-              <div className="stat-label">Total Filtre</div>
+              <div className="stat-label">Total Filters</div>
               <div className="stat-value">{filters.length}</div>
             </div>
             <div className="stat-card">
@@ -250,7 +238,7 @@ export default function FiltersPage() {
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Cu Notificări</div>
+              <div className="stat-label">With Notifications</div>
               <div className="stat-value text-accent-cyan">
                 {filters.filter(f => f.notification_enabled).length}
               </div>
@@ -261,16 +249,46 @@ export default function FiltersPage() {
           {loading && (
             <div className="glass-card p-12 text-center">
               <div className="w-16 h-16 rounded-full border-4 border-accent-cyan border-t-transparent animate-spin mx-auto mb-4" />
-              <p className="text-text-secondary">Se încarcă filtrele...</p>
+              <p className="text-text-secondary">Loading filters...</p>
             </div>
           )}
           
           {/* ========== ERROR ========== */}
           {error && (
             <div className="glass-card p-6 border-l-4 border-accent-red">
-              <h3 className="text-accent-red font-semibold mb-2">❌ Eroare</h3>
+              <h3 className="text-accent-red font-semibold mb-2">❌ Error</h3>
               <p className="text-text-secondary text-sm">{error}</p>
             </div>
+          )}
+
+          {/* ========== QUICK SETUP CARD ========== */}
+          {!loading && !error && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card p-6 bg-gradient-to-br from-accent-cyan/5 to-transparent border border-accent-cyan/20"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-accent-cyan/10 text-accent-cyan flex-shrink-0">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold mb-2">Create New Filter</h3>
+                  <p className="text-sm text-text-secondary mb-4">
+                    Build a custom filter from scratch or choose from our templates to match exactly what you&apos;re looking for.
+                  </p>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={handleCreateNew}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create from Scratch
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           )}
           
           {/* ========== FILTERS LIST ========== */}
@@ -300,7 +318,7 @@ export default function FiltersPage() {
                         {/* Active badge */}
                         {filter.is_active && (
                           <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green text-xs font-semibold whitespace-nowrap">
-                            ACTIV
+                            ACTIVE
                           </span>
                         )}
                         
@@ -308,7 +326,7 @@ export default function FiltersPage() {
                         {filter.notification_enabled && (
                           <span className="px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs flex items-center gap-1 whitespace-nowrap">
                             <Bell className="w-3 h-3" />
-                            Notificări
+                            Notifications
                           </span>
                         )}
                       </div>
@@ -324,7 +342,7 @@ export default function FiltersPage() {
                       <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
                         <FilterIcon className="w-4 h-4 text-accent-cyan flex-shrink-0" />
                         <span className="text-text-muted">
-                          {getConditionsCount(filter)} condiții: {getConditionsPreview(filter)}
+                          {getConditionsCount(filter)} conditions: {getConditionsPreview(filter)}
                         </span>
                       </div>
                     </div>
@@ -335,7 +353,7 @@ export default function FiltersPage() {
                       <button
                         onClick={() => handleToggleActive(filter.id, filter.is_active)}
                         className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
-                        title={filter.is_active ? 'Dezactivează' : 'Activează'}
+                        title={filter.is_active ? 'Disable' : 'Enable'}
                       >
                         {filter.is_active ? (
                           <ToggleRight className="w-5 h-5 text-accent-green" />
@@ -348,7 +366,7 @@ export default function FiltersPage() {
                       <button
                         onClick={() => handleEdit(filter.id)}
                         className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
-                        title="Editează"
+                        title="Edit"
                       >
                         <Edit className="w-5 h-5 text-accent-cyan" />
                       </button>
@@ -357,7 +375,7 @@ export default function FiltersPage() {
                       <button
                         onClick={() => handleDelete(filter.id, filter.name)}
                         className="p-2 rounded-xl hover:bg-accent-red/10 text-text-secondary hover:text-accent-red transition-all flex-shrink-0"
-                        title="Șterge"
+                        title="Delete"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
