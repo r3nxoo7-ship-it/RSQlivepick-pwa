@@ -149,7 +149,7 @@ export default function CompleteFilterBuilder() {
   
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('Te rog introdu un nume pentru filtru');
+      setError('Please enter a name for the filter');
       return;
     }
     
@@ -218,7 +218,7 @@ export default function CompleteFilterBuilder() {
     }
     
     if (validationErrors.length > 0) {
-      setError(`❌ Errori de validare:\n${validationErrors.join('\n')}`);
+      setError(`❌ Validation errors:\n${validationErrors.join('\n')}`);
       return;
     }
     
@@ -434,7 +434,7 @@ export default function CompleteFilterBuilder() {
         return;
       }
       
-      setSuccess('✅ Filtru creat cu succes!');
+      setSuccess('✅ Filter created successfully!');
       
       setTimeout(() => {
         router.push('/dashboard/filters');
@@ -442,7 +442,7 @@ export default function CompleteFilterBuilder() {
       
     } catch (err) {
       console.error('Error creating filter:', err);
-      setError('Eroare la crearea filtrului. Verifică dacă ai permisiuni.');
+      setError('Error creating filter. Check your permissions.');
     } finally {
       setSaving(false);
     }
@@ -586,14 +586,14 @@ export default function CompleteFilterBuilder() {
               className="btn-secondary"
             >
               <ArrowLeft className="w-4 h-4" />
-              Înapoi
+              Back
             </button>
             <div>
               <h1 className="text-3xl font-display font-bold gradient-text">
-                Creează Filtru Complet
+                Create Complete Filter
               </h1>
               <p className="text-text-secondary text-sm mt-1">
-                Toate condițiile disponibile
+                All available conditions
               </p>
             </div>
           </div>
@@ -615,30 +615,30 @@ export default function CompleteFilterBuilder() {
           
           {/* BASIC INFO */}
           <div className="glass-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Informații Generale</h2>
+              <h2 className="text-xl font-semibold mb-4">General Information</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Nume Filtru *
+                  <label className="block text-sm font-semibold mb-2">
+                  Filter Name *
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ex: Cornere + Scor 0-0"
+                  placeholder="ex: Corners + Score 0-0"
                   className="input-field"
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-semibold mb-2">
-                  Descriere
+                  Description
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Descrie acest filtru..."
+                  placeholder="Describe this filter..."
                   rows={2}
                   className="input-field resize-none"
                 />
@@ -652,7 +652,7 @@ export default function CompleteFilterBuilder() {
                     onChange={(e) => setIsActive(e.target.checked)}
                     className="w-5 h-5 rounded"
                   />
-                  <span className="text-sm">Filtru Activ</span>
+                  <span className="text-sm">Active Filter</span>
                 </label>
                 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -662,10 +662,10 @@ export default function CompleteFilterBuilder() {
                     onChange={(e) => setNotificationEnabled(e.target.checked)}
                     className="w-5 h-5 rounded"
                   />
-                  <span className="text-sm">Notificări Browser</span>
+                  <span className="text-sm">Browser Notifications</span>
                 </label>
                 
-                <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={telegramEnabled}
@@ -705,9 +705,9 @@ export default function CompleteFilterBuilder() {
                     onChange={(e) => setTimeMode(e.target.value as any)}
                     className="input-field"
                   >
-                    <option value="after">După minutul...</option>
-                    <option value="before">Înainte de minutul...</option>
-                    <option value="between">Între minutele...</option>
+                    <option value="after">After minute...</option>
+                      <option value="before">Before minute...</option>
+                      <option value="between">Between minutes...</option>
                   </select>
                 </div>
                 

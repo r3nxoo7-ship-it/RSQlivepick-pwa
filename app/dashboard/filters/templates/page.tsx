@@ -3,7 +3,7 @@
 // ============================================
 // R$Q - FILTER TEMPLATES PAGE
 // ============================================
-// Browse și import filtre predefinite
+// Browse and import predefined filter templates
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -78,14 +78,14 @@ export default function FilterTemplatesPage() {
     try {
       const currentUser = authHelpers.getCurrentUser();
       if (!currentUser) {
-        alert('Trebuie să fii autentificat!');
+        alert('You must be logged in!');
         router.push('/login');
         return;
       }
       
       // Validate user has proper UUID
       if (!currentUser.id || currentUser.id === 'anon' || typeof currentUser.id !== 'string' || currentUser.id.length === 0) {
-        alert('Eroare de autentificare: Vă rugăm să vă relogați.');
+        alert('Authentication error: please log in again.');
         localStorage.removeItem('rsq_user');
         router.push('/login');
         return;
@@ -116,7 +116,7 @@ export default function FilterTemplatesPage() {
         } else if (error.includes('Complete') || error.includes('completa')) {
           alert(`⚠️ ${error}\n\nNota: El filtro ha sido importado pero sin notificaciones. Completa las condiciones para activarlas.`);
         } else {
-          alert(`Eroare: ${error}`);
+          alert(`Error: ${error}`);
         }
         return;
       }
@@ -125,9 +125,9 @@ export default function FilterTemplatesPage() {
       
       // Success message with experimental warning
       if (template.experimental) {
-        alert(`✅ Filtru experimental "${template.name}" a fost importat!\n\n🧪 Aceasta este o versiune de testare. Monitorizează rezultatele pentru a-ți ajusta strategia.`);
+        alert(`✅ Experimental filter "${template.name}" imported!\n\n🧪 This is a test version — monitor results and adjust your strategy.`);
       } else {
-        alert(`✅ Filtru "${template.name}" a fost importat cu succes!`);
+        alert(`✅ Filter "${template.name}" successfully imported!`);
       }
       
       // Reload templates page to show updated list
@@ -143,8 +143,8 @@ export default function FilterTemplatesPage() {
 
   const handleImportFromUrl = async () => {
     const currentUser = authHelpers.getCurrentUser();
-    if (!currentUser) {
-      alert('Trebuie să fii autentificat!');
+      if (!currentUser) {
+      alert('You must be logged in!');
       router.push('/login');
       return;
     }
@@ -157,8 +157,8 @@ export default function FilterTemplatesPage() {
       return;
     }
 
-    if (!importUrl) {
-      alert('Introdu un URL valid pentru import');
+      if (!importUrl) {
+      alert('Enter a valid import URL');
       return;
     }
 
@@ -186,7 +186,7 @@ export default function FilterTemplatesPage() {
 
       if (!importRes.ok) {
         console.error('Server import error:', importJson);
-        alert('Eroare la importul server-side: ' + (importJson.error || importJson));
+        alert('Server-side import error: ' + (importJson.error || importJson));
         return;
       }
 
@@ -194,7 +194,7 @@ export default function FilterTemplatesPage() {
       alert(`Import complete — success: ${importJson.success || 0}, failed: ${importJson.failed || 0}`);
     } catch (err) {
       console.error('Bulk import error:', err);
-      alert('Eroare la importul de filtre');
+      alert('Error importing filters');
     } finally {
       setImporting(null);
     }

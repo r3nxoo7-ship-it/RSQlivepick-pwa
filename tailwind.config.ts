@@ -34,7 +34,7 @@ const config: Config = {
       fontFamily: {
   display: ['var(--font-outfit)', 'sans-serif'],
   sans: ['var(--font-dm-sans)', 'sans-serif'],
-  mono: ['var(--font-jetbrains-mono)', 'monospace'], // Verifică să fie 'jetbrains-mono' nu doar 'jetbrains'
+  mono: ['var(--font-jetbrains-mono)', 'monospace'], // Verify this uses 'jetbrains-mono' (not just 'jetbrains')
 },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

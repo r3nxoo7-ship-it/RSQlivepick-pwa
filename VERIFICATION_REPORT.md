@@ -94,7 +94,7 @@ if (!user) {
 }
 
 if (!user.id || user.id === 'anon' || typeof user.id !== 'string' || user.id.length === 0) {
-  setError('Eroare de autentificare: Vă rugăm să vă relogați.');
+  setError('Authentication error: Please sign in again.');
   setTimeout(() => {
     localStorage.removeItem('rsq_user');
     router.push('/login');
@@ -106,7 +106,7 @@ if (!user.id || user.id === 'anon' || typeof user.id !== 'string' || user.id.len
 ✅ **Template import validation (app/dashboard/filters/templates/page.tsx:140)**
 ```typescript
 if (!currentUser.id || currentUser.id === 'anon' || typeof currentUser.id !== 'string' || currentUser.id.length === 0) {
-  alert('Eroare de autentificare: Vă rugăm să vă relogați.');
+  alert('Authentication error: Please sign in again.');
   localStorage.removeItem('rsq_user');
   router.push('/login');
   return;

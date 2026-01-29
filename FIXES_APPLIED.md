@@ -16,6 +16,7 @@ Users could register with "john", "John", "JOHN" as separate accounts (no case-i
 - Added duplicate username check before insert with `ilike`
 - Returns 409 Conflict if username already exists (case-insensitive)
 - Error message: "Utilizatorul deja există"
+ - Error message: "User already exists"
 
 ### Impact
 - ✅ Users cannot create accounts with same username in different cases
@@ -34,19 +35,19 @@ When editing a filter, not all available condition options were displayed. Edit 
 #### Added Missing Conditions to Edit Page ([app/dashboard/filters/[id]/page.tsx](app/dashboard/filters/[id]/page.tsx))
 
 **New conditions added:**
-1. **Red Cards (Cartonașe Roșii)** - Min/Max count
-2. **Goals (Goluri)** - Min/Max count
-3. **Possession (Posesie)** - Min/Max percentage
+1. **Red Cards** - Min/Max count
+2. **Goals** - Min/Max count
+3. **Possession** - Min/Max percentage
 
 **Complete condition list now available in edit page:**
-- ⚽ Cornere (Corners) - Min/Max
-- 🎯 Șuturi pe Poartă (Shots on Target) - Min/Max
-- ⚡ Șuturi Totale (Total Shots) - Min/Max
-- 🟨 Cartonașe Galbene (Yellow Cards) - Min/Max
-- 🔴 Cartonașe Roșii (Red Cards) - Min/Max ✨ **NEW**
-- ⚽ Goluri (Goals) - Min/Max ✨ **NEW**
-- 📊 Posesie (Possession) - Min/Max ✨ **NEW**
-- ⏱️ Timp Meci (Match Time) - From/To minute
+ - ⚽ Corners - Min/Max
+ - 🎯 Shots on Target - Min/Max
+ - ⚡ Total Shots - Min/Max
+ - 🟨 Yellow Cards - Min/Max
+ - 🔴 Red Cards - Min/Max ✨ **NEW**
+ - ⚽ Goals - Min/Max ✨ **NEW**
+ - 📊 Possession - Min/Max ✨ **NEW**
+ - ⏱️ Match Time - From/To minute
 
 #### Code Changes
 - Line 47-60: Updated formData initial conditions to include red_cards, goals, possession

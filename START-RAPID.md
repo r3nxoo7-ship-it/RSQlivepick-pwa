@@ -15,7 +15,7 @@ npm run dev
 Deschide: **http://localhost:3000**
 
 ### 3️⃣ Test PWA pe iPhone (2 min)
-1. Găsește IP-ul calculatorului:
+1. Find your machine IP address:
    - Windows: `ipconfig` → IPv4 Address
    - Mac: `ifconfig` → inet
 2. Pe iPhone, deschide Safari: `http://[IP]:3000`
@@ -29,14 +29,14 @@ Deschide: **http://localhost:3000**
 ### Desktop/Mobile Browser:
 - **Titlu:** "LivePick" cu gradient cyan→amber
 - **Badge:** "PAS 1 - Setup Complete" cu pulse verde
-- **4 Carduri:** Live Scanning, Filtre, Notificări, Lightspeed
+- **4 Cards:** Live Scanning, Filters, Notifications, Lightspeed
 - **Stats:** 45s / 100+ / 2
-- **2 Butoane:** "Începe Scanarea" + "Configurare Filtre"
+- **2 Buttons:** "Start Scan" + "Configure Filters"
 - **Background:** Animated blur circles
 
 ### PWA Instalată (iPhone):
 - **Icon:** "LP" cu gradient pe home screen
-- **Fullscreen:** Fără Safari UI
+ - **Fullscreen:** No Safari UI
 - **Status Bar:** Cyan translucid (#00F5FF)
 
 ---
@@ -61,7 +61,7 @@ Deschide: **http://localhost:3000**
 
 ## ❌ Probleme Comune
 
-### "npm install" eșuează
+### "npm install" fails
 ```bash
 rm -rf node_modules package-lock.json
 npm install

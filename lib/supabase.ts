@@ -395,20 +395,20 @@ export const dbHelpers = {
           };
         } else {
           console.error('Error creating filter via API:', result.error);
-          return { data: null, error: result.error || 'Eroare la crearea filtrului' };
+          return { data: null, error: result.error || 'Error creating filter' };
         }
       }
 
       if (result.error) {
         console.error('Error creating filter via API:', result.error);
-        return { data: null, error: result.error || 'Eroare la crearea filtrului' };
+        return { data: null, error: result.error || 'Error creating filter' };
       }
 
       console.log('✅ Filter created successfully via API');
       return { data: result.data as Filter, error: null };
     } catch (err) {
       console.error('Error in createFilter:', err);
-      return { data: null, error: 'Eroare la crearea filtrului' };
+      return { data: null, error: 'Error creating filter' };
     }
   },
 
@@ -430,13 +430,13 @@ export const dbHelpers = {
 
       if (!response.ok || result.error) {
         console.error('Error updating filter via API:', result.error);
-        return { data: null, error: 'Eroare la actualizarea filtrului' };
+        return { data: null, error: 'Error updating filter' };
       }
 
       return { data: result.data as Filter, error: null };
     } catch (err) {
       console.error('Error in updateFilter:', err);
-      return { data: null, error: 'Eroare la actualizarea filtrului' };
+      return { data: null, error: 'Error updating filter' };
     }
   },
 
@@ -461,14 +461,14 @@ export const dbHelpers = {
 
       if (!response.ok || result.error) {
         console.error('Error toggling filter via API:', result.error);
-        return { data: null, error: 'Eroare la schimbarea statusului' };
+        return { data: null, error: 'Error changing status' };
       }
 
       console.log('✅ Filter toggled:', result.data);
       return { data: result.data as Filter, error: null };
     } catch (err) {
       console.error('Error in toggleFilterActive:', err);
-      return { data: null, error: 'Eroare la schimbarea statusului' };
+      return { data: null, error: 'Error changing status' };
     }
   },
 
@@ -485,14 +485,14 @@ export const dbHelpers = {
 
       if (!response.ok || result.error) {
         console.error('Error deleting filter via API:', result.error);
-        return { error: 'Eroare la ștergerea filtrului' };
+        return { error: 'Error deleting filter' };
       }
 
       console.log('✅ Filter deleted:', filterId);
       return { error: null };
     } catch (err) {
       console.error('Error in deleteFilter:', err);
-      return { error: 'Eroare la ștergerea filtrului' };
+      return { error: 'Error deleting filter' };
     }
   },
 
@@ -531,13 +531,13 @@ export const dbHelpers = {
 
       if (error) {
         console.error('Error saving match history:', error);
-        return { error: 'Eroare la salvarea istoricului' };
+        return { error: 'Error saving history' };
       }
 
       return { error: null };
     } catch (err) {
       console.error('Error in saveMatchHistory:', err);
-      return { error: 'Eroare la salvarea istoricului' };
+      return { error: 'Error saving history' };
     }
   },
 

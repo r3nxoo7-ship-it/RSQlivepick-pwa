@@ -1,7 +1,7 @@
 {
   "name": "R$Q - Football Scanner",
   "short_name": "R$Q",
-  "description": "Private football match scanner with custom filters and real-time notifications",
+  "description": "Scan live football matches and receive instant notifications",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0E27",
@@ -72,13 +72,13 @@
       "url": "/live",
       "icons": [{ "src": "/icons/icon-96x96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
     },
-    {
-      "name": "Filtre",
-      "short_name": "Filtre",
-      "description": "Gestionează filtrele",
-      "url": "/filters",
-      "icons": [{ "src": "/icons/icon-96x96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
-    }
+      {
+        "name": "Filters",
+        "short_name": "Filters",
+        "description": "Manage your filters",
+        "url": "/filters",
+        "icons": [{ "src": "/icons/icon-96x96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
+      }
   ],
   "categories": ["sports", "utilities"],
   "prefer_related_applications": false

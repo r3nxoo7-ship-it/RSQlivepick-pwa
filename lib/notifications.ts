@@ -98,15 +98,15 @@ export async function requestNotificationPermission(): Promise<boolean> {
 // ============================================
 
 /**
- * Trimite o notificare browser
- * 
- * @param payload - Datele notificării
- * @returns Promise<boolean> - true dacă s-a trimis cu succes
- * 
- * EXPLICAȚIE:
- * Creează o notificare care apare în colțul ecranului
- * Pe Windows: colț dreapta-jos
- * Pe Mac: colț dreapta-sus
+ * Send a browser notification
+ *
+ * @param payload - Notification payload
+ * @returns Promise<boolean> - true if sent successfully
+ *
+ * DETAILS:
+ * Creates a notification that appears in the corner of the screen
+ * On Windows: bottom-right
+ * On Mac: top-right
  */
 export async function sendNotification(
   payload: NotificationPayload
@@ -191,7 +191,7 @@ export async function sendMatchNotification(
   return await sendNotification({
     title,
     body,
-    tag: `match-${matchInfo.matchId}`, // Tag unic per meci (evită duplicate)
+    tag: `match-${matchInfo.matchId}`, // Unique tag per match (prevents duplicates)
     data: {
       type: 'match',
       matchId: matchInfo.matchId,
@@ -201,7 +201,7 @@ export async function sendMatchNotification(
 }
 
 /**
- * Trimite notificare de test
+ * Send a test notification
  */
 export async function sendTestNotification(): Promise<boolean> {
   return await sendNotification({
@@ -216,7 +216,7 @@ export async function sendTestNotification(): Promise<boolean> {
 // ============================================
 
 /**
- * Verifică dacă notificările sunt permise și funcționale
+ * Check if notifications are supported, permitted and ready
  */
 export async function checkNotificationStatus(): Promise<{
   supported: boolean;

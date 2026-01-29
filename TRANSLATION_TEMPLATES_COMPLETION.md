@@ -65,8 +65,8 @@
 | Centrul de comandă este operațional | Command center is operational |
 | Status Server | Server Status |
 | SISTEM ACTIV 2026 | SYSTEM ACTIVE 2026 |
-| Meciuri în Scanare | Matches Scanning |
-| Filtre Active | Active Filters |
+| Matches Scanning | Matches Scanning |
+| Active Filters | Active Filters |
 | Rată de Succes | Success Rate |
 | Alerte Telegram | Telegram Alerts |
 | Activitate Recentă | Recent Activity |
@@ -81,7 +81,7 @@
 
 | Romanian | English |
 |----------|---------|
-| Pagină pentru gestionarea notificărilor | Page for managing notifications |
+| Page for managing notifications | Page for managing notifications |
 | Cere permisiune pentru notificări | Request permission for notifications |
 | ✅ Permisiune acordată! Acum poți primi notificări | ✅ Permission granted! You can now receive notifications |
 | ❌ Permisiune refuzată. Verifică setările browser-ului | ❌ Permission denied. Check your browser settings |
@@ -91,8 +91,8 @@
 | Browser-ul tău suportă notificări | Your browser supports notifications |
 | Browser-ul tău NU suportă notificări | Your browser does NOT support notifications |
 | Permisiune | Permission |
-| Permisiune acordată | Permission granted |
-| Permisiune refuzată | Permission denied |
+| Permission granted | Permission granted |
+| Permission denied | Permission denied |
 | Permisiune nu a fost cerută | Permission not requested |
 | Status General | Overall Status |
 | Notificările sunt ACTIVE și funcționale | Notifications are ACTIVE and functional |

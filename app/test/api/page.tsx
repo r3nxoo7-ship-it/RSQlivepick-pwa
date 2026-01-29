@@ -3,8 +3,8 @@
 // ============================================
 // R$Q - API FOOTBALL TEST PAGE
 // ============================================
-// Această pagină testează dacă API-Football funcționează corect
-// Pentru începători: învață useState, onClick, async functions
+// This page tests whether API-Football works correctly
+// For beginners: learn useState, onClick, and async functions
 
 // Importăm ce avem nevoie din React
 import { useState } from 'react'; // useState = memorie pentru component
@@ -88,7 +88,7 @@ export default function APITestPage() {
             🧪 API Football Test Page
           </h1>
           <p className="text-text-secondary">
-            Testează dacă API-Football funcționează corect
+            Test whether API-Football is working correctly
           </p>
         </div>
         
@@ -135,7 +135,7 @@ export default function APITestPage() {
             </h3>
             <p className="text-text-secondary text-sm">{error}</p>
             <p className="text-xs text-text-muted mt-2">
-              💡 Verifică că .env.local are API_FOOTBALL_KEY corect!
+              💡 Check that .env.local contains the correct API_FOOTBALL_KEY!
             </p>
           </div>
         )}
@@ -144,7 +144,7 @@ export default function APITestPage() {
         {matches.length > 0 && (
           <div className="glass-card p-6">
             <h2 className="text-2xl font-display font-bold mb-4">
-              🎯 Meciuri Live: {matches.length}
+              🎯 Live Matches: {matches.length}
             </h2>
             
             {/* Lista cu meciuri */}
@@ -201,10 +201,10 @@ export default function APITestPage() {
         {!loading && !error && matches.length === 0 && (
           <div className="glass-card p-12 text-center">
             <p className="text-text-secondary text-lg mb-2">
-              👆 Apasă butonul de mai sus pentru a încărca meciuri live!
+              👆 Click the button above to load live matches!
             </p>
             <p className="text-text-muted text-sm">
-              💡 Dacă nu sunt meciuri live, încearcă mai târziu (când sunt meciuri reale)
+              💡 If there are no live matches, try again later when real matches are playing
             </p>
           </div>
         )}
@@ -217,7 +217,7 @@ export default function APITestPage() {
           <ul className="space-y-1 text-text-muted">
             <li>• Free Plan: 100 requests/day</li>
             <li>• Endpoint: /fixtures?live=all</li>
-            <li>• Response: Lista meciuri live cu statistici</li>
+            <li>• Response: List of live matches with statistics</li>
             <li>• Update: La fiecare request (manual)</li>
           </ul>
         </div>

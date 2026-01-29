@@ -1,7 +1,7 @@
 {
   "name": "LivePick - Football Scanner",
   "short_name": "LivePick",
-  "description": "Scanează meciuri live de fotbal și primește notificări instant",
+  "description": "Scan live football matches and receive instant notifications",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0E27",
@@ -73,14 +73,14 @@
     {
       "name": "Live Matches",
       "short_name": "Live",
-      "description": "Vezi meciurile live",
+      "description": "View live matches",
       "url": "/live",
       "icons": [{ "src": "/icons/icon-96x96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
     },
     {
-      "name": "Filtre",
-      "short_name": "Filtre",
-      "description": "Gestionează filtrele",
+      "name": "Filters",
+      "short_name": "Filters",
+      "description": "Manage your filters",
       "url": "/filters",
       "icons": [{ "src": "/icons/icon-96x96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
     }

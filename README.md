@@ -8,16 +8,16 @@
 
 ## 📱 Despre Proiect
 
-LivePick este o aplicație PWA (Progressive Web App) privată pentru scanarea meciurilor de fotbal live, cu filtre personalizabile și notificări în timp real. Optimizată pentru iPhone first, dar funcționează perfect pe toate device-urile.
+LivePick is a private PWA (Progressive Web App) for scanning live football matches with customizable filters and real-time notifications. Optimized for iPhone-first, but works across all devices.
 
 ### 🎯 Caracteristici Principale
 
 - ⚡ **Lightspeed Loading** - Optimizări extreme de performanță
 - 🎨 **Design Futurist** - "Cyber Sports Minimal" aesthetic
 - 📱 **PWA First** - Instalabilă pe iPhone/Android/Desktop
-- 🔔 **Notificări Real-time** - Push + Telegram
-- 🔒 **Privat** - Acces doar pentru 2 useri autorizați
-- 🎯 **100+ Filtre** - Condiții personalizabile (cornere, șuturi, cards, etc.)
+- 🔔 **Real-time Notifications** - Push + Telegram
+- 🔒 **Private** - Access limited to authorized users
+- 🎯 **100+ Filters** - Custom conditions (corners, shots, cards, etc.)
 - 📊 **Dashboard Live** - Statistici și grafice în timp real
 
 ---
@@ -74,7 +74,7 @@ LivePick este o aplicație PWA (Progressive Web App) privată pentru scanarea me
 ### Effects
 
 - **Glassmorphism** - Carduri translucide cu backdrop blur
-- **Live Pulse** - Indicator animat pentru meciuri live
+- **Live Pulse** - Animated indicator for live matches
 - **Gradient Text** - Titluri cu gradient cyan→amber
 - **Glow Effects** - Shadow effects pentru focus states
 

@@ -38,20 +38,20 @@ const navigation = [
     icon: Activity,
   },
   {
-    name: 'Filtre',
-    href: '/dashboard/filters',
-    icon: Filter,
-  },
-  {
     name: 'Analytics',
     href: '/dashboard/analytics',
     icon: BarChart3,
   },
   {
-    name: 'Notificări',
-    href: '/dashboard/notifications',
-    icon: Bell,
+    name: 'Filters',
+    href: '/dashboard/filters',
+    icon: Filter,
   },
+    {
+      name: 'Notifications',
+      href: '/dashboard/notifications',
+      icon: Bell,
+    },
   {
     name: 'Telegram',
     href: '/dashboard/telegram',

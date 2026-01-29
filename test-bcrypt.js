@@ -1,18 +1,18 @@
 ﻿const bcrypt = require('bcryptjs');
 
-// Hash-ul din database (copiază-l din Supabase)
+// The hash stored in the database (copy from Supabase)
 const hashFromDB = '\\\.uMGJ7KZjYmQl4vN5pWxLmHqZoQxKvYqi';
 
-// Parola pe care o încerci
+// Password to test
 const password = 'admin123';
 
-// Test
+// Test comparison
 const isValid = bcrypt.compareSync(password, hashFromDB);
 
-console.log('Hash din DB:', hashFromDB);
-console.log('Parolă testată:', password);
-console.log('Rezultat:', isValid ? 'MATCH ✅' : 'NO MATCH ❌');
+console.log('Hash from DB:', hashFromDB);
+console.log('Tested password:', password);
+console.log('Result:', isValid ? 'MATCH ✅' : 'NO MATCH ❌');
 
-// Generează hash nou
+// Generate new hash
 const newHash = bcrypt.hashSync(password, 10);
-console.log('\nHash NOU generat:', newHash);
+console.log('\nNew hash generated:', newHash);

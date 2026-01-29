@@ -294,6 +294,14 @@ export async function matchesFilter(
  * @param filters - Lista de filtre active
  * @returns Array cu FilterMatchResult pentru fiecare filtru care match-uiește
  */
+/**
+ * Apply all active filters to a match
+ * Returns the list of filters that match
+ * 
+ * @param match - The live match to check
+ * @param filters - The list of active filters
+ * @returns Array with FilterMatchResult for each filter that matches
+ */
 export async function applyFiltersToMatch(
   match: LiveMatch,
   filters: Filter[]

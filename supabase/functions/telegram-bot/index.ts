@@ -1,11 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Aceste două variabile sunt oferite AUTOMAT de Supabase, nu trebuie să le setezi tu
+// These two variables are provided automatically by Supabase (do not set them manually)
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-// Aceasta este singura pe care o setăm noi manual
+// The bot token is set in environment variables
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')
 
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
@@ -14,12 +14,12 @@ serve(async (req) => {
   try {
     const update = await req.json()
 
-    // 1. Când utilizatorul trimite contactul (numărul de telefon)
+    // 1. When the user sends contact (phone number)
     if (update.message?.contact) {
       const phoneNumber = update.message.contact.phone_number.replace('+', '')
       const chatId = update.message.chat.id.toString()
 
-      // Căutăm în profiles (asigură-te că tabelul și coloana există)
+      // Look up the profile by phone number (ensure the table/column exist)
       const { data: profile, error: searchError } = await supabase
         .from('profiles')
         .select('id')
@@ -36,16 +36,16 @@ serve(async (req) => {
           })
           .eq('id', profile.id)
 
-        await sendToTelegram(chatId, "✅ Cont conectat cu succes! Vei primi notificări aici.")
+        await sendToTelegram(chatId, "✅ Account connected successfully! You will receive notifications here.")
       } else {
-        await sendToTelegram(chatId, "❌ Numărul nu a fost găsit în aplicație. Te rugăm să verifici setările profilului în app.")
+        await sendToTelegram(chatId, "❌ Phone number not found in the application. Please check your profile settings in the app.")
       }
     } 
     
     // 2. Mesajul de start
     else if (update.message?.text === "/start") {
-      await sendToTelegram(update.message.chat.id, "Salut! Apasă butonul de mai jos pentru a activa notificările:", {
-        keyboard: [[{ text: "📲 Trimite numărul de telefon", request_contact: true }]],
+      await sendToTelegram(update.message.chat.id, "Hello! Press the button below to enable notifications:", {
+        keyboard: [[{ text: "📲 Send your phone number", request_contact: true }]],
         one_time_keyboard: true,
         resize_keyboard: true
       })
@@ -53,7 +53,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 })
   } catch (err) {
-    console.error("Eroare:", err.message)
+    console.error("Error:", err.message)
     return new Response(JSON.stringify({ error: err.message }), { status: 200 })
   }
 })

@@ -33,19 +33,19 @@ interface NotificationRecord {
 // ============================================
 
 /**
- * useMatchScanner - Hook pentru scanare automată meciuri
- * 
- * @param matches - Lista meciuri live
- * @param filters - Lista filtre active
- * @param enabled - Dacă scanner-ul e activat
- * @param intervalSeconds - Interval între scanări (default: 45s)
- * @returns stats - Statistici scanner
- * 
- * EXPLICAȚIE:
- * - La fiecare 45s, scanează toate meciurile
- * - Pentru fiecare meci, verifică dacă match-uiește vreun filtru
- * - Dacă DA și e PRIMA DATĂ → trimite notificare
- * - Track-uiește în Map pentru a preveni duplicate
+ * useMatchScanner - Hook for automatic match scanning
+ *
+ * @param matches - Array of live matches
+ * @param filters - Array of active filters
+ * @param enabled - Whether the scanner is enabled
+ * @param intervalSeconds - Interval between scans (default: 45s)
+ * @returns stats - Scanner statistics
+ *
+ * DETAILS:
+ * - Every 45s the hook scans all matches
+ * - For each match it checks which filters match
+ * - If a match is found for the first time -> send a notification
+ * - Uses a Map to track sent notifications and prevent duplicates
  */
 export function useMatchScanner(
   matches: LiveMatch[],

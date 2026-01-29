@@ -1,8 +1,8 @@
 // ============================================
 // R$Q FOOTBALL SCANNER - API Football Client
 // ============================================
-// Acest fișier se ocupă de toate comunicările cu API-Football
-// Învață: API calls, async/await, TypeScript types, error handling
+// This file handles all communications with API-Football
+// Learn: API calls, async/await, TypeScript types, error handling
 
 // ============================================
 // PARTEA 1: CONFIGURARE
@@ -15,7 +15,7 @@ const API_HOST = process.env.NEXT_PUBLIC_API_FOOTBALL_HOST || 'v3.football.api-s
 
 // Verificăm că avem cheia! Dacă nu, aruncăm eroare
 if (!API_KEY) {
-  throw new Error('❌ API_FOOTBALL_KEY lipsește din .env.local!');
+  throw new Error('❌ API_FOOTBALL_KEY is missing from .env.local!');
 }
 
 // ============================================
@@ -86,8 +86,8 @@ export interface LiveMatch {
 }
 
 /**
- * Statistici detaliate ale unui meci
- * Conține: cornere, șuturi, posesie, cards, etc.
+ * Detailed match statistics
+ * Contains: corners, shots, possession, cards, etc.
  */
 export interface MatchStatistics {
   team: {

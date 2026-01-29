@@ -64,7 +64,7 @@ export default function FiltersPage() {
       console.log(`✅ Loaded ${userFilters.length} filters`);
     } catch (err) {
       console.error('❌ Error loading filters:', err);
-      setError('Eroare la încărcarea filtrelor');
+      setError('Error loading filters');
     } finally {
       setLoading(false);
     }
@@ -170,14 +170,14 @@ export default function FiltersPage() {
     const preview: string[] = [];
     
     // Cornere
-    if (conditions.corners) {
+      if (conditions.corners) {
       const c = conditions.corners;
-      if (c.min) preview.push(`Cornere >${c.min}`);
+      if (c.min) preview.push(`Corners >${c.min}`);
     }
     
     // Șuturi
     if (conditions.shots_on_target?.min) {
-      preview.push(`Șuturi >${conditions.shots_on_target.min}`);
+      preview.push(`Shots >${conditions.shots_on_target.min}`);
     }
     
     // Cards
@@ -385,7 +385,7 @@ export default function FiltersPage() {
                   {/* Stats */}
                   <div className="grid grid-cols-3 gap-4 pt-4 border-t border-glass-medium">
                     <div>
-                      <p className="text-xs text-text-muted mb-1">Declanșări</p>
+                      <p className="text-xs text-text-muted mb-1">Triggers</p>
                       <p className="text-lg font-semibold">{filter.trigger_count || 0}</p>
                     </div>
                     <div>
@@ -395,11 +395,11 @@ export default function FiltersPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-text-muted mb-1">Ultima dată</p>
+                      <p className="text-xs text-text-muted mb-1">Last triggered</p>
                       <p className="text-sm">
                         {filter.last_triggered 
-                          ? new Date(filter.last_triggered).toLocaleDateString('ro-RO')
-                          : 'Niciodată'}
+                          ? new Date(filter.last_triggered).toLocaleDateString()
+                          : 'Never'}
                       </p>
                     </div>
                   </div>
@@ -413,14 +413,14 @@ export default function FiltersPage() {
             <div className="glass-card p-12 text-center">
               <FilterIcon className="w-16 h-16 text-text-muted mx-auto mb-4" />
               <h3 className="text-xl font-display font-semibold mb-2">
-                Nu ai filtre create încă
+                You have no filters yet
               </h3>
               <p className="text-text-secondary mb-6">
-                Creează primul tău filtru pentru a primi notificări când apar meciuri interesante!
+                Create your first filter to receive notifications when interesting matches appear!
               </p>
               <button onClick={handleCreateNew} className="btn-primary">
                 <Plus className="w-5 h-5 inline mr-2" />
-                Creează primul filtru
+                Create first filter
               </button>
             </div>
           )}
@@ -428,26 +428,26 @@ export default function FiltersPage() {
           {/* ========== INFO ========== */}
           <div className="glass-card p-4 text-sm">
             <h4 className="font-semibold text-accent-cyan mb-2">
-              💡 Cum funcționează filtrele?
+              💡 How do filters work?
             </h4>
             <ul className="space-y-1 text-text-muted">
-              <li>• Creează filtre cu condiții personalizate (cornere, șuturi, cards, etc.)</li>
-              <li>• Aplicația scanează meciurile live la fiecare 45 secunde</li>
-              <li>• Când un meci match-uiește filtrul → primești notificare!</li>
-              <li>• Poți avea filtre multiple active simultan</li>
-              <li>• Success rate se calculează automat din istoric</li>
+              <li>• Create filters with custom conditions (corners, shots, cards, etc.)</li>
+              <li>• The app scans live matches every 45 seconds</li>
+              <li>• When a match matches your filter → you receive a notification!</li>
+              <li>• You can have multiple active filters at the same time</li>
+              <li>• Success rate is calculated automatically from history</li>
             </ul>
           </div>
           
           {/* ========== DEBUG INFO (pentru testing) ========== */}
           <div className="glass-card p-4 text-xs text-text-muted">
             <details>
-              <summary className="cursor-pointer font-semibold mb-2">🔧 Debug Info (pentru developer)</summary>
+              <summary className="cursor-pointer font-semibold mb-2">🔧 Debug Info (for developer)</summary>
               <div className="space-y-1 mt-2">
                 <p>Total filters loaded: {filters.length}</p>
                 <p>Active filters: {filters.filter(f => f.is_active).length}</p>
                 <p>Filters with notifications: {filters.filter(f => f.notification_enabled).length}</p>
-                <p className="text-accent-cyan mt-2">✅ DELETE și TOGGLE sunt implementate complet!</p>
+                <p className="text-accent-cyan mt-2">✅ DELETE and TOGGLE are fully implemented!</p>
               </div>
             </details>
           </div>

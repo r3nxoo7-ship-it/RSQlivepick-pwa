@@ -71,7 +71,7 @@ npm run dev
    - 4 carduri de features cu glassmorphism
    - Statistici (45s, 100+, 2 users)
    - Background animat cu cercuri blur
-   - Butoane "Începe Scanarea" și "Configurare Filtre"
+   - Buttons "Start Scanning" and "Configure Filters"
 
 ---
 
