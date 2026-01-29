@@ -31,6 +31,7 @@ import {
   getCategoriesWithCounts,
   type FilterTemplate 
 } from '@/lib/filter-templates';
+import { validateFilterConditions } from '@/lib/filter-validation';
 
 // ============================================
 // COMPONENTA PRINCIPALĂ
@@ -53,8 +54,17 @@ export default function FilterTemplatesPage() {
   // DATA
   // ============================================
   
-  const allTemplates = getAllTemplates();
-  const popularTemplates = getPopularTemplates();
+  // Only keep templates with coherent/valid conditions and not experimental
+  const allTemplates = getAllTemplates().filter(t => {
+    if (t.experimental) return false;
+    const v = validateFilterConditions(t.conditions);
+    return v.isValid;
+  });
+  const popularTemplates = getPopularTemplates().filter(t => {
+    if (t.experimental) return false;
+    const v = validateFilterConditions(t.conditions);
+    return v.isValid;
+  });
   const categoryCounts = getCategoriesWithCounts();
   
   // Filter templates based on category and search

@@ -86,6 +86,10 @@ export interface ExtendedFilterConditions {
   
   match_time?: TimeCondition;
   
+  // ========== ODDS (pre-match) ==========
+  // Bookmaker pre-match odds (for example opening odds)
+  odds?: RangeCondition;
+  
   // ========== COMBINED CONDITIONS ==========
   
   combined?: {

@@ -122,6 +122,12 @@ export default function CompleteFilterBuilder() {
   const [combinedFilterIds, setCombinedFilterIds] = useState<string[]>([]);
   const [combinationLogic, setCombinationLogic] = useState<'AND' | 'OR'>('OR');
   const [userFilters, setUserFilters] = useState<any[]>([]);
+  const [showCombineMode, setShowCombineMode] = useState(false);
+
+  // Odds (pre-match) condition
+  const [oddsEnabled, setOddsEnabled] = useState(false);
+  const [oddsMin, setOddsMin] = useState<number | undefined>(undefined);
+  const [oddsMax, setOddsMax] = useState<number | undefined>(undefined);
   
   // ============================================
   // LOAD DATA
@@ -129,6 +135,21 @@ export default function CompleteFilterBuilder() {
   
   useEffect(() => {
     loadUserFilters();
+  }, []);
+
+  // If opened with ?mode=super then show combine mode UI prominently
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const mode = sp.get('mode');
+      if (mode === 'super') {
+        setShowCombineMode(true);
+        setCombinationLogic('AND');
+      }
+    } catch (e) {
+      // ignore
+    }
   }, []);
   
   const loadUserFilters = async () => {
@@ -414,6 +435,14 @@ export default function CompleteFilterBuilder() {
           } : undefined,
         };
       }
+
+      // Odds (pre-match)
+      if (oddsEnabled) {
+        conditions.odds = {
+          min: oddsMin,
+          max: oddsMax,
+        } as any;
+      }
       
       // Create filter
       console.log('📤 About to call createFilter with user_id:', user?.id);
@@ -676,6 +705,57 @@ export default function CompleteFilterBuilder() {
                 </label>
               </div>
             </div>
+          </div>
+
+          {/* PRE-MATCH ODDS */}
+          <div className="glass-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-accent-amber" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/></svg>
+                <h3 className="text-lg font-semibold">Pre-match Odds Filter</h3>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={oddsEnabled}
+                  onChange={(e) => setOddsEnabled(e.target.checked)}
+                  className="w-5 h-5 rounded"
+                />
+                <span className="text-sm">Enable</span>
+              </label>
+            </div>
+
+            {oddsEnabled && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm mb-2">Min Odds</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={oddsMin ?? ''}
+                    onChange={(e) => setOddsMin(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    placeholder="e.g. 1.5"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-2">Max Odds</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={oddsMax ?? ''}
+                    onChange={(e) => setOddsMax(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    placeholder="e.g. 3.0"
+                    className="input-field"
+                  />
+                </div>
+                <div className="col-span-2 text-xs text-text-muted">
+                  Example: For +3 goals strategies set Max Odds &lt;= 1.8 to only consider matches that opened below 1.8. For red-card-only signals set Min Odds &gt;= 6 to focus on long-shot events.
+                </div>
+              </div>
+            )}
           </div>
           
           {/* TIME CONDITIONS */}
