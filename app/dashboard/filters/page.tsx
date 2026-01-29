@@ -289,24 +289,24 @@ export default function FiltersPage() {
                   `}
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 gap-4">
+                    <div className="flex-1 min-w-0">
                       {/* Nume + Badges */}
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-display font-semibold">
+                      <div className="flex flex-wrap items-center gap-3 mb-2">
+                        <h3 className="text-lg sm:text-xl font-display font-semibold break-words">
                           {filter.name}
                         </h3>
                         
                         {/* Active badge */}
                         {filter.is_active && (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green text-xs font-semibold">
+                          <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green text-xs font-semibold whitespace-nowrap">
                             ACTIV
                           </span>
                         )}
                         
                         {/* Notifications badge */}
                         {filter.notification_enabled && (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs flex items-center gap-1 whitespace-nowrap">
                             <Bell className="w-3 h-3" />
                             Notificări
                           </span>
@@ -321,20 +321,20 @@ export default function FiltersPage() {
                       )}
                       
                       {/* Condiții preview */}
-                      <div className="flex items-center gap-2 text-sm">
-                        <FilterIcon className="w-4 h-4 text-accent-cyan" />
+                      <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
+                        <FilterIcon className="w-4 h-4 text-accent-cyan flex-shrink-0" />
                         <span className="text-text-muted">
                           {getConditionsCount(filter)} condiții: {getConditionsPreview(filter)}
                         </span>
                       </div>
                     </div>
                     
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
+                    {/* Actions - responsive layout */}
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
                       {/* Toggle Active */}
                       <button
                         onClick={() => handleToggleActive(filter.id, filter.is_active)}
-                        className="p-2 rounded-xl hover:bg-glass-light transition-all"
+                        className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
                         title={filter.is_active ? 'Dezactivează' : 'Activează'}
                       >
                         {filter.is_active ? (
@@ -347,7 +347,7 @@ export default function FiltersPage() {
                       {/* Edit */}
                       <button
                         onClick={() => handleEdit(filter.id)}
-                        className="p-2 rounded-xl hover:bg-glass-light transition-all"
+                        className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
                         title="Editează"
                       >
                         <Edit className="w-5 h-5 text-accent-cyan" />
@@ -356,7 +356,7 @@ export default function FiltersPage() {
                       {/* Delete */}
                       <button
                         onClick={() => handleDelete(filter.id, filter.name)}
-                        className="p-2 rounded-xl hover:bg-accent-red/10 text-text-secondary hover:text-accent-red transition-all"
+                        className="p-2 rounded-xl hover:bg-accent-red/10 text-text-secondary hover:text-accent-red transition-all flex-shrink-0"
                         title="Șterge"
                       >
                         <Trash2 className="w-5 h-5" />

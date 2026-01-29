@@ -148,11 +148,11 @@ export const authHelpers = {
    */
   async login(username: string, password: string): Promise<{ user: User | null; error: string | null }> {
     try {
-      // Caută user-ul în database
+      // Caută user-ul în database (case-insensitive)
       const { data: users, error } = await supabase
         .from('users')
         .select('*')
-        .eq('username', username)
+        .ilike('username', username)
         .eq('is_active', true)
         .limit(1);
 

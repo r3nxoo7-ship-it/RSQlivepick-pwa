@@ -54,6 +54,9 @@ export default function FilterEditPage() {
       shots_on_target: { min: undefined, max: undefined },
       total_shots: { min: undefined, max: undefined },
       yellow_cards: { min: undefined, max: undefined },
+      red_cards: { min: undefined, max: undefined },
+      goals: { min: undefined, max: undefined },
+      possession: { min: undefined, max: undefined },
       match_time: { min: 1, max: 90 },
     } as FilterConditions,
   });
@@ -492,6 +495,87 @@ export default function FilterEditPage() {
                       value={formData.conditions.match_time?.max || 90}
                       onChange={(e) => updateCondition('match_time', 'max', e.target.value)}
                       placeholder="90"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Red Cards */}
+              <div>
+                <h3 className="font-semibold mb-3">🔴 Cartonașe Roșii</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <input
+                      type="number"
+                      value={formData.conditions.red_cards?.min || ''}
+                      onChange={(e) => updateCondition('red_cards', 'min', e.target.value)}
+                      placeholder="ex: 0"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <input
+                      type="number"
+                      value={formData.conditions.red_cards?.max || ''}
+                      onChange={(e) => updateCondition('red_cards', 'max', e.target.value)}
+                      placeholder="ex: 3"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Goals */}
+              <div>
+                <h3 className="font-semibold mb-3">⚽ Goluri</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <input
+                      type="number"
+                      value={formData.conditions.goals?.min || ''}
+                      onChange={(e) => updateCondition('goals', 'min', e.target.value)}
+                      placeholder="ex: 2"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <input
+                      type="number"
+                      value={formData.conditions.goals?.max || ''}
+                      onChange={(e) => updateCondition('goals', 'max', e.target.value)}
+                      placeholder="ex: 5"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Possession */}
+              <div>
+                <h3 className="font-semibold mb-3">📊 Posesie (%)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <input
+                      type="number"
+                      value={formData.conditions.possession?.min || ''}
+                      onChange={(e) => updateCondition('possession', 'min', e.target.value)}
+                      placeholder="ex: 40"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <input
+                      type="number"
+                      value={formData.conditions.possession?.max || ''}
+                      onChange={(e) => updateCondition('possession', 'max', e.target.value)}
+                      placeholder="ex: 60"
                       className="input-field"
                     />
                   </div>

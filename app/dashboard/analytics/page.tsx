@@ -185,10 +185,10 @@ export default function AnalyticsPage() {
               </p>
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
               <button
                 onClick={handleExport}
-                className="btn-secondary flex items-center gap-2"
+                className="btn-secondary flex items-center gap-2 w-full sm:w-auto"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
@@ -197,7 +197,7 @@ export default function AnalyticsPage() {
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(Number(e.target.value) as 7 | 30)}
-                className="input-field w-40"
+                className="input-field w-full sm:w-40"
               >
                 <option value={7}>Ultim 7 zile</option>
                 <option value={30}>Ultim 30 zile</option>

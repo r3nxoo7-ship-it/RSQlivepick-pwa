@@ -47,7 +47,7 @@ export default function LiveMatchesPage() {
   const [selectedLeague, setSelectedLeague] = useState<string>('all');
   const [userFilters, setUserFilters] = useState<Filter[]>([]);
   const [filterResults, setFilterResults] = useState<Map<number, FilterMatchResult[]>>(new Map());
-  const [showOnlyFiltered, setShowOnlyFiltered] = useState(false);
+  const [showOnlyFiltered, setShowOnlyFiltered] = useState<boolean | null>(null); // null = loading from localStorage
   const [applyingFilters, setApplyingFilters] = useState(false);
   
   // Scanner state
@@ -141,6 +141,19 @@ export default function LiveMatchesPage() {
   // EFFECTS
   // ============================================
   
+  // Load showOnlyFiltered from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('live-show-only-filtered');
+    setShowOnlyFiltered(saved === 'true' ? true : false);
+  }, []);
+  
+  // Persist showOnlyFiltered to localStorage when it changes
+  useEffect(() => {
+    if (showOnlyFiltered !== null) {
+      localStorage.setItem('live-show-only-filtered', String(showOnlyFiltered));
+    }
+  }, [showOnlyFiltered]);
+  
   useEffect(() => {
     loadUserFilters();
     fetchMatches();
@@ -174,7 +187,7 @@ export default function LiveMatchesPage() {
     ? matches 
     : matches.filter(m => m.league.name === selectedLeague);
   
-  if (showOnlyFiltered) {
+  if (showOnlyFiltered === true) {
     filteredMatches = filteredMatches.filter(m => filterResults.has(m.fixture.id));
   }
   
@@ -270,7 +283,7 @@ export default function LiveMatchesPage() {
             </div>
             <div className="stat-card">
               <div className="stat-label">Filtre Active</div>
-              <div className="stat-value text-accent-cyan">{activeFiltersCount}</div>
+              <div className="stat-value">{activeFiltersCount}</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Total Scans</div>
@@ -283,44 +296,45 @@ export default function LiveMatchesPage() {
           </div>
           
           {/* ========== SCANNER CONTROL ========== */}
-          <div className="glass-card p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3">
-                  {scannerEnabled ? (
-                    <Zap className="w-6 h-6 text-accent-green animate-pulse" />
-                  ) : (
-                    <Zap className="w-6 h-6 text-text-muted" />
-                  )}
-                  <div>
-                    <h3 className="font-display font-semibold text-lg">
-                      Auto-Scanner
-                      {scannerStats.isScanning && (
-                        <span className="ml-2 text-sm text-accent-cyan">Scanează...</span>
-                      )}
-                    </h3>
-                    <p className="text-sm text-text-muted">
-                      {scannerEnabled ? (
-                        <>
-                          ✅ Activ - scanează automat la 45s
-                          {scannerStats.lastScanTime && (
-                            <> • Ultimul scan: {scannerStats.lastScanTime.toLocaleTimeString()}</>
-                          )}
-                        </>
-                      ) : (
-                        'Dezactivat - activează pentru notificări automate'
-                      )}
-                    </p>
-                  </div>
+          <div className="glass-card p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* Left side - Info */}
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                {scannerEnabled ? (
+                  <Zap className="w-6 h-6 text-accent-green animate-pulse flex-shrink-0" />
+                ) : (
+                  <Zap className="w-6 h-6 text-text-muted flex-shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <h3 className="font-display font-semibold text-lg">
+                    Auto-Scanner
+                    {scannerStats.isScanning && (
+                      <span className="ml-2 text-sm text-accent-cyan">Scanează...</span>
+                    )}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-text-muted">
+                    {scannerEnabled ? (
+                      <>
+                        ✅ Activ - scanează automat la 45s
+                        {scannerStats.lastScanTime && (
+                          <> • Ultimul: {scannerStats.lastScanTime.toLocaleTimeString()}</>
+                        )}
+                      </>
+                    ) : (
+                      'Dezactivat - activează pentru notificări automate'
+                    )}
+                  </p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
+              {/* Right side - Controls */}
+              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                 {/* Notification Status */}
                 {!notificationsReady && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-amber/10">
-                    <Bell className="w-4 h-4 text-accent-amber" />
-                    <span className="text-sm text-accent-amber">Permisiune necesară</span>
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-accent-amber/10 text-xs">
+                    <Bell className="w-3 h-3 text-accent-amber" />
+                    <span className="text-accent-amber hidden sm:inline">Permisiune necesară</span>
+                    <span className="text-accent-amber sm:hidden">Permisiune</span>
                   </div>
                 )}
                 
@@ -328,7 +342,7 @@ export default function LiveMatchesPage() {
                 <button
                   onClick={handleToggleScanner}
                   className={`
-                    px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2
+                    px-4 py-2 sm:px-6 sm:py-3 rounded-xl font-semibold transition-all flex items-center gap-2 text-sm sm:text-base whitespace-nowrap
                     ${scannerEnabled 
                       ? 'bg-accent-green/20 text-accent-green hover:bg-accent-green/30 border-2 border-accent-green' 
                       : 'bg-glass-light text-text-secondary hover:bg-glass-medium border-2 border-glass-medium'}
@@ -336,13 +350,15 @@ export default function LiveMatchesPage() {
                 >
                   {scannerEnabled ? (
                     <>
-                      <BellOff className="w-5 h-5" />
-                      Oprește Scanner
+                      <BellOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="hidden sm:inline">Oprește Scanner</span>
+                      <span className="sm:hidden">Oprește</span>
                     </>
                   ) : (
                     <>
-                      <Bell className="w-5 h-5" />
-                      Pornește Scanner
+                      <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="hidden sm:inline">Pornește Scanner</span>
+                      <span className="sm:hidden">Pornește</span>
                     </>
                   )}
                 </button>
@@ -350,18 +366,23 @@ export default function LiveMatchesPage() {
                 {/* Settings Button */}
                 <button
                   onClick={() => router.push('/dashboard/notifications')}
-                  className="btn-secondary p-3"
+                  className="btn-secondary p-2 sm:p-3"
                   title="Notification Settings"
                 >
-                  <Settings className="w-5 h-5" />
+                  <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
             </div>
             
-            {/* Scanner Info */}
+            {/* Scanner Info - Expanded when enabled */}
             {scannerEnabled && (
-              <div className="mt-4 pt-4 border-t border-glass-medium">
-                <div className="grid grid-cols-3 gap-4 text-sm">
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-4 pt-4 border-t border-glass-medium"
+              >
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
                   <div>
                     <p className="text-text-muted mb-1">Filtre monitorizate</p>
                     <p className="font-semibold text-accent-cyan">{filtersWithNotifications}</p>
@@ -379,17 +400,21 @@ export default function LiveMatchesPage() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
             
             {/* Warning când nu sunt filtre cu notificări */}
             {scannerEnabled && filtersWithNotifications === 0 && (
-              <div className="mt-4 p-3 rounded-lg bg-accent-amber/10 border border-accent-amber/20">
-                <p className="text-sm text-accent-amber flex items-center gap-2">
-                  <Bell className="w-4 h-4" />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-4 p-3 rounded-lg bg-accent-amber/10 border border-accent-amber/20"
+              >
+                <p className="text-xs sm:text-sm text-accent-amber flex items-center gap-2">
+                  <Bell className="w-4 h-4 flex-shrink-0" />
                   Nu ai filtre active cu notificări! Activează notificări la filtre în secțiunea Filtre.
                 </p>
-              </div>
+              </motion.div>
             )}
           </div>
           
@@ -419,7 +444,7 @@ export default function LiveMatchesPage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={showOnlyFiltered}
+                    checked={showOnlyFiltered || false}
                     onChange={(e) => setShowOnlyFiltered(e.target.checked)}
                     className="w-4 h-4 rounded border-glass-medium bg-glass-light accent-accent-cyan"
                   />

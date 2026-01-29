@@ -14,13 +14,27 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY! // Atenție: Ai nevoie de Service Role Key aici
   );
 
+  // Check for existing username (case-insensitive)
+  const { data: existingUsers } = await supabase
+    .from('users')
+    .select('id')
+    .ilike('username', username)
+    .limit(1);
+
+  if (existingUsers && existingUsers.length > 0) {
+    return NextResponse.json(
+      { error: 'Utilizatorul deja există' },
+      { status: 409 }
+    );
+  }
+
   const { data, error } = await supabase
     .from('users')
     .insert([
       { 
         username, 
         full_name: fullName, 
-        password_hash: hashedPassword, // Acum salvăm hash-ul!
+        password_hash: hashedPassword,
         is_active: true 
       }
     ]);
