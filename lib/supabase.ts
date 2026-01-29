@@ -100,6 +100,11 @@ export interface FilterConditions {
     max?: number;
     team?: 'home' | 'away' | 'total';
   };
+  score?: {
+    home?: number;
+    away?: number;
+    type?: 'exact' | 'range';
+  };
 }
 
 export interface MatchHistory {

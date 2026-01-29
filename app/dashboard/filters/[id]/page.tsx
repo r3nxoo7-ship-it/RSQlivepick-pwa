@@ -57,6 +57,7 @@ export default function FilterEditPage() {
       red_cards: { min: undefined, max: undefined },
       goals: { min: undefined, max: undefined },
       possession: { min: undefined, max: undefined },
+      score: { home: undefined, away: undefined, type: 'exact' as const },
       match_time: { min: 1, max: 90 },
     } as FilterConditions,
   });
@@ -580,6 +581,63 @@ export default function FilterEditPage() {
                     />
                   </div>
                 </div>
+              </div>
+              
+              {/* Score (Exact) */}
+              <div>
+                <h3 className="font-semibold mb-3">🎯 Scor Exact</h3>
+                <p className="text-xs text-text-muted mb-3">Alege scorul exact pe care îl cauți (ex: 0-0, 1-1, 2-2)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Goluri Gazde</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={formData.conditions.score?.home !== undefined ? formData.conditions.score.home : ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          score: {
+                            ...formData.conditions.score,
+                            home: e.target.value === '' ? undefined : parseInt(e.target.value),
+                            type: 'exact',
+                          },
+                        },
+                      })}
+                      placeholder="ex: 0"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Goluri Oaspeți</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={formData.conditions.score?.away !== undefined ? formData.conditions.score.away : ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          score: {
+                            ...formData.conditions.score,
+                            away: e.target.value === '' ? undefined : parseInt(e.target.value),
+                            type: 'exact',
+                          },
+                        },
+                      })}
+                      placeholder="ex: 0"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+                {formData.conditions.score?.home !== undefined && formData.conditions.score?.away !== undefined && (
+                  <div className="mt-2 p-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20">
+                    <p className="text-xs text-accent-cyan">Scor cautat: <strong>{formData.conditions.score.home}-{formData.conditions.score.away}</strong></p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

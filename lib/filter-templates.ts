@@ -31,18 +31,132 @@ export interface FilterTemplate {
 
 export const FILTER_TEMPLATES: FilterTemplate[] = [
   // ============================================
-  // POPULAR / BEST PERFORMERS
+  // PREDICTIVE TEMPLATES (trigger at 60-70 min)
+  // ============================================
+  // These alert you at 60-70 min if the match pace suggests 9+ corners by 90 min
+  {
+    id: 'predict-9-corners-by-70min',
+    name: '⚡ Predict: 9+ Corners by 90min (at 70min)',
+    description: 'Alert at 70min if current pace suggests 9+ total corners by end. At 70min with 5+ corners already = high chance of 9+ by 90min',
+    category: 'advanced',
+    icon: '🎯',
+    popularity: 5,
+    successRate: 71,
+    notificationEnabled: true,
+    tags: ['predictive', 'early-alert', 'corners', 'momentum'],
+    conditions: {
+      corners: {
+        min: 5,
+        team: 'total',
+      },
+      match_time: {
+        min: 65,
+        max: 75,
+      },
+    },
+  },
+  {
+    id: 'predict-11-corners-by-70min',
+    name: '⚡ Predict: 11+ Corners by 90min (at 70min)',
+    description: 'Alert at 70min if pace suggests 11+ corners by end. At 70min with 6+ corners = likely 11+ by 90min',
+    category: 'advanced',
+    icon: '🔥',
+    popularity: 4,
+    successRate: 65,
+    notificationEnabled: true,
+    tags: ['predictive', 'early-alert', 'aggressive'],
+    conditions: {
+      corners: {
+        min: 6,
+        team: 'total',
+      },
+      match_time: {
+        min: 65,
+        max: 75,
+      },
+    },
+  },
+  {
+    id: 'predict-7-corners-by-65min',
+    name: '⚡ Predict: 7+ Corners by 90min (at 65min)',
+    description: 'Alert at 65min if 4+ corners already. Most conservative early signal. Gives you more betting time.',
+    category: 'advanced',
+    icon: '💡',
+    popularity: 4,
+    successRate: 73,
+    notificationEnabled: true,
+    tags: ['predictive', 'early-alert', 'safe'],
+    conditions: {
+      corners: {
+        min: 4,
+        team: 'total',
+      },
+      match_time: {
+        min: 60,
+        max: 70,
+      },
+    },
+  },
+  
+  // ============================================
+  // GOALS PREDICTION (similar logic)
   // ============================================
   {
-    id: 'over-9-corners',
-    name: 'Over 9.5 Corners',
-    description: 'Meciuri cu peste 9 cornere totale. Cel mai popular filtru!',
-    category: 'popular',
-    icon: '🎯',
+    id: 'predict-over-2-5-goals-by-70min',
+    name: '⚡ Predict: Over 2.5 Goals (at 70min)',
+    description: 'Alert at 70min if 2+ goals already scored. Suggests 3+ goals likely by 90min.',
+    category: 'advanced',
+    icon: '⚽',
     popularity: 5,
     successRate: 68,
     notificationEnabled: true,
-    tags: ['corners', 'popular', 'high-success'],
+    tags: ['predictive', 'goals', 'early-alert'],
+    conditions: {
+      goals: {
+        min: 2,
+        team: 'total',
+      },
+      match_time: {
+        min: 65,
+        max: 75,
+      },
+    },
+  },
+  {
+    id: 'predict-over-3-5-goals-by-75min',
+    name: '⚡ Predict: Over 3.5 Goals (at 75min)',
+    description: 'Alert at 75min if 3+ goals scored. Many goals suggest aggressive match continuing.',
+    category: 'advanced',
+    icon: '🔥',
+    popularity: 3,
+    successRate: 62,
+    notificationEnabled: true,
+    tags: ['predictive', 'goals', 'aggressive'],
+    conditions: {
+      goals: {
+        min: 3,
+        team: 'total',
+      },
+      match_time: {
+        min: 70,
+        max: 80,
+      },
+    },
+  },
+  
+  // ============================================
+  // ORIGINAL POPULAR FILTERS (full-match timing)
+  // ============================================
+  {
+    id: 'over-9-corners',
+    name: 'Over 9.5 Corners (Full Match)',
+    description: 'Meciuri cu peste 9 cornere totale. Clasic - poate fi alerts și târzii în meci. Preferă versiunea predictivă.',
+    category: 'popular',
+    icon: '🎯',
+    popularity: 4,
+    successRate: 68,
+    notificationEnabled: true,
+    tags: ['corners', 'popular', 'high-success', 'full-match'],
     conditions: {
       corners: {
         min: 10,
@@ -56,14 +170,14 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
   },
   {
     id: 'over-8-corners',
-    name: 'Over 8.5 Corners',
-    description: 'Varianta mai conservatoare - peste 8 cornere',
+    name: 'Over 8.5 Corners (Full Match)',
+    description: 'Varianta mai conservatoare - peste 8 cornere pe toată durata meciului.',
     category: 'popular',
     icon: '⚽',
-    popularity: 5,
+    popularity: 4,
     successRate: 72,
     notificationEnabled: true,
-    tags: ['corners', 'safe', 'conservative'],
+    tags: ['corners', 'safe', 'conservative', 'full-match'],
     conditions: {
       corners: {
         min: 9,
@@ -77,14 +191,14 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
   },
   {
     id: 'over-11-corners',
-    name: 'Over 11.5 Corners',
-    description: 'Pentru meciuri foarte ofensive - risc mai mare, reward mai mare',
+    name: 'Over 11.5 Corners (Full Match)',
+    description: 'Pentru meciuri foarte ofensive - risc mai mare, reward mai mare. Toată durata.',
     category: 'popular',
     icon: '🔥',
-    popularity: 4,
+    popularity: 3,
     successRate: 55,
     notificationEnabled: true,
-    tags: ['corners', 'aggressive', 'high-risk'],
+    tags: ['corners', 'aggressive', 'high-risk', 'full-match'],
     conditions: {
       corners: {
         min: 12,
@@ -843,6 +957,78 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
       },
     },
   },
+  
+  // ============================================
+  // SCORE-BASED TEMPLATES (EXACT & PATTERNS)
+  // ============================================
+  {
+    id: 'under-1-goal-low-scoring',
+    name: 'Under 0.5 Goals (0-0 Scorelines)',
+    description: 'Alert dacă după 60 min sunt 0-0. Sugerează 0-0 probabil la final.',
+    category: 'goals',
+    icon: '🤐',
+    popularity: 3,
+    successRate: 54,
+    notificationEnabled: true,
+    tags: ['low-scoring', 'defensive', '0-0'],
+    conditions: {
+      goals: {
+        max: 0,
+        team: 'total',
+      },
+      match_time: {
+        min: 55,
+        max: 65,
+      },
+    },
+  },
+  {
+    id: 'draw-patterns',
+    name: 'Draw Pattern (1-1, 2-2, Equal Score)',
+    description: 'Meciuri care se termină la egalitate. 1-1, 2-2, etc.',
+    category: 'goals',
+    icon: '⚖️',
+    popularity: 3,
+    successRate: 48,
+    notificationEnabled: true,
+    tags: ['draw', 'equal-score', 'balanced'],
+    conditions: {
+      goals: {
+        min: 1,
+        max: 4,
+        team: 'total',
+      },
+      match_time: {
+        min: 70,
+        max: 85,
+      },
+    },
+  },
+  {
+    id: 'low-scoring-match',
+    name: 'Low Scoring (Under 2 Goals)',
+    description: 'Meciuri defensiv închise - sub 2 goluri totale. Defensiv match pattern.',
+    category: 'goals',
+    icon: '🔐',
+    popularity: 4,
+    successRate: 61,
+    notificationEnabled: true,
+    tags: ['low-scoring', 'defensive', 'safe'],
+    conditions: {
+      goals: {
+        max: 1,
+        team: 'total',
+      },
+      yellow_cards: {
+        max: 2,
+      },
+      match_time: {
+        min: 1,
+        max: 90,
+      },
+    },
+  },
+  
   {
     id: 'home-team-goals-high',
     name: 'Home Team Goals High',
