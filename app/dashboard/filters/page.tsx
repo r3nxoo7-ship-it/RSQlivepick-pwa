@@ -56,7 +56,7 @@ export default function FiltersPage() {
         return;
       }
       
-      // Încărcăm filtrele
+      // Loading filters
       console.log('🔍 Loading filters for user:', currentUser.id);
       const userFilters = await dbHelpers.getUserFilters(currentUser.id);
       setFilters(userFilters);
@@ -86,18 +86,18 @@ export default function FiltersPage() {
       
       if (error) {
         console.error('❌ Toggle error:', error);
-        alert(`Eroare: ${error}`);
+        alert(`Error: ${error}`);
         return;
       }
       
       console.log('✅ Filter toggled successfully:', data);
       
-      // Reîncarcă filtrele pentru a reflecta schimbarea
+      // Reload filters to reflect the change
       await loadFilters();
       
     } catch (err) {
       console.error('❌ Exception in handleToggleActive:', err);
-      alert('Eroare la schimbarea statusului');
+      alert('Error changing status');
     }
   };
   
@@ -120,18 +120,18 @@ export default function FiltersPage() {
       
       if (error) {
         console.error('❌ Delete error:', error);
-        alert(`Eroare: ${error}`);
+        alert(`Error: ${error}`);
         return;
       }
       
       console.log('✅ Filter deleted successfully');
       
-      // Reîncarcă filtrele pentru a reflecta schimbarea
+      // Reload filters to reflect the change
       await loadFilters();
       
     } catch (err) {
       console.error('❌ Exception in handleDelete:', err);
-      alert('Eroare la ștergerea filtrului');
+      alert('Error deleting filter');
     }
   };
   
@@ -156,14 +156,14 @@ export default function FiltersPage() {
   // ============================================
   
   /**
-   * Returnează numărul de condiții dintr-un filtru
+  * Return the number of conditions in a filter
    */
   const getConditionsCount = (filter: Filter): number => {
     return Object.keys(filter.conditions).length;
   };
   
   /**
-   * Returnează un preview text al condițiilor
+  * Return a text preview of conditions
    */
   const getConditionsPreview = (filter: Filter): string => {
     const conditions = filter.conditions;

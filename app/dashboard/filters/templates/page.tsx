@@ -103,7 +103,7 @@ export default function FilterTemplatesPage() {
       
       console.log('📥 Importing template:', template.name);
       
-      // Creează filtru nou din template
+      // Create new filter from template
       const result = await dbHelpers.createFilter({
         user_id: currentUser?.id || undefined,
         name: template.name,
@@ -145,7 +145,7 @@ export default function FilterTemplatesPage() {
       
     } catch (err) {
       console.error('❌ Import error:', err);
-      alert('Eroare la importarea filtrului');
+      alert('Error importing filter');
     } finally {
       setImporting(null);
     }
@@ -161,7 +161,7 @@ export default function FilterTemplatesPage() {
     
     // Validate user has proper UUID
     if (!currentUser.id || currentUser.id === 'anon' || typeof currentUser.id !== 'string' || currentUser.id.length === 0) {
-      alert('Eroare de autentificare: Vă rugăm să vă relogați.');
+      alert('Authentication error: please log in again.');
       localStorage.removeItem('rsq_user');
       router.push('/login');
       return;
@@ -268,7 +268,7 @@ export default function FilterTemplatesPage() {
               📚 Filter Templates
             </h1>
             <p className="text-text-secondary">
-              Filtre profesionale gata făcute - importă cu un click!
+              Professional ready-made filters - import with one click!
             </p>
           </div>
           
@@ -282,7 +282,7 @@ export default function FilterTemplatesPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Caută filtre... (ex: corners, cards, aggressive)"
+                  placeholder="Search filters... (ex: corners, cards, aggressive)"
                   className="input-field pl-10"
                 />
               </div>
@@ -363,12 +363,12 @@ export default function FilterTemplatesPage() {
                       {importing === template.id ? (
                         <>
                           <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                          Se importă...
+                          Importing...
                         </>
                       ) : (
                         <>
                           <Download className="w-4 h-4" />
-                          Importă Filtru
+                          Import Filter
                         </>
                       )}
                     </button>
@@ -384,7 +384,7 @@ export default function FilterTemplatesPage() {
               <div className="flex items-center gap-2">
                 <FilterIcon className="w-5 h-5 text-accent-cyan" />
                 <h2 className="text-xl font-display font-semibold">
-                  Toate filtrele ({displayedTemplates.length})
+                  All filters ({displayedTemplates.length})
                 </h2>
               </div>
             )}
@@ -402,7 +402,7 @@ export default function FilterTemplatesPage() {
               <div className="glass-card p-12 text-center">
                 <Search className="w-16 h-16 text-text-muted mx-auto mb-4" />
                 <h3 className="text-xl font-display font-semibold mb-2">
-                  Nu am găsit filtre
+                  No filters found
                 </h3>
                 <p className="text-text-secondary">
                   Încearcă alt termen de căutare sau categorie
@@ -466,12 +466,12 @@ export default function FilterTemplatesPage() {
                         {importing === template.id ? (
                           <>
                             <div className="w-4 h-4 rounded-full border-2 border-accent-cyan border-t-transparent animate-spin" />
-                            Se importă...
+                            Importing...
                           </>
                         ) : (
                           <>
                             <Download className="w-4 h-4" />
-                            Importă
+                            Import
                           </>
                         )}
                       </button>
@@ -489,9 +489,9 @@ export default function FilterTemplatesPage() {
             </h3>
             <ul className="space-y-2 text-sm text-text-muted">
               <li>• Browse template-urile și alege pe cele care ți se potrivesc</li>
-              <li>• Click &quot;Importă&quot; - filtrul se adaugă instant în Filtrele Tale</li>
-              <li>• Template-ul devine filtrul tău - îl poți modifica oricând</li>
-              <li>• Notificările se activează automat pentru filtre populare</li>
+              <li>• Click &quot;Import&quot; - the filter is added instantly to Your Filters</li>
+              <li>• The template becomes your filter - you can modify it anytime</li>
+              <li>• Notifications are enabled automatically for popular filters</li>
               <li>• Success Rate e bazat pe performanța istorică (când e disponibil)</li>
             </ul>
           </div>
@@ -508,7 +508,7 @@ export default function FilterTemplatesPage() {
               onClick={() => router.push('/dashboard/filters/new')}
               className="btn-primary"
             >
-              ✨ Creează Filtru Custom
+              ✨ Create Custom Filter
             </button>
           </div>
         </div>

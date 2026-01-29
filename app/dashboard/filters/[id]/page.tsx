@@ -84,12 +84,12 @@ export default function FilterEditPage() {
       const filterData = await dbHelpers.getFilterById(filterId);
       
       if (!filterData) {
-        setError('Filtrul nu a fost găsit');
+        setError('Filter not found');
         return;
       }
       
       if (filterData.user_id !== user.id) {
-        setError('Nu ai permisiunea să editezi acest filtru');
+        setError('You do not have permission to edit this filter');
         return;
       }
       
@@ -105,7 +105,7 @@ export default function FilterEditPage() {
       
     } catch (err) {
       console.error('Error loading filter:', err);
-      setError('Eroare la încărcarea filtrului');
+      setError('Error loading filter');
     } finally {
       setLoading(false);
     }
@@ -117,7 +117,7 @@ export default function FilterEditPage() {
   
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      setError('Te rog introdu un nume pentru filtru');
+      setError('Please enter a name for the filter');
       return;
     }
     
@@ -142,12 +142,12 @@ export default function FilterEditPage() {
       });
       
       if (error) {
-        setError(`Eroare: ${error}`);
+        setError(`Error: ${error}`);
         setSaving(false);
         return;
       }
-      
-      setSuccess('✅ Filtru salvat cu succes!');
+
+      setSuccess('✅ Filter saved successfully!');
       
       setTimeout(() => {
         router.push('/dashboard/filters');
@@ -155,14 +155,14 @@ export default function FilterEditPage() {
       
     } catch (err: any) {
       console.error('Error saving filter:', err);
-      setError(err?.message || 'Eroare la salvarea filtrului');
+      setError(err?.message || 'Error saving filter');
     } finally {
       setSaving(false);
     }
   };
   
   const handleDelete = async () => {
-    if (!confirm('Ești sigur că vrei să ștergi acest filtru?')) {
+    if (!confirm('Are you sure you want to delete this filter?')) {
       return;
     }
     
@@ -172,7 +172,7 @@ export default function FilterEditPage() {
       const { error } = await dbHelpers.deleteFilter(filterId);
       
       if (error) {
-        setError(`Eroare: ${error}`);
+        setError(`Error: ${error}`);
         setDeleting(false);
         return;
       }
@@ -180,7 +180,7 @@ export default function FilterEditPage() {
       router.push('/dashboard/filters');
     } catch (err: any) {
       console.error('Error deleting filter:', err);
-      setError(err?.message || 'Eroare la ștergerea filtrului');
+      setError(err?.message || 'Error deleting filter');
       setDeleting(false);
     }
   };
@@ -214,7 +214,7 @@ export default function FilterEditPage() {
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-accent-cyan mx-auto mb-4" />
-            <p className="text-text-secondary">Se încarcă filtrul...</p>
+            <p className="text-text-secondary">Loading filter...</p>
           </div>
         </div>
       </AuthWrapper>
@@ -233,7 +233,7 @@ export default function FilterEditPage() {
               className="btn-secondary mt-4"
             >
               <ArrowLeft className="w-4 h-4" />
-              Înapoi la filtre
+              Back to filters
             </button>
           </div>
         </div>
@@ -249,19 +249,19 @@ export default function FilterEditPage() {
           {/* ========== HEADER ========== */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
+                <button
                 onClick={() => router.push('/dashboard/filters')}
                 className="btn-secondary"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Înapoi
+                Back
               </button>
               <div>
                 <h1 className="text-3xl font-display font-bold gradient-text">
-                  Editează Filtru
+                  Edit Filter
                 </h1>
                 <p className="text-text-secondary text-sm mt-1">
-                  Modifică setările filtrului
+                  Edit filter settings
                 </p>
               </div>
             </div>
@@ -274,12 +274,12 @@ export default function FilterEditPage() {
               {deleting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Se șterge...
+                  Deleting...
                 </>
               ) : (
                 <>
                   <Trash2 className="w-4 h-4" />
-                  Șterge
+                  Delete
                 </>
               )}
             </button>
@@ -311,13 +311,13 @@ export default function FilterEditPage() {
           {/* ========== BASIC INFO ========== */}
           <div className="glass-card p-6">
             <h2 className="text-xl font-display font-semibold mb-4">
-              Informații Generale
+              General Information
             </h2>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold mb-2">
-                  Nume Filtru *
+                  Filter Name *
                 </label>
                 <input
                   type="text"
@@ -330,12 +330,12 @@ export default function FilterEditPage() {
               
               <div>
                 <label className="block text-sm font-semibold mb-2">
-                  Descriere (opțional)
+                  Description (optional)
                 </label>
-                <textarea
+                  <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descrie acest filtru..."
+                  placeholder="Describe this filter..."
                   rows={3}
                   className="input-field resize-none"
                 />
@@ -350,9 +350,9 @@ export default function FilterEditPage() {
                     className="w-5 h-5 rounded border-glass-medium checked:bg-accent-cyan"
                   />
                   <div>
-                    <p className="font-semibold">Filtru Activ</p>
+                    <p className="font-semibold">Active Filter</p>
                     <p className="text-sm text-text-muted">
-                      Scanner-ul va verifica acest filtru
+                      Scanner will check this filter
                     </p>
                   </div>
                 </label>
@@ -363,16 +363,16 @@ export default function FilterEditPage() {
           {/* ========== CONDITIONS ========== */}
           <div className="glass-card p-6">
             <h2 className="text-xl font-display font-semibold mb-4">
-              Condiții Filtru
+              Filter Conditions
             </h2>
             
             <div className="space-y-6">
               {/* Corners */}
               <div>
-                <h3 className="font-semibold mb-3">⚽ Cornere</h3>
+                <h3 className="font-semibold mb-3">⚽ Corners</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
                     <input
                       type="number"
                       value={formData.conditions.corners?.min || ''}
@@ -382,7 +382,7 @@ export default function FilterEditPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.corners?.max || ''}
@@ -396,7 +396,7 @@ export default function FilterEditPage() {
               
               {/* Shots on Target */}
               <div>
-                <h3 className="font-semibold mb-3">🎯 Șuturi pe Poartă</h3>
+                <h3 className="font-semibold mb-3">🎯 Shots on Target</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-text-muted mb-2">Minim</label>
@@ -531,7 +531,7 @@ export default function FilterEditPage() {
               
               {/* Goals */}
               <div>
-                <h3 className="font-semibold mb-3">⚽ Goluri</h3>
+                <h3 className="font-semibold mb-3">⚽ Goals</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-text-muted mb-2">Minim</label>
@@ -558,7 +558,7 @@ export default function FilterEditPage() {
               
               {/* Possession */}
               <div>
-                <h3 className="font-semibold mb-3">📊 Posesie (%)</h3>
+                <h3 className="font-semibold mb-3">📊 Possession (%)</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-text-muted mb-2">Minim</label>
@@ -589,7 +589,7 @@ export default function FilterEditPage() {
                 <p className="text-xs text-text-muted mb-3">Alege scorul exact pe care îl cauți (ex: 0-0, 1-1, 2-2)</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Goluri Gazde</label>
+                    <label className="block text-sm text-text-muted mb-2">Home Goals</label>
                     <input
                       type="number"
                       min="0"
@@ -611,7 +611,7 @@ export default function FilterEditPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Goluri Oaspeți</label>
+                    <label className="block text-sm text-text-muted mb-2">Away Goals</label>
                     <input
                       type="number"
                       min="0"
@@ -704,17 +704,17 @@ export default function FilterEditPage() {
               disabled={saving || !formData.name.trim()}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Se salvează...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Salvează Modificările
-                </>
-              )}
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save Changes
+                    </>
+                  )}
             </button>
           </div>
           
