@@ -50,6 +50,15 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
         min: 70,
         max: 80,
       },
+      shots_on_target: {
+        min: 2,
+      },
+      dangerous_attacks: {
+        min: 8,
+      },
+      odds: {
+        max: 3.5,
+      },
     },
   },
   {
@@ -71,6 +80,12 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
         min: 65,
         max: 75,
       },
+      shots_on_target: {
+        min: 1,
+      },
+      possession: {
+        min: 45,
+      },
     },
   },
   {
@@ -91,6 +106,9 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
       match_time: {
         min: 55,
         max: 65,
+      },
+      total_shots: {
+        min: 6,
       },
     },
   },
@@ -162,6 +180,12 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
       match_time: {
         min: 65,
         max: 75,
+      },
+      shots_on_target: {
+        min: 4,
+      },
+      dangerous_attacks: {
+        min: 10,
       },
     },
   },
