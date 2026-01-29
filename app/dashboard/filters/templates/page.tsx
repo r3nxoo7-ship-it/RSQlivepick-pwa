@@ -492,7 +492,7 @@ export default function FilterTemplatesPage() {
               onClick={() => router.push('/dashboard/filters')}
               className="btn-secondary"
             >
-              ← Vezi Filtrele Mele
+              ← View My Filters
             </button>
             <button
               onClick={() => router.push('/dashboard/filters/new')}

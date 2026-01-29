@@ -207,10 +207,10 @@ export default function FiltersPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-display font-bold gradient-text mb-2">
-                🎯 Filtrele Mele
+                🎯 My Filters
               </h1>
               <p className="text-text-secondary">
-                Creează și gestionează filtre personalizate pentru meciuri
+                Create and manage custom filters for matches
               </p>
             </div>
             

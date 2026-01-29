@@ -45,7 +45,7 @@ export default function LoginPage() {
         router.refresh(); // Forțează reîncărcarea pentru middleware
       }
     } catch (err) {
-      setError('Eroare la autentificare. Încearcă din nou.');
+      setError('Authentication error. Please try again.');
       setLoading(false);
     }
   };
@@ -97,7 +97,7 @@ export default function LoginPage() {
             {/* Username Input */}
             <div>
               <label htmlFor="username" className="block text-sm font-display text-text-secondary mb-2">
-                Nume utilizator
+                Username
               </label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -160,22 +160,22 @@ export default function LoginPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Autentificare...
+                Authenticating...
               </span>
             ) : (
-              <span>Intră în cont</span>
+              <span>Sign In</span>
             )}
           </button>
 
           {/* Register Link */}
           <p className="text-center text-sm text-text-muted">
-            Nu ai cont?{' '}
+            Don&apos;t have an account?{' '}
             <button
               type="button"
               onClick={() => router.push('/register')}
               className="text-accent-cyan hover:text-accent-cyan/80 font-semibold transition-colors"
             >
-              Crează acum
+              Create now
             </button>
           </p>
 

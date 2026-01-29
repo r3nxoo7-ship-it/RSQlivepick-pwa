@@ -227,7 +227,7 @@ export default function LiveMatchesPage() {
     if (!scannerEnabled && !notificationsReady) {
       const granted = await requestNotificationPermission();
       if (!granted) {
-        alert('Trebuie să acorzi permisiune pentru notificări pentru a activa scanner-ul!');
+        alert('You must grant notification permission to enable the scanner!');
         return;
       }
       setNotificationsReady(true);
@@ -254,9 +254,9 @@ export default function LiveMatchesPage() {
               </h1>
               <p className="text-text-secondary">
                 {lastUpdate ? (
-                  <>Ultimul update: {lastUpdate.toLocaleTimeString()}</>
+                  <>Last update: {lastUpdate.toLocaleTimeString()}</>
                 ) : (
-                  'Se încarcă meciuri...'
+                  'Loading matches...'
                 )}
               </p>
             </div>
@@ -274,15 +274,15 @@ export default function LiveMatchesPage() {
           {/* ========== STATS BAR ========== */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="stat-card">
-              <div className="stat-label">Meciuri Live</div>
+              <div className="stat-label">Live Matches</div>
               <div className="stat-value">{matches.length}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Cu Filtre</div>
+              <div className="stat-label">With Filters</div>
               <div className="stat-value text-accent-green">{matchesWithFilters}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Filtre Active</div>
+              <div className="stat-label">Active Filters</div>
               <div className="stat-value">{activeFiltersCount}</div>
             </div>
             <div className="stat-card">
@@ -290,7 +290,7 @@ export default function LiveMatchesPage() {
               <div className="stat-value text-accent-amber">{scannerStats.totalScans}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Notificări</div>
+              <div className="stat-label">Notifications</div>
               <div className="stat-value text-accent-purple">{scannerStats.notificationsSent}</div>
             </div>
           </div>
@@ -309,19 +309,19 @@ export default function LiveMatchesPage() {
                   <h3 className="font-display font-semibold text-lg">
                     Auto-Scanner
                     {scannerStats.isScanning && (
-                      <span className="ml-2 text-sm text-accent-cyan">Scanează...</span>
+                      <span className="ml-2 text-sm text-accent-cyan">Scanning...</span>
                     )}
                   </h3>
                   <p className="text-xs sm:text-sm text-text-muted">
                     {scannerEnabled ? (
                       <>
-                        ✅ Activ - scanează automat la 45s
+                        ✅ Active - auto-scanning every 45s
                         {scannerStats.lastScanTime && (
-                          <> • Ultimul: {scannerStats.lastScanTime.toLocaleTimeString()}</>
+                          <> • Last: {scannerStats.lastScanTime.toLocaleTimeString()}</>
                         )}
                       </>
                     ) : (
-                      'Dezactivat - activează pentru notificări automate'
+                      'Disabled - enable for automatic notifications'
                     )}
                   </p>
                 </div>
@@ -467,9 +467,9 @@ export default function LiveMatchesPage() {
               
               <span className="text-text-muted text-sm ml-auto">
                 {activeFiltersCount === 0 ? (
-                  '💡 Creează filtre în secțiunea Filtre'
+                  '💡 Create filters in the Filters section'
                 ) : (
-                  `✅ ${activeFiltersCount} filtre active`
+                  `✅ ${activeFiltersCount} active filters`
                 )}
               </span>
             </div>
@@ -530,12 +530,12 @@ export default function LiveMatchesPage() {
               </h3>
               <p className="text-text-secondary mb-4">
                 {matches.length > 0 
-                  ? 'Niciun meci nu match-uiește filtrul selectat.'
-                  : 'Încearcă din nou când sunt meciuri programate (de obicei după-amiază/seară).'}
+                  ? 'No matches match the selected filter.'
+                  : 'Try again when matches are scheduled (usually afternoon/evening).'}
               </p>
               <button onClick={handleRefresh} className="btn-primary">
                 <RefreshCw className="w-4 h-4 inline mr-2" />
-                Verifică din nou
+                Check Again
               </button>
             </div>
           )}

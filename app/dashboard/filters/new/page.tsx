@@ -136,7 +136,7 @@ export default function CompleteFilterBuilder() {
       attacksEnabled || possessionEnabled || substitutionsEnabled;
     
     if (!hasAnyCondition) {
-      setError('❌ Trebuie să selectezi cel puțin o condiție pentru filtru');
+      setError('❌ You must select at least one condition for the filter');
       return;
     }
     
@@ -147,47 +147,47 @@ export default function CompleteFilterBuilder() {
     
     // Validar time range
     if (timeEnabled && timeMode === 'between' && timeValue.min > timeValue.max) {
-      validationErrors.push('Timp: min nu poate fi mai mare decât max');
+      validationErrors.push('Time: min cannot be greater than max');
     }
     
     // Validar corners
     if (cornersEnabled) {
       if (corners.total_min !== undefined && corners.total_max !== undefined && corners.total_min > corners.total_max) {
-        validationErrors.push('Cornuri (total): min nu poate fi mai mare decât max');
+        validationErrors.push('Corners (total): min cannot be greater than max');
       }
       if (corners.home_min !== undefined && corners.home_max !== undefined && corners.home_min > corners.home_max) {
-        validationErrors.push('Cornuri (acasă): min nu poate fi mai mare decât max');
+        validationErrors.push('Corners (home): min cannot be greater than max');
       }
       if (corners.away_min !== undefined && corners.away_max !== undefined && corners.away_min > corners.away_max) {
-        validationErrors.push('Cornuri (oaspeți): min nu poate fi mai mare decât max');
+        validationErrors.push('Corners (away): min cannot be greater than max');
       }
     }
     
     // Validar shots
     if (shotsEnabled) {
       if (shots.total_min !== undefined && shots.total_max !== undefined && shots.total_min > shots.total_max) {
-        validationErrors.push('Șuturi (total): min nu poate fi mai mare decât max');
+        validationErrors.push('Shots (total): min cannot be greater than max');
       }
     }
     
     // Validar shots on target
     if (shotsOnTargetEnabled) {
       if (shotsOnTarget.total_min !== undefined && shotsOnTarget.total_max !== undefined && shotsOnTarget.total_min > shotsOnTarget.total_max) {
-        validationErrors.push('Șuturi pe poartă (total): min nu poate fi mai mare decât max');
+        validationErrors.push('Shots on target (total): min cannot be greater than max');
       }
     }
     
     // Validar yellow cards
     if (yellowCardsEnabled) {
       if (yellowCards.total_min !== undefined && yellowCards.total_max !== undefined && yellowCards.total_min > yellowCards.total_max) {
-        validationErrors.push('Cartonașe galbene (total): min nu poate fi mai mare decât max');
+        validationErrors.push('Yellow cards (total): min cannot be greater than max');
       }
     }
     
     // Validar red cards
     if (redCardsEnabled) {
       if (redCards.total_min !== undefined && redCards.total_max !== undefined && redCards.total_min > redCards.total_max) {
-        validationErrors.push('Cartonașe roșii (total): min nu poate fi mai mare decât max');
+        validationErrors.push('Red cards (total): min cannot be greater than max');
       }
     }
     

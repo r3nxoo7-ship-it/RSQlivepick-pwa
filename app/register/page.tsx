@@ -49,13 +49,13 @@ export default function RegisterPage() {
     setLoading(true);
 
     if (password !== confirmPassword) {
-      setError('Parolele nu se potrivesc!');
+      setError('Passwords do not match!');
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setError('Parola trebuie să aibă minim 6 caractere!');
+      setError('Password must be at least 6 characters!');
       setLoading(false);
       return;
     }
@@ -79,11 +79,11 @@ export default function RegisterPage() {
         setStep(2);
         setLoading(false);
       } else {
-        setError(result.error || 'Eroare la înregistrare');
+        setError(result.error || 'Registration error');
         setLoading(false);
       }
     } catch (err) {
-      setError('Eroare la conectare');
+      setError('Connection error');
       setLoading(false);
     }
   };
@@ -273,7 +273,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full btn-primary py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
             >
-              {loading ? 'Se procesează...' : 'Înregistrare'}
+              {loading ? 'Processing...' : 'Register'}
               {!loading && <ChevronRight className="w-5 h-5" />}
             </button>
 
@@ -300,9 +300,9 @@ export default function RegisterPage() {
           >
             <div>
               <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
-                Notificări
+                Notifications
               </h2>
-              <p className="text-text-muted text-sm">Pasul 2 din 4</p>
+              <p className="text-text-muted text-sm">Step 2 of 4</p>
             </div>
 
             <div className="bg-glass-light rounded-xl p-6 border border-glass-medium space-y-4">
@@ -310,10 +310,10 @@ export default function RegisterPage() {
                 <Bell className="w-6 h-6 text-accent-amber mt-1 flex-shrink-0" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-text-primary mb-1">
-                    Activează Notificări Web
+                    Enable Web Notifications
                   </h3>
                   <p className="text-sm text-text-muted">
-                    Primește alerte în timp real când se găsesc meciuri potrivite
+                    Get real-time alerts when matching matches are found
                   </p>
                 </div>
               </div>
@@ -325,7 +325,7 @@ export default function RegisterPage() {
                   onChange={(e) => setEnableNotifications(e.target.checked)}
                   className="w-5 h-5 rounded accent-cyan cursor-pointer"
                 />
-                <span className="text-sm font-medium">Activează notificări</span>
+                <span className="text-sm font-medium">Enable notifications</span>
               </label>
             </div>
 
@@ -357,9 +357,9 @@ export default function RegisterPage() {
           >
             <div>
               <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
-                Conectează Telegram
+                Connect Telegram
               </h2>
-              <p className="text-text-muted text-sm">Pasul 3 din 4</p>
+              <p className="text-text-muted text-sm">Step 3 of 4</p>
             </div>
 
             <div className="bg-glass-light rounded-xl p-6 border border-glass-medium space-y-4">
@@ -367,10 +367,10 @@ export default function RegisterPage() {
                 <MessageCircle className="w-6 h-6 text-accent-cyan mt-1 flex-shrink-0" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-text-primary mb-1">
-                    Notificări Telegram
+                    Telegram Notifications
                   </h3>
                   <p className="text-sm text-text-muted">
-                    Primește alerte direct pe Telegram pentru matches și filtre
+                    Get alerts directly on Telegram for matches and filters
                   </p>
                 </div>
               </div>
@@ -378,7 +378,7 @@ export default function RegisterPage() {
               {enableTelegram && (
                 <div className="mt-4">
                   <label className="block text-sm font-display text-text-secondary mb-2">
-                    Username Telegram
+                    Telegram Username
                   </label>
                   <div className="relative">
                     <MessageCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -400,7 +400,7 @@ export default function RegisterPage() {
                   onChange={(e) => setEnableTelegram(e.target.checked)}
                   className="w-5 h-5 rounded accent-cyan cursor-pointer"
                 />
-                <span className="text-sm font-medium">Activează Telegram</span>
+                <span className="text-sm font-medium">Enable Telegram</span>
               </label>
             </div>
 
@@ -409,13 +409,13 @@ export default function RegisterPage() {
                 onClick={handleSkipTelegram}
                 className="flex-1 btn-secondary py-3 rounded-lg font-semibold transition-all"
               >
-                Sări
+                Skip
               </button>
               <button
                 onClick={() => setStep(4)}
                 className="flex-1 btn-primary py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
               >
-                Continuă
+                Continue
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
@@ -441,14 +441,14 @@ export default function RegisterPage() {
 
             <div>
               <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
-                Gata!
+                Done!
               </h2>
-              <p className="text-text-muted text-sm">Pasul 4 din 4</p>
+              <p className="text-text-muted text-sm">Step 4 of 4</p>
             </div>
 
             <div className="bg-glass-light rounded-xl p-4 border border-glass-medium">
               <p className="text-sm text-text-secondary">
-                Contul {username} a fost creat cu succes! ✨
+                Account {username} has been created successfully! ✨
               </p>
             </div>
 
@@ -457,7 +457,7 @@ export default function RegisterPage() {
               className="w-full btn-primary py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
             >
               <LogIn className="w-5 h-5" />
-              Loghează-te Acum
+              Login Now
             </button>
           </motion.div>
         )}
