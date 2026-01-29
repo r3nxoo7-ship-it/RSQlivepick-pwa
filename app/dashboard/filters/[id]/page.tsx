@@ -5,7 +5,7 @@
 // ============================================
 // Edit existing filters with Telegram support
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -66,33 +66,29 @@ export default function FilterEditPage() {
   // LOAD FILTER
   // ============================================
   
-  useEffect(() => {
-    loadFilter();
-  }, [filterId]);
-  
-  const loadFilter = async () => {
+  const loadFilter = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const user = authHelpers.getCurrentUser();
       if (!user) {
         router.push('/login');
         return;
       }
-      
+
       const filterData = await dbHelpers.getFilterById(filterId);
-      
+
       if (!filterData) {
         setError('Filter not found');
         return;
       }
-      
+
       if (filterData.user_id !== user.id) {
         setError('You do not have permission to edit this filter');
         return;
       }
-      
+
       setFilter(filterData);
       setFormData({
         name: filterData.name,
@@ -102,14 +98,18 @@ export default function FilterEditPage() {
         telegram_enabled: filterData.telegram_enabled || false,
         conditions: filterData.conditions,
       });
-      
+
     } catch (err) {
       console.error('Error loading filter:', err);
       setError('Error loading filter');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterId, router]);
+
+  useEffect(() => {
+    loadFilter();
+  }, [loadFilter]);
   
   // ============================================
   // HANDLERS

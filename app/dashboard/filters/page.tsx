@@ -5,7 +5,7 @@
 // ============================================
 // TOATE funcțiile CRUD implementate complet
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -40,27 +40,18 @@ export default function FiltersPage() {
   // LOAD FILTERS
   // ============================================
   
-  useEffect(() => {
-    loadFilters();
-  }, []);
-  
-  const loadFilters = async () => {
+  const loadFilters = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
     try {
-      // Obținem user-ul curent
       const currentUser = authHelpers.getCurrentUser();
       if (!currentUser) {
         router.push('/login');
         return;
       }
-      
-      // Loading filters
       console.log('🔍 Loading filters for user:', currentUser.id);
       const userFilters = await dbHelpers.getUserFilters(currentUser.id);
       setFilters(userFilters);
-      
       console.log(`✅ Loaded ${userFilters.length} filters`);
     } catch (err) {
       console.error('❌ Error loading filters:', err);
@@ -68,7 +59,11 @@ export default function FiltersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    loadFilters();
+  }, [loadFilters]);
   
   // ============================================
   // HANDLERS - VERSIUNE COMPLETĂ
@@ -214,32 +209,8 @@ export default function FiltersPage() {
               </p>
             </div>
 
-            {/* Three symmetrical buttons: Create / Super / Templates */}
-            <div className="flex gap-3 items-center">
-              <button
-                onClick={handleCreateNew}
-                className="btn-primary flex-1 text-center px-4 py-3 rounded-lg"
-                title="Create a new filter"
-              >
-                Create Filter
-              </button>
-
-              <button
-                onClick={() => router.push('/dashboard/filters/new?mode=super')}
-                className="btn-secondary flex-1 text-center px-4 py-3 rounded-lg"
-                title="Create a super filter by combining existing filters"
-              >
-                Super Filter
-              </button>
-
-              <button
-                onClick={() => router.push('/dashboard/filters/templates')}
-                className="btn-ghost flex-1 text-center px-4 py-3 rounded-lg"
-                title="Browse predefined templates"
-              >
-                Templates
-              </button>
-            </div>
+            {/* Header actions moved to the quick toolbar below for better spacing */}
+            <div />
           </div>
           
           {/* ========== STATS ========== */}
@@ -278,32 +249,40 @@ export default function FiltersPage() {
             </div>
           )}
 
-          {/* ========== QUICK SETUP CARD ========== */}
+          {/* ========== ACTIONS TOOLBAR ========== */}
           {!loading && !error && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-card p-6 bg-gradient-to-br from-accent-cyan/5 to-transparent border border-accent-cyan/20"
+              className="glass-card p-4 border border-glass-medium"
             >
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-lg bg-accent-cyan/10 text-accent-cyan flex-shrink-0">
-                  <Plus className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold mb-2">Create New Filter</h3>
-                  <p className="text-sm text-text-secondary mb-4">
-                    Build a custom filter from scratch or choose from our templates to match exactly what you&apos;re looking for.
-                  </p>
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={handleCreateNew}
-                      className="btn-primary flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create from Scratch
-                    </button>
-                  </div>
-                </div>
+              <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <button
+                  onClick={handleCreateNew}
+                  className="flex-1 text-center px-4 py-3 rounded-md border border-accent-cyan bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/15 transition-colors"
+                  title="Create a new filter"
+                >
+                  <Plus className="w-4 h-4 inline mr-2" />
+                  Create Filter
+                </button>
+
+                <button
+                  onClick={() => router.push('/dashboard/filters/new?mode=super')}
+                  className="flex-1 text-center px-4 py-3 rounded-md border border-glass-medium hover:bg-glass-light transition-colors"
+                  title="Create a super filter by combining existing filters"
+                >
+                  <span className="inline mr-2">🔗</span>
+                  Super Filter
+                </button>
+
+                <button
+                  onClick={() => router.push('/dashboard/filters/templates')}
+                  className="flex-1 text-center px-4 py-3 rounded-md border border-glass-medium hover:bg-glass-light transition-colors"
+                  title="Browse predefined templates"
+                >
+                  <span className="inline mr-2">📚</span>
+                  Templates
+                </button>
               </div>
             </motion.div>
           )}

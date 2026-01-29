@@ -65,13 +65,38 @@ export default function AnalyticsPage() {
   // ============================================
   
   useEffect(() => {
-    loadAnalytics();
-  }, []);
-  
+    (async () => {
+      setLoading(true);
+      try {
+        const user = authHelpers.getCurrentUser();
+        if (!user) {
+          router.push('/login');
+          return;
+        }
+        const userFilters = await dbHelpers.getUserFilters(user.id);
+        setFilters(userFilters);
+      } catch (err) {
+        console.error('Error loading analytics:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [router]);
+
   useEffect(() => {
-    if (filters.length > 0) {
-      calculateStats();
-    }
+    if (filters.length === 0) return;
+
+    // calculateStats inline to avoid missing-deps lint
+    const overall = calculateAllFiltersStats(filters);
+    setOverallStats(overall);
+
+    const categories = categorizeFilters(filters);
+    setCategoryStats(categories);
+
+    const trend = generatePerformanceTrend(filters, timeRange);
+    setTrendData(trend);
+
+    setTopFilters(overall.topPerformers);
   }, [filters, timeRange]);
   
   const loadAnalytics = async () => {

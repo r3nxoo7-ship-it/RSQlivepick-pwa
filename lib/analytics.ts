@@ -8,19 +8,6 @@ import { Filter } from './supabase';
 // ============================================
 // TYPES
 // ============================================
-
-export interface FilterStats {
-  filterId: string;
-  filterName: string;
-  totalTriggers: number;
-  successRate: number;
-  avgTriggersPerDay: number;
-  lastTriggered: string | null;
-  isActive: boolean;
-  notificationsEnabled: boolean;
-  telegramEnabled: boolean;
-}
-
 export interface PerformanceData {
   date: string;
   triggers: number;
@@ -33,6 +20,18 @@ export interface CategoryStats {
   shots: number;
   cards: number;
   mixed: number;
+}
+
+export interface FilterStats {
+  filterId: string | number;
+  filterName: string;
+  totalTriggers: number;
+  successRate: number;
+  avgTriggersPerDay: number;
+  lastTriggered?: string | null;
+  isActive: boolean;
+  notificationsEnabled: boolean;
+  telegramEnabled: boolean;
 }
 
 // ============================================
@@ -267,7 +266,7 @@ export function exportToCSV(filters: Filter[]): string {
 // EXPORT
 // ============================================
 
-export default {
+const analyticsLib = {
   calculateFilterStats,
   calculateAllFiltersStats,
   categorizeFilters,
@@ -280,3 +279,5 @@ export default {
   getPerformanceRating,
   exportToCSV,
 };
+
+export default analyticsLib;

@@ -238,7 +238,7 @@ export async function checkNotificationStatus(): Promise<{
 // EXPORT
 // ============================================
 
-export default {
+const notificationsLib = {
   isNotificationSupported,
   getNotificationPermission,
   requestNotificationPermission,
@@ -247,6 +247,8 @@ export default {
   sendTestNotification,
   checkNotificationStatus,
 };
+
+export default notificationsLib;
 
 // ============================================
 // USAGE EXAMPLES

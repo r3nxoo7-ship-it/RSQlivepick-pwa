@@ -14,7 +14,12 @@ import {
   CheckCircle, 
   AlertCircle,
   Send,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  XCircle,
+  Copy,
+  ExternalLink,
+  Loader2,
+  MessageCircle,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import {
@@ -23,6 +28,14 @@ import {
   sendTestNotification,
   sendMatchNotification,
 } from '@/lib/notifications';
+
+import { authHelpers, dbHelpers } from '@/lib/supabase';
+import {
+  testTelegramConnection,
+  verifyTelegramChatId,
+  sendTelegramMessage,
+  isTelegramConfigured,
+} from '@/lib/telegram';
 
 // ============================================
 // COMPONENTA PRINCIPALĂ
@@ -42,6 +55,20 @@ export default function NotificationSettingsPage() {
   
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // ===== Telegram tab state =====
+  const [activeTab, setActiveTab] = useState<'push' | 'telegram'>('push');
+
+  const [tgLoading, setTgLoading] = useState(true);
+  const [tgUser, setTgUser] = useState<any>(null);
+  const [tgProfile, setTgProfile] = useState<any>(null);
+  const [chatId, setChatId] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [botInfo, setBotInfo] = useState<any>(null);
+  const [configured, setConfigured] = useState(false);
+  const [tgError, setTgError] = useState<string | null>(null);
+  const [tgSuccess, setTgSuccess] = useState<string | null>(null);
   
   // ============================================
   // LOAD STATUS
@@ -50,12 +77,147 @@ export default function NotificationSettingsPage() {
   useEffect(() => {
     loadNotificationStatus();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'telegram') {
+      loadTelegramSettings();
+    }
+  }, [activeTab]);
   
   const loadNotificationStatus = async () => {
     const status = await checkNotificationStatus();
     setNotificationStatus(status);
     
     console.log('📊 Notification status:', status);
+  };
+
+  // ===== Telegram handlers =====
+  const handleVerify = async () => {
+    if (!chatId) {
+      setTgError('Please enter your Chat ID');
+      return;
+    }
+    setVerifying(true);
+    setTgError(null);
+    setTgSuccess(null);
+    try {
+      const result = await verifyTelegramChatId(chatId);
+      if (!result.success) {
+        setTgError(result.error || 'Verification failed');
+        return;
+      }
+      setTgSuccess(`✅ Verified! Connected to ${result.user?.first_name || 'User'}`);
+    } catch (err) {
+      console.error('Error verifying:', err);
+      setTgError('Verification failed');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleTestMessage = async () => {
+    if (!chatId) {
+      setTgError('Please enter and verify your Chat ID first');
+      return;
+    }
+    setTesting(true);
+    setTgError(null);
+    setTgSuccess(null);
+    try {
+      const message = `\n🎯 <b>R$Q Test Notification</b>\n\n✅ Telegram integration is working!\n\nYou will receive notifications here when your filters match live matches.\n\n💡 Make sure to enable Telegram notifications in your filter settings.`.trim();
+      const result = await sendTelegramMessage(chatId, message, 'HTML');
+      if (!result.success) {
+        setTgError(result.error || 'Failed to send test message');
+        return;
+      }
+      setTgSuccess('✅ Test message sent! Check your Telegram!');
+    } catch (err) {
+      console.error('Error sending test:', err);
+      setTgError('Failed to send test message');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!tgUser || !chatId) return;
+    setSaving(true);
+    setTgError(null);
+    setTgSuccess(null);
+    try {
+      const { error: updateError } = await dbHelpers.updateUserProfile(tgUser.id, {
+        telegram_chat_id: chatId,
+        telegram_enabled: true,
+        telegram_verified_at: new Date().toISOString(),
+      });
+      if (updateError) {
+        setTgError(updateError);
+        return;
+      }
+      setTgSuccess('✅ Telegram settings saved!');
+      const updated = await dbHelpers.getUserProfile(tgUser.id);
+      setTgProfile(updated);
+    } catch (err) {
+      console.error('Error saving:', err);
+      setTgError('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!tgUser) return;
+    if (!confirm('Are you sure you want to disconnect Telegram?')) return;
+    setSaving(true);
+    try {
+      const { error: updateError } = await dbHelpers.updateUserProfile(tgUser.id, {
+        telegram_chat_id: null,
+        telegram_enabled: false,
+        telegram_verified_at: null,
+      });
+      if (updateError) {
+        setTgError(updateError);
+        return;
+      }
+      setChatId('');
+      setTgSuccess('Telegram disconnected');
+    } catch (err) {
+      console.error('Error disconnecting:', err);
+      setTgError('Failed to disconnect');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setTgSuccess('Copied to clipboard!');
+    setTimeout(() => setTgSuccess(null), 2000);
+  };
+
+  // ===== Telegram load =====
+  const loadTelegramSettings = async () => {
+    setTgLoading(true);
+    setTgError(null);
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) return;
+      setTgUser(currentUser);
+
+      const userProfile = await dbHelpers.getUserProfile(currentUser.id);
+      setTgProfile(userProfile);
+      if (userProfile?.telegram_chat_id) setChatId(userProfile.telegram_chat_id);
+
+      const result = await testTelegramConnection();
+      setConfigured(result.configured);
+      setBotInfo(result.botInfo);
+      if (!result.configured) setTgError(result.error || 'Telegram Bot not configured');
+    } catch (err) {
+      console.error('Error loading telegram settings:', err);
+      setTgError('Failed to load Telegram settings');
+    } finally {
+      setTgLoading(false);
+    }
   };
   
   // ============================================
@@ -186,16 +348,40 @@ export default function NotificationSettingsPage() {
           
           {/* ========== HEADER ========== */}
           <div>
-            <h1 className="text-3xl font-display font-bold gradient-text mb-2">
-              🔔 Notifications
-            </h1>
-            <p className="text-text-secondary">
-              Manage your push notification settings
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-display font-bold gradient-text mb-2">
+                  🔔 Notifications
+                </h1>
+                <p className="text-text-secondary">
+                  Manage your notification settings (Web Push & Telegram)
+                </p>
+              </div>
+              <div className="ml-4">
+                <div className="inline-flex rounded-md shadow-sm" role="tablist">
+                  <button
+                    className={`px-4 py-2 rounded-l-md border transition-colors ${activeTab === 'push' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
+                    onClick={() => setActiveTab('push')}
+                    role="tab"
+                    aria-selected={activeTab === 'push'}
+                  >
+                    Web Push
+                  </button>
+                  <button
+                    className={`px-4 py-2 rounded-r-md border transition-colors ${activeTab === 'telegram' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
+                    onClick={() => setActiveTab('telegram')}
+                    role="tab"
+                    aria-selected={activeTab === 'telegram'}
+                  >
+                    Telegram
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           
-          {/* ========== STATUS CARD ========== */}
-          <div className="glass-card p-6">
+          {activeTab === 'push' && (
+            <div className="glass-card p-6">
             <h3 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
               <SettingsIcon className="w-5 h-5 text-accent-cyan" />
               Notification Status
@@ -288,8 +474,130 @@ export default function NotificationSettingsPage() {
               </div>
             </div>
           </div>
-          
-          {/* ========== MESSAGE ========== */}
+          )}
+
+          {activeTab === 'telegram' && (
+            <>
+              {/* ===== Telegram Tab ===== */}
+              <div className="glass-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-display font-semibold">Telegram</h2>
+                  {configured ? (
+                    <div className="flex items-center gap-2 text-accent-green">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Bot Configured</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-accent-red">
+                      <XCircle className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Not Configured</span>
+                    </div>
+                  )}
+                </div>
+
+                {configured && botInfo && (
+                  <div className="p-4 rounded-lg bg-glass-light">
+                    <p className="text-sm text-text-muted mb-2">Connected Bot:</p>
+                    <p className="font-semibold flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-accent-cyan" />
+                      @{botInfo.username}
+                    </p>
+                  </div>
+                )}
+
+                {!configured && (
+                  <div className="p-4 rounded-lg bg-accent-amber/10 border border-accent-amber/20">
+                    <p className="text-sm text-accent-amber">
+                      ⚠️ Telegram Bot is not configured. Contact administrator.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Setup / Form */}
+              {configured && !tgProfile?.telegram_chat_id && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+                  <h2 className="text-xl font-display font-semibold mb-4">Setup Guide</h2>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-accent-cyan/20 text-accent-cyan flex items-center justify-center font-bold">1</span>
+                      <div>
+                        <p className="font-semibold mb-1">Start the Bot</p>
+                        <p className="text-text-muted mb-2">Open Telegram and start a chat with the bot:</p>
+                        {botInfo && (
+                          <button onClick={() => window.open(`https://t.me/${botInfo.username}`, '_blank')} className="btn-secondary text-sm flex items-center gap-2">
+                            <ExternalLink className="w-4 h-4" />
+                            Open @{botInfo.username}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-accent-cyan/20 text-accent-cyan flex items-center justify-center font-bold">2</span>
+                      <div>
+                        <p className="font-semibold mb-1">Get Your Chat ID</p>
+                        <p className="text-text-muted mb-2"><code className="px-2 py-0.5 rounded bg-glass-dark">/start</code> to the bot</p>
+                        <p className="text-text-muted">The bot will reply with your Chat ID</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-accent-cyan/20 text-accent-cyan flex items-center justify-center font-bold">3</span>
+                      <div>
+                        <p className="font-semibold mb-1">Enter Chat ID Below</p>
+                        <p className="text-text-muted">Copy your Chat ID and paste it in the form below</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {configured && (
+                <div className="glass-card p-6">
+                  <h2 className="text-xl font-display font-semibold mb-4">{tgProfile?.telegram_chat_id ? 'Telegram Connection' : 'Connect Telegram'}</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Telegram Chat ID</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="Enter your Chat ID (e.g., 123456789)" className="input-field flex-1" disabled={!!tgProfile?.telegram_chat_id} />
+                        {tgProfile?.telegram_chat_id && (
+                          <button onClick={() => copyToClipboard(chatId)} className="btn-secondary px-4" title="Copy Chat ID"><Copy className="w-4 h-4" /></button>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-muted mt-1">Get your Chat ID by messaging the bot</p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      {!tgProfile?.telegram_chat_id ? (
+                        <>
+                          <button onClick={handleVerify} disabled={!chatId || verifying} className="btn-secondary flex items-center gap-2">{verifying ? (<><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</>) : (<><CheckCircle className="w-4 h-4" /> Verify</>)}</button>
+                          <button onClick={handleSave} disabled={!chatId || saving} className="btn-primary flex items-center gap-2">{saving ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>) : (<><CheckCircle className="w-4 h-4" /> Save</>)}</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={handleTestMessage} disabled={testing} className="btn-primary flex items-center gap-2">{testing ? (<><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>) : (<><Send className="w-4 h-4" /> Send Test</>)}</button>
+                          <button onClick={handleDisconnect} className="btn-secondary text-accent-red flex items-center gap-2"><XCircle className="w-4 h-4" /> Disconnect</button>
+                        </>
+                      )}
+                    </div>
+
+                    {tgError && (<div className="mt-4 p-3 rounded-lg bg-accent-red/10 border border-accent-red/20"><p className="text-sm text-accent-red flex items-center gap-2"><AlertCircle className="w-4 h-4" />{tgError}</p></div>)}
+                    {tgSuccess && (<div className="mt-4 p-3 rounded-lg bg-accent-green/10 border border-accent-green/20"><p className="text-sm text-accent-green flex items-center gap-2"><CheckCircle className="w-4 h-4" />{tgSuccess}</p></div>)}
+                  </div>
+                </div>
+              )}
+
+              <div className="glass-card p-6">
+                <h3 className="font-semibold text-accent-cyan mb-3">💡 How Telegram works</h3>
+                <ul className="space-y-2 text-sm text-text-muted">
+                  <li>• Connect your Telegram account once</li>
+                  <li>• Enable Telegram notifications on your filters</li>
+                  <li>• Receive instant alerts when matches meet your criteria</li>
+                  <li>• Works on all devices - phone, tablet, desktop</li>
+                  <li>• No need to keep browser open!</li>
+                </ul>
+              </div>
+            </>
+          )}
           {message && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}

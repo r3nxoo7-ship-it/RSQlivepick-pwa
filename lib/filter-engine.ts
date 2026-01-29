@@ -479,13 +479,15 @@ export async function applyFiltersToMatchesWithGroups(
 // EXPORT
 // ============================================
 
-export default {
+const filterEngine = {
   matchesFilter,
   applyFiltersToMatch,
   applyFiltersToMatches,
   evaluateFilterGroup,
   applyFiltersToMatchesWithGroups,
 };
+
+export default filterEngine;
 
 // ============================================
 // USAGE EXAMPLES

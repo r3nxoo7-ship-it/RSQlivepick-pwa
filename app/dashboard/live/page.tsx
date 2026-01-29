@@ -5,7 +5,7 @@
 // ============================================
 // Versiune optimizată cu Match Scanner integrat
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   RefreshCw, 
@@ -69,21 +69,21 @@ export default function LiveMatchesPage() {
   // LOAD FUNCTIONS
   // ============================================
   
-  const loadUserFilters = async () => {
+  const loadUserFilters = useCallback(async () => {
     try {
       const currentUser = authHelpers.getCurrentUser();
       if (!currentUser) return;
-      
+
       const filters = await dbHelpers.getUserFilters(currentUser.id);
       setUserFilters(filters);
-      
+
       console.log(`✅ Loaded ${filters.length} user filters`);
     } catch (err) {
       console.error('Error loading filters:', err);
     }
-  };
+  }, []);
   
-  const applyFilters = async (matchesToFilter: LiveMatch[]) => {
+  const applyFilters = useCallback(async (matchesToFilter: LiveMatch[]) => {
     if (userFilters.length === 0) {
       setFilterResults(new Map());
       return;
@@ -102,9 +102,9 @@ export default function LiveMatchesPage() {
     } finally {
       setApplyingFilters(false);
     }
-  };
+  }, [userFilters]);
   
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -125,9 +125,9 @@ export default function LiveMatchesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [applyFilters]);
   
-  const checkNotificationPermissions = async () => {
+  const checkNotificationPermissions = useCallback(async () => {
     const status = await checkNotificationStatus();
     setNotificationsReady(status.ready);
     console.log('🔔 Notification status:', status);
@@ -135,7 +135,7 @@ export default function LiveMatchesPage() {
     if (!status.ready && status.supported) {
       console.log('⚠️ Notifications not ready. User needs to grant permission.');
     }
-  };
+  }, []);
   
   // ============================================
   // EFFECTS
@@ -158,13 +158,13 @@ export default function LiveMatchesPage() {
     loadUserFilters();
     fetchMatches();
     checkNotificationPermissions();
-  }, []);
+  }, [loadUserFilters, fetchMatches, checkNotificationPermissions]);
   
   useEffect(() => {
     if (matches.length > 0 && userFilters.length > 0) {
       applyFilters(matches);
     }
-  }, [userFilters]);
+  }, [userFilters, matches, applyFilters]);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -173,7 +173,7 @@ export default function LiveMatchesPage() {
     }, 30000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchMatches]);
   
   // ============================================
   // FILTER LOGIC

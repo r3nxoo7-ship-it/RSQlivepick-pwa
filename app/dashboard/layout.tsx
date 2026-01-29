@@ -52,11 +52,7 @@ const navigation = [
       href: '/dashboard/notifications',
       icon: Bell,
     },
-  {
-    name: 'Telegram',
-    href: '/dashboard/telegram',
-    icon: Send,
-  },
+  
 ];
 
 // ============================================

@@ -353,9 +353,11 @@ export async function checkAPIStatus(): Promise<{ success: boolean; message: str
 // EXPORT
 // ============================================
 
-export default {
+const footballData = {
   getLiveMatches,
   getMatchStatistics,
   getTodayMatches,
   checkAPIStatus,
 };
+
+export default footballData;

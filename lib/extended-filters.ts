@@ -375,9 +375,11 @@ export function evaluateFilter(
 // EXPORT
 // ============================================
 
-export default {
+const extendedFilters = {
   matchesRange,
   matchesTime,
   matchesTeamCondition,
   evaluateFilter,
 };
+
+export default extendedFilters;

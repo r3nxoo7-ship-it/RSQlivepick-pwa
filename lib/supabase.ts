@@ -815,8 +815,10 @@ export const dbHelpers = {
 // EXPORT EVERYTHING
 // ============================================
 
-export default {
+const supabaseLib = {
   supabase,
   authHelpers,
   dbHelpers,
 };
+
+export default supabaseLib;

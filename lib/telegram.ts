@@ -231,7 +231,7 @@ ${filters.map((f: string) => `  • ${f}`).join('\n')}
 // EXPORT
 // ============================================
 
-export default {
+const telegramLib = {
   isTelegramConfigured,
   sendTelegramMessage,
   sendTelegramMatchNotification,
@@ -240,3 +240,5 @@ export default {
   formatMatchForTelegram,
   testTelegramConnection,
 };
+
+export default telegramLib;
