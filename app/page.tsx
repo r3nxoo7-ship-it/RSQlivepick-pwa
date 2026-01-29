@@ -76,7 +76,7 @@ export default function Home() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-600 mt-8">© All rights reserved — LivePick Scanner</p>
+        <p className="text-xs text-gray-600 mt-8">© 2026 R$Q • Powered by LivePick • Your personal football intelligence</p>
       </motion.div>
     </div>
   );

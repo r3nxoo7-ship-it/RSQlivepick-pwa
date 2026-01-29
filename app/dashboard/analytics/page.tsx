@@ -463,7 +463,7 @@ export default function AnalyticsPage() {
           {(bestFilter || mostActive) && (
             <div className="glass-card p-6">
               <h2 className="text-xl font-display font-semibold mb-4">
-                💡 Insights
+                💡 Performance Insights
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -472,16 +472,16 @@ export default function AnalyticsPage() {
                     <div className="flex items-start gap-3">
                       <CheckCircle className="w-5 h-5 text-accent-green flex-shrink-0 mt-1" />
                       <div>
-                        <h3 className="font-semibold mb-1">Cel mai performant filtru</h3>
+                        <h3 className="font-semibold mb-1">Best Performing Filter</h3>
                         <p className="text-sm text-text-muted mb-2">
                           <span className="font-semibold text-accent-green">{bestFilter.name}</span>
-                          {' '}are cel mai bun raport success rate / triggers
+                          {' '}has the best success rate to triggers ratio
                         </p>
                         <button
                           onClick={() => router.push(`/dashboard/filters/${bestFilter.id}`)}
                           className="text-xs text-accent-cyan hover:underline flex items-center gap-1"
                         >
-                          Vezi filtru
+                          View Filter
                           <ArrowRight className="w-3 h-3" />
                         </button>
                       </div>
@@ -494,16 +494,16 @@ export default function AnalyticsPage() {
                     <div className="flex items-start gap-3">
                       <Zap className="w-5 h-5 text-accent-amber flex-shrink-0 mt-1" />
                       <div>
-                        <h3 className="font-semibold mb-1">Cel mai activ filtru</h3>
+                        <h3 className="font-semibold mb-1">Most Active Filter</h3>
                         <p className="text-sm text-text-muted mb-2">
                           <span className="font-semibold text-accent-amber">{mostActive.name}</span>
-                          {' '}a fost triggered de cele mai multe ori
+                          {' '}has been triggered the most times
                         </p>
                         <button
                           onClick={() => router.push(`/dashboard/filters/${mostActive.id}`)}
                           className="text-xs text-accent-cyan hover:underline flex items-center gap-1"
                         >
-                          Vezi filtru
+                          View Filter
                           <ArrowRight className="w-3 h-3" />
                         </button>
                       </div>

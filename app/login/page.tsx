@@ -182,7 +182,7 @@ export default function LoginPage() {
           {/* Info */}
           <div className="text-center">
             <p className="text-xs text-text-muted">
-              Aplicație privată • Acces restricționat
+              Private Application • Restricted Access
             </p>
           </div>
         </motion.form>
