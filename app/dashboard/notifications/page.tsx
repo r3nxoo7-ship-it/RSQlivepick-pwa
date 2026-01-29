@@ -3,8 +3,8 @@
 // ============================================
 // R$Q - NOTIFICATION SETTINGS
 // ============================================
-// Pagină pentru gestionarea notificărilor
-// Pentru începători: învață notification API, state management
+// Page for managing notifications
+// For beginners: learn notification API, state management
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -63,7 +63,7 @@ export default function NotificationSettingsPage() {
   // ============================================
   
   /**
-   * Cere permisiune pentru notificări
+   * Request permission for notifications
    */
   const handleRequestPermission = async () => {
     setLoading(true);
@@ -75,7 +75,7 @@ export default function NotificationSettingsPage() {
       if (granted) {
         setMessage({ 
           type: 'success', 
-          text: '✅ Permisiune acordată! Acum poți primi notificări.' 
+          text: '✅ Permission granted! You can now receive notifications.' 
         });
         
         // Reload status
@@ -88,14 +88,14 @@ export default function NotificationSettingsPage() {
       } else {
         setMessage({ 
           type: 'error', 
-          text: '❌ Permisiune refuzată. Verifică setările browser-ului.' 
+          text: '❌ Permission denied. Check your browser settings.' 
         });
       }
     } catch (error) {
       console.error('Error requesting permission:', error);
       setMessage({ 
         type: 'error', 
-        text: '❌ Eroare la cererea permisiunii.' 
+        text: '❌ Error requesting permission.' 
       });
     } finally {
       setLoading(false);
@@ -103,7 +103,7 @@ export default function NotificationSettingsPage() {
   };
   
   /**
-   * Trimite notificare de test
+   * Send test notification
    */
   const handleSendTest = async () => {
     setLoading(true);
@@ -115,19 +115,19 @@ export default function NotificationSettingsPage() {
       if (success) {
         setMessage({ 
           type: 'success', 
-          text: '✅ Notificare de test trimisă! Verifică colțul ecranului.' 
+          text: '✅ Test notification sent! Check the corner of your screen.' 
         });
       } else {
         setMessage({ 
           type: 'error', 
-          text: '❌ Nu s-a putut trimite notificarea. Verifică permisiunile.' 
+          text: '❌ Could not send notification. Check permissions.' 
         });
       }
     } catch (error) {
       console.error('Error sending test notification:', error);
       setMessage({ 
         type: 'error', 
-        text: '❌ Eroare la trimiterea notificării.' 
+        text: '❌ Error sending notification.' 
       });
     } finally {
       setLoading(false);
@@ -135,7 +135,7 @@ export default function NotificationSettingsPage() {
   };
   
   /**
-   * Trimite notificare demo pentru meci
+   * Send demo notification for match
    */
   const handleSendMatchDemo = async () => {
     setLoading(true);
@@ -150,25 +150,25 @@ export default function NotificationSettingsPage() {
           minute: 67,
           matchId: 99999,
         },
-        ['Cornere Over 8', 'Atacuri Intense']
+        ['Corners Over 8', 'Intense Attacks']
       );
       
       if (success) {
         setMessage({ 
           type: 'success', 
-          text: '✅ Notificare demo trimisă! Așa vor arăta alertele pentru meciuri.' 
+          text: '✅ Demo notification sent! Here\'s how match alerts will look.' 
         });
       } else {
         setMessage({ 
           type: 'error', 
-          text: '❌ Nu s-a putut trimite notificarea.' 
+          text: '❌ Could not send notification.' 
         });
       }
     } catch (error) {
       console.error('Error sending match notification:', error);
       setMessage({ 
         type: 'error', 
-        text: '❌ Eroare la trimiterea notificării.' 
+        text: '❌ Error sending notification.' 
       });
     } finally {
       setLoading(false);
@@ -187,10 +187,10 @@ export default function NotificationSettingsPage() {
           {/* ========== HEADER ========== */}
           <div>
             <h1 className="text-3xl font-display font-bold gradient-text mb-2">
-              🔔 Notificări
+              🔔 Notifications
             </h1>
             <p className="text-text-secondary">
-              Gestionează setările pentru notificări push
+              Manage your push notification settings
             </p>
           </div>
           
@@ -198,7 +198,7 @@ export default function NotificationSettingsPage() {
           <div className="glass-card p-6">
             <h3 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
               <SettingsIcon className="w-5 h-5 text-accent-cyan" />
-              Status Notificări
+              Notification Status
             </h3>
             
             <div className="space-y-4">
@@ -214,8 +214,8 @@ export default function NotificationSettingsPage() {
                     <p className="font-semibold">Browser Support</p>
                     <p className="text-sm text-text-muted">
                       {notificationStatus.supported 
-                        ? 'Browser-ul tău suportă notificări' 
-                        : 'Browser-ul tău NU suportă notificări'}
+                        ? 'Your browser supports notifications' 
+                        : 'Your browser does NOT support notifications'}
                     </p>
                   </div>
                 </div>
@@ -240,11 +240,11 @@ export default function NotificationSettingsPage() {
                     <Bell className="w-5 h-5 text-accent-amber" />
                   )}
                   <div>
-                    <p className="font-semibold">Permisiune</p>
+                    <p className="font-semibold">Permission</p>
                     <p className="text-sm text-text-muted">
-                      {notificationStatus.permission === 'granted' && 'Permisiune acordată'}
-                      {notificationStatus.permission === 'denied' && 'Permisiune refuzată'}
-                      {notificationStatus.permission === 'default' && 'Permisiune nu a fost cerută'}
+                      {notificationStatus.permission === 'granted' && 'Permission granted'}
+                      {notificationStatus.permission === 'denied' && 'Permission denied'}
+                      {notificationStatus.permission === 'default' && 'Permission not requested'}
                     </p>
                   </div>
                 </div>
@@ -269,11 +269,11 @@ export default function NotificationSettingsPage() {
                     <BellOff className="w-5 h-5 text-text-muted" />
                   )}
                   <div>
-                    <p className="font-semibold">Status General</p>
+                    <p className="font-semibold">Overall Status</p>
                     <p className="text-sm text-text-muted">
                       {notificationStatus.ready 
-                        ? 'Notificările sunt ACTIVE și funcționale' 
-                        : 'Notificările NU sunt active'}
+                        ? 'Notifications are ACTIVE and functional' 
+                        : 'Notifications are NOT active'}
                     </p>
                   </div>
                 </div>
@@ -308,7 +308,7 @@ export default function NotificationSettingsPage() {
           {/* ========== ACTIONS ========== */}
           <div className="glass-card p-6 space-y-4">
             <h3 className="text-xl font-display font-semibold mb-4">
-              ⚡ Acțiuni
+              ⚡ Actions
             </h3>
             
             {/* Request Permission */}
@@ -317,10 +317,10 @@ export default function NotificationSettingsPage() {
                 <div className="flex items-start gap-3 mb-3">
                   <Bell className="w-5 h-5 text-accent-cyan flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-semibold mb-1">Activează Notificările</p>
+                    <p className="font-semibold mb-1">Enable Notifications</p>
                     <p className="text-sm text-text-muted">
-                      Pentru a primi alerte când meciurile match-uiesc filtrele tale, 
-                      trebuie să acorzi permisiune pentru notificări.
+                      To receive alerts when matches match your filters, 
+                      you need to grant notification permission.
                     </p>
                   </div>
                 </div>
@@ -335,12 +335,12 @@ export default function NotificationSettingsPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Se procesează...
+                      Processing...
                     </span>
                   ) : (
                     <>
                       <Bell className="w-5 h-5 inline mr-2" />
-                      Activează Notificările
+                      Enable Notifications
                     </>
                   )}
                 </button>
@@ -360,9 +360,9 @@ export default function NotificationSettingsPage() {
                     <div className="flex items-start gap-3">
                       <Send className="w-5 h-5 text-accent-cyan flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-semibold mb-1">Test Simplu</p>
+                        <p className="font-semibold mb-1">Simple Test</p>
                         <p className="text-xs text-text-muted">
-                          Trimite o notificare de test
+                          Send a test notification
                         </p>
                       </div>
                     </div>
@@ -377,9 +377,9 @@ export default function NotificationSettingsPage() {
                     <div className="flex items-start gap-3">
                       <Bell className="w-5 h-5 text-accent-green flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-semibold mb-1">Demo Meci</p>
+                        <p className="font-semibold mb-1">Match Demo</p>
                         <p className="text-xs text-text-muted">
-                          Simulează alertă pentru meci
+                          Simulate match alert
                         </p>
                       </div>
                     </div>
@@ -392,15 +392,15 @@ export default function NotificationSettingsPage() {
           {/* ========== INFO ========== */}
           <div className="glass-card p-4 text-sm">
             <h4 className="font-semibold text-accent-cyan mb-2">
-              💡 Cum funcționează notificările?
+              💡 How do notifications work?
             </h4>
             <ul className="space-y-1 text-text-muted">
-              <li>• Aplicația scanează meciurile live la fiecare 45 secunde</li>
-              <li>• Când un meci match-uiește filtrele tale active → primești notificare</li>
-              <li>• Notificările apar în colțul ecranului (Windows: dreapta-jos, Mac: dreapta-sus)</li>
-              <li>• Poți activa/dezactiva notificări per filtru în secțiunea Filtre</li>
-              <li>• Notificările funcționează DOAR dacă aplicația e deschisă în browser</li>
-              <li>• Pentru notificări permanente (chiar când aplicația e închisă) → upgrade la PWA full</li>
+              <li>• The app scans live matches every 45 seconds</li>
+              <li>• When a match matches your active filters → you receive a notification</li>
+              <li>• Notifications appear in the corner of your screen (Windows: bottom-right, Mac: top-right)</li>
+              <li>• You can enable/disable notifications per filter in the Filters section</li>
+              <li>• Notifications work ONLY if the app is open in your browser</li>
+              <li>• For permanent notifications (even when the app is closed) → upgrade to full PWA</li>
             </ul>
           </div>
           
@@ -408,21 +408,21 @@ export default function NotificationSettingsPage() {
           {notificationStatus.permission === 'denied' && (
             <div className="glass-card p-4 border-l-4 border-accent-amber">
               <h4 className="font-semibold text-accent-amber mb-2">
-                ⚠️ Permisiune refuzată - Cum să o resetezi?
+                ⚠️ Permission Denied - How to reset it?
               </h4>
               <div className="text-sm text-text-muted space-y-2">
                 <p><strong>Chrome/Edge:</strong></p>
                 <ol className="list-decimal list-inside space-y-1 ml-2">
-                  <li>Click pe icon-ul 🔒 (lacăt) din stânga URL-ului</li>
-                  <li>Găsește &quot;Notifications&quot; → selectează &quot;Allow&quot;</li>
-                  <li>Refresh pagina (F5)</li>
+                  <li>Click the 🔒 (lock) icon to the left of the URL</li>
+                  <li>Find &quot;Notifications&quot; → select &quot;Allow&quot;</li>
+                  <li>Refresh the page (F5)</li>
                 </ol>
                 
                 <p className="mt-3"><strong>Firefox:</strong></p>
                 <ol className="list-decimal list-inside space-y-1 ml-2">
-                  <li>Click pe icon-ul (i) din stânga URL-ului</li>
+                  <li>Click the (i) icon to the left of the URL</li>
                   <li>Permissions → Notifications → Allow</li>
-                  <li>Refresh pagina (F5)</li>
+                  <li>Refresh the page (F5)</li>
                 </ol>
               </div>
             </div>

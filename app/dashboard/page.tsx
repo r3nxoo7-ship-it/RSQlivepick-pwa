@@ -50,11 +50,11 @@ export default function DashboardPage() {
       }
       setUser(currentUser);
       
-      // Încarcă filtrele din Supabase
+      // Load filters from Supabase
       const userFilters = await dbHelpers.getUserFilters(currentUser.id);
       setFilters(userFilters);
       
-      // Încarcă meciurile Live
+      // Load live matches
       let matches: LiveMatch[] = [];
       try {
         matches = await getLiveMatches();
@@ -96,9 +96,9 @@ export default function DashboardPage() {
   // ============================================
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Bună dimineața';
-    if (hour < 18) return 'Bună ziua';
-    return 'Bună seara';
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   };
 
   if (loading) {
@@ -106,7 +106,7 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-primary flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 rounded-full border-4 border-accent-cyan border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="text-text-secondary font-display">Sincronizare R$Q LIVE...</p>
+          <p className="text-text-secondary font-display">Syncing R$Q LIVE...</p>
         </div>
       </div>
     );
@@ -123,13 +123,13 @@ export default function DashboardPage() {
               <h1 className="text-3xl md:text-4xl font-display font-bold gradient-text mb-2">
                 {getGreeting()}, {user?.full_name || user?.username || 'User'}! 👋
               </h1>
-              <p className="text-text-secondary">Centrul de comandă este operațional.</p>
+              <p className="text-text-secondary">Command center is operational.</p>
             </div>
             <div className="hidden md:block text-right">
-              <div className="text-xs text-text-muted uppercase tracking-widest mb-1">Status Server</div>
+              <div className="text-xs text-text-muted uppercase tracking-widest mb-1">Server Status</div>
               <div className="flex items-center gap-2 text-accent-green font-bold">
                 <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
-                SISTEM ACTIV 2026
+                SYSTEM ACTIVE 2026
               </div>
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function DashboardPage() {
                 <span className="status-live">LIVE</span>
               </div>
               <div className="stat-value">{stats.liveMatches}</div>
-              <div className="stat-label">Meciuri în Scanare</div>
+              <div className="stat-label">Matches Scanning</div>
             </motion.div>
 
             {/* Active Filters Card */}
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                 <Zap size={18} className="text-accent-amber" />
               </div>
               <div className="stat-value">{stats.activeFilters}</div>
-              <div className="stat-label">Filtre Active</div>
+              <div className="stat-label">Active Filters</div>
             </motion.div>
 
             {/* Success Rate Card */}
@@ -181,7 +181,7 @@ export default function DashboardPage() {
                 <CheckCircle size={18} className="text-accent-green" />
               </div>
               <div className="stat-value">{Math.round(stats.successRate)}%</div>
-              <div className="stat-label">Rată de Succes</div>
+              <div className="stat-label">Success Rate</div>
             </motion.div>
 
             {/* Alerts Card */}
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                 <AlertCircle size={18} className="text-text-muted" />
               </div>
               <div className="stat-value">{stats.withNotifications}</div>
-              <div className="stat-label">Alerte Telegram</div>
+              <div className="stat-label">Telegram Alerts</div>
             </motion.div>
 
           </div>
@@ -206,14 +206,14 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 glass-card p-8">
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Zap className="text-accent-cyan" size={20} /> Activitate Recentă
+                <Zap className="text-accent-cyan" size={20} /> Recent Activity
               </h3>
               <div className="space-y-4">
                 {liveMatches.length > 0 ? (
-                   <p className="text-text-secondary italic text-sm text-center py-10">Meciurile live sunt procesate în fundal...</p>
+                   <p className="text-text-secondary italic text-sm text-center py-10">Live matches are being processed in the background...</p>
                 ) : (
                   <div className="text-center py-10 border border-dashed border-white/10 rounded-xl">
-                    <p className="text-text-muted">Niciun trigger detectat în ultimele 60 secunde.</p>
+                    <p className="text-text-muted">No triggers detected in the last 60 seconds.</p>
                   </div>
                 )}
               </div>
@@ -221,12 +221,12 @@ export default function DashboardPage() {
 
             <div className="glass-card p-8 bg-gradient-to-br from-accent-cyan/5 to-transparent">
               <h3 className="text-xl font-bold mb-4">Quick Setup</h3>
-              <p className="text-sm text-text-secondary mb-6">Configurează un filtru nou pentru a primi notificări instant.</p>
+              <p className="text-sm text-text-secondary mb-6">Create a new filter to receive instant notifications.</p>
               <button 
                 onClick={() => router.push('/dashboard/filters/new')}
                 className="btn-primary w-full flex items-center justify-center gap-2"
               >
-                Creează Filtru Nou
+                Create New Filter
               </button>
             </div>
           </div>

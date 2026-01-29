@@ -60,6 +60,8 @@ export default function FilterTemplatesPage() {
   // Filter templates based on category and search
   let displayedTemplates = selectedCategory === 'all' 
     ? allTemplates 
+    : selectedCategory === 'popular'
+    ? popularTemplates
     : getTemplatesByCategory(selectedCategory as any);
   
   if (searchQuery) {
