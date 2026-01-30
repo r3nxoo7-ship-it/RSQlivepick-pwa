@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get current user from localStorage (sent in request body)
     const body = await request.json();
-    const { user_id, name, description, conditions, is_active, notification_enabled, telegram_enabled, combined_filter_ids, combination_logic } = body;
+    const { user_id, name, description, conditions, is_active, notification_enabled, telegram_enabled, is_public, combined_filter_ids, combination_logic } = body;
 
     // Validate user_id
     if (!user_id || user_id === 'anon' || typeof user_id !== 'string') {
@@ -114,8 +114,11 @@ export async function POST(request: NextRequest) {
         conditions,
         is_active: is_active || false,
         is_shared: false,
+        is_public: is_public || false, // Default to private (false)
         notification_enabled: notification_enabled && conditionsComplete,
         telegram_enabled: telegram_enabled && conditionsComplete,
+        version: 1, // New filters start at v1.0
+        is_editable: true, // User's own filters are always editable
         combined_filter_ids: isCombine ? combined_filter_ids : null,
         combination_logic: isCombine ? combination_logic || null : null,
         created_at: new Date().toISOString(),

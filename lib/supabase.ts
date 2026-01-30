@@ -53,6 +53,7 @@ export interface Filter {
   conditions: FilterConditions;
   is_active: boolean;
   is_shared: boolean;
+  is_public: boolean; // Can other users import this filter?
   notification_enabled: boolean;
   telegram_enabled: boolean;
   last_triggered: string | null;
@@ -63,6 +64,11 @@ export interface Filter {
   // Filter styling
   color?: 'cyan' | 'green' | 'amber' | 'purple' | 'blue' | 'red' | 'gray'; // Color theme for card display
   template_id?: string; // Reference to template this was created from
+  // Versioning & Forking (v2.0 system)
+  forked_from_id?: string; // ID of the original filter this was forked from
+  forked_from_user?: string; // Username of original creator (read-only reference)
+  version: number; // v1.0 = original, v2.0+ = user's modified version
+  is_editable: boolean; // Can this be edited? (false for base/forked filters users can't edit)
   // Filter groups - combine multiple filters with OR logic for better accuracy
   combined_filter_ids?: string[]; // IDs of filters to combine with OR
   combination_logic?: 'AND' | 'OR'; // AND = all must match, OR = any can match
@@ -415,6 +421,7 @@ export const dbHelpers = {
           is_active: filter.is_active,
           notification_enabled: filter.notification_enabled,
           telegram_enabled: filter.telegram_enabled,
+          is_public: (filter as any).is_public || false,
           combined_filter_ids: (filter as any).combined_filter_ids || undefined,
           combination_logic: (filter as any).combination_logic || undefined,
         }),
@@ -561,6 +568,93 @@ export const dbHelpers = {
     } catch (err) {
       console.error('Error in getFilterById:', err);
       return null;
+    }
+  },
+
+  /**
+   * Obține toate filtrele publice (community filters)
+   */
+  async getPublicFilters(): Promise<Filter[]> {
+    try {
+      const response = await fetch('/api/filters/public');
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        console.error('Error fetching public filters:', result.error);
+        return [];
+      }
+
+      return result.data as Filter[];
+    } catch (err) {
+      console.error('Error in getPublicFilters:', err);
+      return [];
+    }
+  },
+
+  /**
+   * Importează un filtru public (creează o copie pentru utilizator curent - v2.0)
+   */
+  async importPublicFilter(
+    sourceFilterId: string,
+    userId: string
+  ): Promise<{ data: Filter | null; error: string | null }> {
+    try {
+      if (!userId || userId === 'anon') {
+        return { data: null, error: 'Invalid user authentication' };
+      }
+
+      const response = await fetch('/api/filters/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_filter_id: sourceFilterId,
+          user_id: userId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        console.error('Error importing filter:', result.error);
+        return { data: null, error: result.error || 'Error importing filter' };
+      }
+
+      console.log('✅ Filter imported successfully');
+      return { data: result.data as Filter, error: null };
+    } catch (err) {
+      console.error('Error in importPublicFilter:', err);
+      return { data: null, error: 'Error importing filter' };
+    }
+  },
+
+  /**
+   * Toggle filter public/private status
+   */
+  async toggleFilterPublic(
+    filterId: string,
+    isPublic: boolean
+  ): Promise<{ data: Filter | null; error: string | null }> {
+    try {
+      const response = await fetch('/api/filters/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          filterId, 
+          updates: { is_public: isPublic }
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        console.error('Error updating filter visibility:', result.error);
+        return { data: null, error: 'Error updating filter' };
+      }
+
+      return { data: result.data as Filter, error: null };
+    } catch (err) {
+      console.error('Error in toggleFilterPublic:', err);
+      return { data: null, error: 'Error updating filter' };
     }
   },
 

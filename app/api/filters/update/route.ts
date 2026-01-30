@@ -21,6 +21,35 @@ export async function PATCH(request: NextRequest) {
 
     console.log('✏️ API /filters/update: Updating filter:', filterId);
 
+    // ============================================
+    // CHECK IF FILTER IS EDITABLE
+    // ============================================
+    const { data: filter, error: fetchError } = await supabaseAdmin
+      .from('filters')
+      .select('*')
+      .eq('id', filterId)
+      .single();
+
+    if (fetchError || !filter) {
+      console.error('❌ Filter not found:', fetchError);
+      return NextResponse.json(
+        { error: 'Filter not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if filter is editable (forked filters can't edit original)
+    if (filter.is_editable === false) {
+      console.error('❌ This filter cannot be edited - it is a base filter');
+      return NextResponse.json(
+        {
+          error: 'This filter cannot be edited',
+          message: 'This is a read-only base filter. Import it to create your own editable version.',
+        },
+        { status: 403 }
+      );
+    }
+
     const { data, error } = await supabaseAdmin
       .from('filters')
       .update({

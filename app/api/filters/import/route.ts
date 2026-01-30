@@ -1,89 +1,148 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Create server-side Supabase client with SERVICE ROLE key (bypasses RLS)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE) {
-  console.error('Missing Supabase server env vars for import route');
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error('Missing Supabase environment variables on server!');
 }
 
-const supabaseAdmin = SUPABASE_URL && SUPABASE_SERVICE_ROLE
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
-  : null;
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-function validateFilterShape(item: any): { valid: boolean; reason?: string } {
-  if (!item) return { valid: false, reason: 'Empty item' };
-  if (!item.name || typeof item.name !== 'string') return { valid: false, reason: 'Missing or invalid name' };
-  if (item.description && typeof item.description !== 'string') return { valid: false, reason: 'Invalid description' };
-  if (item.conditions && typeof item.conditions !== 'object') return { valid: false, reason: 'Invalid conditions object' };
-  return { valid: true };
-}
-
+/**
+ * Import a public filter (fork/clone) - creates v2.0 of the filter
+ * Only copies conditions, not trigger_count/success_rate (those reset per user)
+ * Creates an independent copy that user can edit
+ */
 export async function POST(request: NextRequest) {
-  if (!supabaseAdmin) {
-    return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
-  }
-
   try {
     const body = await request.json();
-    const filters = body.filters;
-    const userId = body.userId;
+    const { source_filter_id, user_id } = body;
 
-    if (!Array.isArray(filters)) {
-      return NextResponse.json({ error: 'filters must be an array' }, { status: 400 });
-    }
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json({ error: 'userId required' }, { status: 400 });
-    }
-
-    const rows: any[] = [];
-    const errors: Array<{ index: number; reason: string }> = [];
-
-    filters.forEach((item: any, idx: number) => {
-      const v = validateFilterShape(item);
-      if (!v.valid) {
-        errors.push({ index: idx, reason: v.reason || 'invalid' });
-        return;
-      }
-
-      rows.push({
-        user_id: userId ? userId : null,
-        name: item.name,
-        description: item.description || null,
-        conditions: item.conditions || item,
-        is_active: item.is_active !== undefined ? !!item.is_active : true,
-        notification_enabled: item.notification_enabled !== undefined ? !!item.notification_enabled : false,
-        telegram_enabled: item.telegram_enabled !== undefined ? !!item.telegram_enabled : false,
-        is_shared: item.is_shared !== undefined ? !!item.is_shared : false,
-        trigger_count: typeof item.trigger_count === 'number' ? item.trigger_count : 0,
-        success_rate: typeof item.success_rate === 'number' ? item.success_rate : null,
-        created_at: item.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-    });
-
-    if (rows.length === 0) {
-      return NextResponse.json({ success: 0, failed: filters.length, errors }, { status: 200 });
+    // Validate inputs
+    if (!source_filter_id || !user_id || user_id === 'anon') {
+      console.error('❌ API: Invalid import parameters');
+      return NextResponse.json(
+        { error: 'Invalid import parameters' },
+        { status: 400 }
+      );
     }
 
-    // Upsert by name + user_id to avoid duplicates
-    const { data, error } = await supabaseAdmin
+    console.log('📝 API /filters/import: Importing filter', source_filter_id, 'for user:', user_id);
+
+    // ============================================
+    // FETCH SOURCE FILTER
+    // ============================================
+    const { data: sourceFilter, error: fetchError } = await supabaseAdmin
       .from('filters')
-      .upsert(rows, { onConflict: 'name,user_id' })
-      .select();
+      .select('*')
+      .eq('id', source_filter_id)
+      .single();
 
-    if (error) {
-      console.error('Supabase upsert error:', error);
-      return NextResponse.json({ error: error.message || error }, { status: 500 });
+    if (fetchError || !sourceFilter) {
+      console.error('❌ Source filter not found:', fetchError);
+      return NextResponse.json(
+        { error: 'Source filter not found' },
+        { status: 404 }
+      );
     }
 
-    const success = Array.isArray(data) ? data.length : 0;
-    const failed = errors.length;
+    // Verify source filter is public
+    if (!sourceFilter.is_public) {
+      console.error('❌ Source filter is not public');
+      return NextResponse.json(
+        { error: 'This filter is private and cannot be imported' },
+        { status: 403 }
+      );
+    }
 
-    return NextResponse.json({ success, failed, errors }, { status: 200 });
-  } catch (err: any) {
-    console.error('Import route error:', err);
-    return NextResponse.json({ error: err.message || 'Unknown error' }, { status: 500 });
+    console.log('✅ Source filter found:', sourceFilter.name);
+
+    // ============================================
+    // CHECK IF USER ALREADY HAS THIS FILTER
+    // ============================================
+    const { data: userFilters, error: userFilterError } = await supabaseAdmin
+      .from('filters')
+      .select('*')
+      .eq('user_id', user_id);
+
+    if (userFilterError) {
+      console.error('❌ Error fetching user filters:', userFilterError);
+      return NextResponse.json(
+        { error: 'Error validating filters' },
+        { status: 500 }
+      );
+    }
+
+    // Check if user already imported this exact filter
+    const existingImport = userFilters?.find(f => f.forked_from_id === source_filter_id);
+    if (existingImport) {
+      console.warn('⚠️ User already imported this filter');
+      return NextResponse.json(
+        {
+          error: 'You already have this filter imported',
+          message: `Filter "${existingImport.name}" is already in your library`,
+          existingFilterId: existingImport.id,
+        },
+        { status: 409 }
+      );
+    }
+
+    // ============================================
+    // CREATE FORK (v2.0) OF THE FILTER
+    // ============================================
+    const sourceUsername = sourceFilter.user_id; // In production, fetch from users table
+    const newFilterName = `${sourceFilter.name} (v2.0)`;
+
+    const { data: newFilter, error: insertError } = await supabaseAdmin
+      .from('filters')
+      .insert([{
+        user_id,
+        name: newFilterName,
+        description: sourceFilter.description,
+        conditions: sourceFilter.conditions, // Copy conditions
+        is_active: false, // Imported filters start as inactive
+        is_shared: false,
+        is_public: false, // Imported filters are private by default
+        notification_enabled: false, // User must enable notifications
+        telegram_enabled: false, // User must enable telegram
+        // Versioning & Forking Info
+        forked_from_id: source_filter_id, // Link to original
+        forked_from_user: sourceUsername, // Record original creator
+        version: 2, // Forked filters start at v2.0
+        is_editable: true, // User can edit their imported version
+        // Reset stats for new user
+        trigger_count: 0,
+        success_rate: null,
+        last_triggered: null,
+        // Preserve combined filter logic if exists
+        combined_filter_ids: sourceFilter.combined_filter_ids,
+        combination_logic: sourceFilter.combination_logic,
+        color: sourceFilter.color, // Copy styling
+        template_id: sourceFilter.template_id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('❌ Error creating imported filter:', insertError);
+      return NextResponse.json(
+        { error: insertError.message || 'Error importing filter' },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ Filter imported successfully:', newFilter.id);
+    return NextResponse.json({ data: newFilter, error: null });
+  } catch (err) {
+    console.error('❌ Error in /filters/import:', err);
+    return NextResponse.json(
+      { error: 'Server error' },
+      { status: 500 }
+    );
   }
 }

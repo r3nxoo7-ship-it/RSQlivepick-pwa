@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Trash2, Edit, Bell, BellOff } from 'lucide-react';
+import { Trash2, Edit, Bell, BellOff, Share2, Lock } from 'lucide-react';
 import { Filter } from '@/lib/supabase';
 import { getColorConfig, FilterColor } from '@/lib/filter-styling';
 
@@ -10,7 +10,9 @@ interface FilterCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onToggleNotification?: () => void;
+  onTogglePublic?: () => void;
   isLoading?: boolean;
+  showPublicToggle?: boolean;
 }
 
 export default function FilterCard({
@@ -18,10 +20,13 @@ export default function FilterCard({
   onEdit,
   onDelete,
   onToggleNotification,
+  onTogglePublic,
   isLoading,
+  showPublicToggle,
 }: FilterCardProps) {
   const color = filter.color || 'cyan';
   const config = getColorConfig(color);
+  const isForked = !!filter.forked_from_id;
 
   return (
     <motion.div
@@ -38,12 +43,24 @@ export default function FilterCard({
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
-            <h3 className={`font-display font-bold text-lg ${config.text} group-hover:text-opacity-100 transition`}>
-              {filter.name}
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className={`font-display font-bold text-lg ${config.text} group-hover:text-opacity-100 transition`}>
+                {filter.name}
+              </h3>
+              {isForked && (
+                <span className="px-2 py-1 rounded-full bg-accent-blue/20 text-accent-blue text-xs font-semibold">
+                  v{filter.version || 2}.0
+                </span>
+              )}
+            </div>
             <p className="text-xs text-text-muted mt-1 line-clamp-1">
               {filter.description || 'No description'}
             </p>
+            {isForked && (
+              <p className="text-xs text-accent-blue/70 mt-1">
+                Forked from: {filter.forked_from_user || 'community'}
+              </p>
+            )}
           </div>
 
           {/* Status badge */}
@@ -98,11 +115,31 @@ export default function FilterCard({
             </button>
           )}
 
+          {showPublicToggle && onTogglePublic && (
+            <button
+              onClick={onTogglePublic}
+              disabled={isLoading}
+              className={`py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-1 transition ${
+                filter.is_public
+                  ? 'bg-accent-cyan/20 text-accent-cyan hover:bg-accent-cyan/30'
+                  : 'bg-glass-light text-text-secondary hover:bg-glass-lighter'
+              }`}
+              title={filter.is_public ? 'Anyone can import this filter' : 'Only you can see this filter'}
+            >
+              {filter.is_public ? (
+                <Share2 className="w-3 h-3" />
+              ) : (
+                <Lock className="w-3 h-3" />
+              )}
+            </button>
+          )}
+
           {onEdit && (
             <button
               onClick={onEdit}
-              disabled={isLoading}
-              className="py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center bg-glass-light text-text-secondary hover:bg-glass-lighter transition"
+              disabled={isLoading || !filter.is_editable}
+              title={!filter.is_editable ? 'This filter cannot be edited' : 'Edit filter'}
+              className="py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center bg-glass-light text-text-secondary hover:bg-glass-lighter transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Edit className="w-3 h-3" />
             </button>
