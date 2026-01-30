@@ -184,62 +184,185 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* Features Section */}
+      {/* Features Section with Visual Examples */}
       <section className="relative py-20 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-black mb-4">Powerful Features Built for Serious Analysis</h2>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">Everything you need to turn match data into actionable intelligence</p>
         </div>
 
+        {/* Feature 1: Live Scanner */}
         <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-8"
+          className="mb-16 grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
         >
-          {[
-            {
-              icon: Target,
-              title: "100+ Filter Conditions",
-              desc: "Combine corners, shots, cards, goals, odds, possession, time ranges, dangerous attacks, momentum, and more."
-            },
-            {
-              icon: Lightning,
-              title: "Real-Time Scanning",
-              desc: "Instant notifications the moment a match meets your criteria. <100ms alert speed across 1000+ leagues."
-            },
-            {
-              icon: BarChart3,
-              title: "Advanced Analytics",
-              desc: "Track performance, analyze patterns, export data to Excel/CSV for deeper insights and strategy optimization."
-            },
-            {
-              icon: CheckCircle,
-              title: "Smart Filter Management",
-              desc: "Create, test, and combine filters. Use templates or build custom strategies. Organize by category."
-            },
-            {
-              icon: Zap,
-              title: "Multiple Notification Channels",
-              desc: "Choose Telegram for mobile alerts or web push for in-browser notifications. Both instant and reliable."
-            },
-            {
-              icon: Shield,
-              title: "Private & Secure",
-              desc: "Your filters and data belong to you. Row-level security ensures only you access your strategies."
-            }
-          ].map((feature, i) => (
-            <motion.div
-              key={i}
-              variants={itemVariants}
-              className="bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-2xl p-8 hover:border-cyan-500/30 transition-all"
-            >
-              <feature.icon className="w-10 h-10 text-cyan-400 mb-4" />
-              <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-              <p className="text-gray-400">{feature.desc}</p>
-            </motion.div>
-          ))}
+          <div>
+            <h3 className="text-3xl font-bold mb-4 text-cyan-400">Real-Time Live Scanner</h3>
+            <p className="text-gray-300 mb-4">Watch all live matches across 1000+ leagues with real-time stats updates. See corners, shots, cards, possession, momentum, and more as it happens.</p>
+            <ul className="space-y-2 text-gray-400">
+              <li>✓ 1000+ worldwide leagues</li>
+              <li>✓ Live stats updated every second</li>
+              <li>✓ Advanced metrics (momentum, xG, pressure index)</li>
+              <li>✓ Beautiful, responsive interface</li>
+            </ul>
+          </div>
+          <motion.div
+            className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-6 min-h-96 flex items-center justify-center"
+          >
+            <div className="text-center">
+              <div className="bg-white/5 rounded-xl p-6 mb-4 border border-white/10">
+                <div className="text-sm text-gray-400 mb-2">LIVE MATCH SCANNER</div>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span>Corners: 4-2</span>
+                    <span className="text-cyan-400">12:34</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Shots on Target: 3-1</span>
+                    <span className="text-cyan-400">●</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Possession: 58-42%</span>
+                    <span className="text-cyan-400">📊</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Yellow Cards: 1-0</span>
+                    <span className="text-yellow-400">●</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">Live data shown for active matches</p>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Feature 2: Smart Filters */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-16 grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
+        >
+          <motion.div
+            className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-6 min-h-96 flex items-center justify-center order-2 md:order-1"
+          >
+            <div className="text-center w-full">
+              <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                <div className="text-sm text-gray-400 mb-4">FILTER BUILDER</div>
+                <div className="space-y-3 text-left text-sm">
+                  <div className="bg-white/5 rounded p-2 border border-cyan-500/30">
+                    Corners ≥ 5
+                  </div>
+                  <div className="flex items-center justify-center text-cyan-400">AND</div>
+                  <div className="bg-white/5 rounded p-2 border border-cyan-500/30">
+                    Shots on Target ≥ 3
+                  </div>
+                  <div className="flex items-center justify-center text-cyan-400">AND</div>
+                  <div className="bg-white/5 rounded p-2 border border-cyan-500/30">
+                    Time: 10-45 minutes
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-4">Combine 100+ conditions</p>
+            </div>
+          </motion.div>
+          <div className="order-1 md:order-2">
+            <h3 className="text-3xl font-bold mb-4 text-cyan-400">100+ Filter Conditions</h3>
+            <p className="text-gray-300 mb-4">Create sophisticated filters combining any of 100+ match conditions. Mix and match to build your perfect strategy.</p>
+            <ul className="space-y-2 text-gray-400">
+              <li>✓ Corners, shots, cards, goals</li>
+              <li>✓ Odds and momentum changes</li>
+              <li>✓ Time ranges and team-specific stats</li>
+              <li>✓ Save as templates for reuse</li>
+            </ul>
+          </div>
+        </motion.div>
+
+        {/* Feature 3: Instant Notifications */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-16 grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
+        >
+          <div>
+            <h3 className="text-3xl font-bold mb-4 text-cyan-400">Instant Notifications</h3>
+            <p className="text-gray-300 mb-4">Get real-time alerts the moment a match meets your filter criteria. Choose Telegram for mobile or web push for browser alerts.</p>
+            <ul className="space-y-2 text-gray-400">
+              <li>✓ &lt;100ms alert delivery</li>
+              <li>✓ Telegram & web push support</li>
+              <li>✓ Never miss an opportunity</li>
+              <li>✓ Smart deduplication</li>
+            </ul>
+          </div>
+          <motion.div
+            className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-6 min-h-96 flex items-center justify-center"
+          >
+            <div className="text-center w-full">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10 mb-4">
+                <div className="text-sm text-gray-400 mb-3">TELEGRAM ALERT</div>
+                <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded p-4 text-left">
+                  <div className="text-sm font-semibold mb-2">🔔 Filter Matched!</div>
+                  <div className="text-xs space-y-1 text-gray-300">
+                    <div>⚽ Barcelona vs Real Madrid</div>
+                    <div>🎯 Corners: 5+ ✓</div>
+                    <div>🔫 Shots: 3+ ✓</div>
+                    <div>⏱️ 23 minutes</div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">Real-time alerts in your pocket</p>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Feature 4: Analytics & Export */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
+        >
+          <motion.div
+            className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-6 min-h-96 flex items-center justify-center order-2 md:order-1"
+          >
+            <div className="text-center w-full">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <div className="text-sm text-gray-400 mb-4">FILTER STATISTICS</div>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span>Triggered</span>
+                    <span className="text-cyan-400 font-bold">47</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Success Rate</span>
+                    <span className="text-green-400 font-bold">72%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>ROI</span>
+                    <span className="text-cyan-400 font-bold">+18%</span>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <button className="text-xs text-cyan-400 hover:text-cyan-300">
+                      📊 Export to CSV →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+          <div className="order-1 md:order-2">
+            <h3 className="text-3xl font-bold mb-4 text-cyan-400">Advanced Analytics</h3>
+            <p className="text-gray-300 mb-4">Track every trigger, analyze performance, and optimize your strategies with detailed statistics and data export.</p>
+            <ul className="space-y-2 text-gray-400">
+              <li>✓ Track success rates</li>
+              <li>✓ ROI calculations</li>
+              <li>✓ Export to Excel/CSV</li>
+              <li>✓ Performance trends</li>
+            </ul>
+          </div>
         </motion.div>
       </section>
 

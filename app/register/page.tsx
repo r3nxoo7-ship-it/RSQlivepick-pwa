@@ -160,9 +160,9 @@ export default function RegisterPage() {
           >
             <div>
               <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
-                Crează Cont Nou
+                Create New Account
               </h2>
-              <p className="text-text-muted text-sm">Pasul 1 din 4</p>
+              <p className="text-text-muted text-sm">Step 1 of 4</p>
             </div>
 
             {error && (
@@ -180,7 +180,7 @@ export default function RegisterPage() {
               {/* Full Name */}
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Nume Complet
+                  Full Name
                 </label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -198,7 +198,7 @@ export default function RegisterPage() {
               {/* Email */}
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  E-mail
+                  Email
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -216,7 +216,7 @@ export default function RegisterPage() {
               {/* Username */}
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Nume utilizator
+                  Username
                 </label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -234,7 +234,7 @@ export default function RegisterPage() {
               {/* Password */}
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Parola
+                  Password
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -252,7 +252,7 @@ export default function RegisterPage() {
               {/* Confirm Password */}
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Confirmă Parola
+                  Confirm Password
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -278,13 +278,13 @@ export default function RegisterPage() {
             </button>
 
             <p className="text-center text-sm text-text-muted">
-              Ai deja cont?{' '}
+              Already have an account?{' '}
               <button
                 type="button"
                 onClick={() => router.push('/login')}
                 className="text-accent-cyan hover:text-accent-cyan/80 font-semibold transition-colors"
               >
-                Loghează-te
+                Sign In
               </button>
             </p>
           </motion.form>
@@ -334,13 +334,13 @@ export default function RegisterPage() {
                 onClick={handleSkipNotifications}
                 className="flex-1 btn-secondary py-3 rounded-lg font-semibold transition-all"
               >
-                Sări
+                Skip
               </button>
               <button
                 onClick={() => setStep(3)}
                 className="flex-1 btn-primary py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
               >
-                Continuă
+                Continue
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
