@@ -789,18 +789,18 @@ export const dbHelpers = {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('id', userId);
       
       if (error) {
         console.error('Error getting user profile:', error);
-        throw error;
+        return null;
       }
       
-      return data;
+      // Return first record if exists, otherwise null
+      return data && data.length > 0 ? data[0] : null;
     } catch (err) {
       console.error('Error in getUserProfile:', err);
-      throw err;
+      return null;
     }
   },
 
@@ -816,19 +816,49 @@ export const dbHelpers = {
     telegram_verified_at?: string | null;
   }) {
     try {
-      const { data, error } = await supabase
+      // First, check if profile exists
+      const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
-        .update(updates)
-        .eq('id', userId)
-        .select()
-        .single();
+        .select('id')
+        .eq('id', userId);
+      
+      if (checkError) {
+        console.error('Error checking profile:', checkError);
+        return { data: null, error: checkError.message };
+      }
+      
+      let result;
+      
+      if (!existingProfile || existingProfile.length === 0) {
+        // Create new profile if it doesn't exist
+        console.log('Creating new profile for user:', userId);
+        result = await supabase
+          .from('profiles')
+          .insert([{
+            id: userId,
+            ...updates,
+          }])
+          .select()
+          .single();
+      } else {
+        // Update existing profile
+        result = await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId)
+          .select();
+      }
+      
+      const { data, error } = result;
       
       if (error) {
         console.error('Error updating profile:', error);
         return { data: null, error: error.message };
       }
       
-      return { data, error: null };
+      // Return the first record if it's an array
+      const profileData = Array.isArray(data) ? data[0] : data;
+      return { data: profileData, error: null };
     } catch (err) {
       console.error('Error in updateUserProfile:', err);
       return { data: null, error: 'Failed to update profile' };
