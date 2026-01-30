@@ -461,7 +461,7 @@ export default function CompleteFilterBuilder() {
       
       // Create filter
       console.log('Creating filter with user_id:', user?.id);
-      const { data, error } = await dbHelpers.createFilter({
+      const filterPayload: any = {
         user_id: user?.id || undefined,
         name,
         description: description || undefined,
@@ -469,7 +469,14 @@ export default function CompleteFilterBuilder() {
         is_active: isActive,
         notification_enabled: notificationEnabled,
         telegram_enabled: telegramEnabled,
-      });
+      };
+      
+      // If in super/combine mode, add combined filter IDs
+      if (showCombineMode && combinedFilterIds.length > 0) {
+        filterPayload.combined_filter_ids = combinedFilterIds;
+      }
+      
+      const { data, error } = await dbHelpers.createFilter(filterPayload);
       
       if (error) {
         setError(error);

@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get current user from localStorage (sent in request body)
     const body = await request.json();
-    const { user_id, name, description, conditions, is_active, notification_enabled, telegram_enabled, is_public } = body;
+    const { user_id, name, description, conditions, is_active, notification_enabled, telegram_enabled, is_public, combined_filter_ids } = body;
 
     // Validate user_id
     if (!user_id || user_id === 'anon' || typeof user_id !== 'string') {
@@ -32,36 +32,50 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('📝 API /filters/create: Creating filter for user:', user_id);
+    console.log('📝 Combined filter IDs:', combined_filter_ids);
 
     // ============================================
     // VALIDATION 1: CONDITIONS
     // ============================================
-    const conditionValidation = validateFilterConditions(conditions);
-    if (!conditionValidation.isValid) {
-      console.warn('⚠️ Invalid filter conditions:', conditionValidation.errors);
-      return NextResponse.json(
-        { 
-          error: 'Invalid filter conditions', 
-          details: conditionValidation.errors,
-          warnings: conditionValidation.warnings 
-        },
-        { status: 400 }
-      );
+    // Skip condition validation if combining existing filters
+    const isCombiningFilters = combined_filter_ids && Array.isArray(combined_filter_ids) && combined_filter_ids.length > 0;
+    
+    if (!isCombiningFilters) {
+      const conditionValidation = validateFilterConditions(conditions);
+      if (!conditionValidation.isValid) {
+        console.warn('⚠️ Invalid filter conditions:', conditionValidation.errors);
+        return NextResponse.json(
+          { 
+            error: 'Invalid filter conditions', 
+            details: conditionValidation.errors,
+            warnings: conditionValidation.warnings 
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      console.log('✅ Skipping condition validation - combining existing filters');
     }
 
     // ============================================
     // VALIDATION 2: COMPLETE CONDITIONS
     // ============================================
-    const conditionsComplete = areConditionsComplete(conditions);
-    if (!conditionsComplete && notification_enabled) {
-      console.warn('⚠️ Cannot enable notifications with incomplete conditions');
-      return NextResponse.json(
-        { 
-          error: 'Notifications require complete conditions',
-          details: ['Define at least one value (min or max) for a condition']
-        },
+    // Skip completeness check if combining filters
+    let conditionsComplete = true;
+    if (!isCombiningFilters) {
+      conditionsComplete = areConditionsComplete(conditions);
+      if (!conditionsComplete && notification_enabled) {
+        console.warn('⚠️ Cannot enable notifications with incomplete conditions');
+        return NextResponse.json(
+          { 
+            error: 'Notifications require complete conditions',
+            details: ['Define at least one value (min or max) for a condition']
+          },
         { status: 400 }
-      );
+        );
+      }
+    } else {
+      console.log('✅ Skipping completeness check - combining existing filters');
     }
 
     // ============================================
