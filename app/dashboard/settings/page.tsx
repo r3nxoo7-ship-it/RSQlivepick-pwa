@@ -223,8 +223,8 @@ export default function SettingsPage() {
           {/* Tabs */}
           <div className="flex gap-2 mb-8 border-b border-white/10">
             {[
-              { id: 'profile', label: 'Profil', icon: User },
-              { id: 'password', label: 'Parolă', icon: Lock },
+              { id: 'profile', label: 'Profile', icon: User },
+              { id: 'password', label: 'Password', icon: Lock },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -251,7 +251,7 @@ export default function SettingsPage() {
             >
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Nume Complet
+                  Full Name
                 </label>
                 <input
                   type="text"
@@ -260,13 +260,13 @@ export default function SettingsPage() {
                     setFormData({ ...formData, full_name: e.target.value })
                   }
                   className="input-field w-full"
-                  placeholder="Introduce-ți numele complet"
+                  placeholder="Enter your full name"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  E-mail
+                  Email
                 </label>
                 <input
                   type="email"
@@ -285,7 +285,7 @@ export default function SettingsPage() {
                 className="w-full btn-primary flex items-center justify-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                {saving ? 'Se salvează...' : 'Salvează Modificări'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </motion.form>
           )}
@@ -299,7 +299,7 @@ export default function SettingsPage() {
             >
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Parola Curentă
+                  Current Password
                 </label>
                 <input
                   type="password"
@@ -317,7 +317,7 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Parolă Nouă
+                  New Password
                 </label>
                 <input
                   type="password"
@@ -335,7 +335,7 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-sm font-display text-text-secondary mb-2">
-                  Confirmă Parola
+                  Confirm Password
                 </label>
                 <input
                   type="password"

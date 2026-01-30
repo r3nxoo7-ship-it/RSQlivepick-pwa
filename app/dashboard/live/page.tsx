@@ -270,26 +270,28 @@ export default function LiveMatchesPage() {
           </div>
           
           {/* ========== STATS BAR ========== */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="stat-card">
-              <div className="stat-label">Live Matches</div>
-              <div className="stat-value">{matches.length}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">With Filters</div>
-              <div className="stat-value text-accent-green">{matchesWithFilters}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Active Filters</div>
-              <div className="stat-value">{activeFiltersCount}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Total Scans</div>
-              <div className="stat-value text-accent-amber">{scannerStats.totalScans}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Notifications</div>
-              <div className="stat-value text-accent-purple">{scannerStats.notificationsSent}</div>
+          <div className="glass-card p-4 sm:p-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Live</div>
+                <div className="stat-value text-lg sm:text-2xl">{matches.length}</div>
+              </div>
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Scanned</div>
+                <div className="stat-value text-accent-green text-lg sm:text-2xl">{matchesWithFilters}</div>
+              </div>
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Filters</div>
+                <div className="stat-value text-lg sm:text-2xl">{activeFiltersCount}</div>
+              </div>
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Scans</div>
+                <div className="stat-value text-accent-amber text-lg sm:text-2xl">{scannerStats.totalScans}</div>
+              </div>
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Alerts</div>
+                <div className="stat-value text-accent-purple text-lg sm:text-2xl">{scannerStats.notificationsSent}</div>
+              </div>
             </div>
           </div>
           

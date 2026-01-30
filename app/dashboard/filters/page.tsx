@@ -214,21 +214,23 @@ export default function FiltersPage() {
           </div>
           
           {/* ========== STATS ========== */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="stat-card">
-              <div className="stat-label">Total Filters</div>
-              <div className="stat-value">{filters.length}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Active</div>
-              <div className="stat-value text-accent-green">
-                {filters.filter(f => f.is_active).length}
+          <div className="glass-card p-4 sm:p-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Total</div>
+                <div className="stat-value text-xl sm:text-2xl">{filters.length}</div>
               </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">With Notifications</div>
-              <div className="stat-value text-accent-cyan">
-                {filters.filter(f => f.notification_enabled).length}
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Active</div>
+                <div className="stat-value text-accent-green text-xl sm:text-2xl">
+                  {filters.filter(f => f.is_active).length}
+                </div>
+              </div>
+              <div className="text-center md:col-span-1 col-span-2">
+                <div className="stat-label text-xs sm:text-sm">Notifications</div>
+                <div className="stat-value text-accent-cyan text-xl sm:text-2xl">
+                  {filters.filter(f => f.notification_enabled).length}
+                </div>
               </div>
             </div>
           </div>

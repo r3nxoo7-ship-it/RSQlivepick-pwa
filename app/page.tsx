@@ -76,7 +76,7 @@ export default function Home() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-600 mt-8">© 2026 R$Q • Powered by LivePick • Your personal football intelligence</p>
+        <p className="text-xs text-gray-600 mt-8">© 2026 R$Q • Real-time Football Intelligence • Match Scanning Made Personal</p>
       </motion.div>
     </div>
   );
