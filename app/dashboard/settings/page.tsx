@@ -88,13 +88,27 @@ export default function SettingsPage() {
         return;
       }
 
-      // Update localStorage with new data - FIXED
-      if (typeof window !== 'undefined') {
+      // Update localStorage with new data from API response
+      if (typeof window !== 'undefined' && data.data) {
+        const apiData = data.data;
+        const updatedUser = {
+          id: apiData.id || user.id,
+          username: apiData.username || user.username,
+          full_name: apiData.full_name || formData.full_name || user.full_name,
+          email: apiData.email || formData.email || user.email,
+          is_admin: apiData.is_admin || user.is_admin,
+        };
+        localStorage.setItem('rsq_user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+        console.log('✅ Profile saved to localStorage:', updatedUser);
+      } else {
+        // Fallback if API doesn't return data
+        console.warn('⚠️ API did not return data, using form data');
         const updatedUser = {
           id: user.id,
           username: user.username,
-          full_name: formData.full_name || data.full_name || user.full_name,
-          email: formData.email || data.email || user.email,
+          full_name: formData.full_name || user.full_name,
+          email: formData.email || user.email,
           is_admin: user.is_admin,
         };
         localStorage.setItem('rsq_user', JSON.stringify(updatedUser));

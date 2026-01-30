@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
           .from('users')
           .update(updateData)
           .eq('id', userId)
-          .select();
+          .select('id, username, full_name, email, is_admin, updated_at')
+          .single();
 
         if (error) {
           console.error('Profile update error:', error);
@@ -55,21 +56,12 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Update localStorage with new data
-        if (data && data[0]) {
-          const updatedUser = {
-            id: data[0].id,
-            username: data[0].username,
-            full_name: data[0].full_name,
-            is_admin: data[0].is_admin,
-          };
-          // Client will handle localStorage update
-        }
+        console.log('✅ Profile updated successfully:', data);
 
         return NextResponse.json({
           success: true,
           message: 'Profile updated successfully',
-          data: data?.[0],
+          data: data,
         });
       }
 
