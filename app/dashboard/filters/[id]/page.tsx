@@ -586,7 +586,7 @@ export default function FilterEditPage() {
               {/* Score (Exact) */}
               <div>
                 <h3 className="font-semibold mb-3">🎯 Exact Score</h3>
-                <p className="text-xs text-text-muted mb-3">Choose the exact score you're looking for (e.g. 0-0, 1-1, 2-2)</p>
+                <p className="text-xs text-text-muted mb-3">Choose the exact score you are looking for (e.g. 0-0, 1-1, 2-2)</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-text-muted mb-2">Home Goals</label>
