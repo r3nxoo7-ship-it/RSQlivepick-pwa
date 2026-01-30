@@ -1,15 +1,17 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Target } from 'lucide-react';
+import { Target, TrendingUp } from 'lucide-react';
 import { LiveMatch } from '@/lib/football-data';
 import { FilterMatchResult } from '@/lib/filter-engine';
+import { MatchOdds, formatOdds } from '@/lib/odds-provider';
 
 interface MatchCardProps {
   match: LiveMatch;
   onClick?: () => void;
   showStatistics?: boolean;
   filterResults?: FilterMatchResult[];
+  odds?: MatchOdds;
 }
 
 export default function MatchCard({
@@ -17,6 +19,7 @@ export default function MatchCard({
   onClick,
   showStatistics = false,
   filterResults = [],
+  odds,
 }: MatchCardProps) {
   const isLive =
     match.fixture.status.short === 'LIVE' ||
@@ -80,6 +83,36 @@ export default function MatchCard({
           <div className="flex items-center gap-1 text-xs text-accent-cyan">
             <Target className="w-3 h-3" />
             <span>{filterResults.length} filter match(es)</span>
+          </div>
+        </div>
+      )}
+
+      {/* Live Odds Display */}
+      {odds && odds.bookmakers && (
+        <div className="border-t border-glass-light pt-3 mt-3">
+          <div className="flex items-center gap-1 mb-2 text-xs font-semibold text-accent-amber">
+            <TrendingUp className="w-3 h-3" />
+            Live Odds (1X2)
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="text-center px-2 py-1 rounded bg-glass-light border border-glass-lighter hover:border-accent-green transition cursor-pointer">
+              <div className="font-bold text-accent-green">
+                {formatOdds(odds.bookmakers.home_win)}
+              </div>
+              <div className="text-text-muted text-xs">Home</div>
+            </div>
+            <div className="text-center px-2 py-1 rounded bg-glass-light border border-glass-lighter hover:border-accent-purple transition cursor-pointer">
+              <div className="font-bold text-accent-purple">
+                {formatOdds(odds.bookmakers.draw)}
+              </div>
+              <div className="text-text-muted text-xs">Draw</div>
+            </div>
+            <div className="text-center px-2 py-1 rounded bg-glass-light border border-glass-lighter hover:border-accent-blue transition cursor-pointer">
+              <div className="font-bold text-accent-blue">
+                {formatOdds(odds.bookmakers.away_win)}
+              </div>
+              <div className="text-text-muted text-xs">Away</div>
+            </div>
           </div>
         </div>
       )}

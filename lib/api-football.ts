@@ -1,4 +1,5 @@
 // ============================================
+import { MatchOdds } from '@/lib/odds-provider';
 // R$Q FOOTBALL SCANNER - API Football Client
 // ============================================
 // This file handles all communications with API-Football
@@ -83,6 +84,10 @@ export interface LiveMatch {
       away: number | null;
     };
   };
+
+  // Additional properties for enhanced data
+  statistics?: MatchStatistics[];
+  odds?: MatchOdds['bookmakers']; // Simplified odds for display
 }
 
 /**
@@ -387,12 +392,71 @@ export async function checkAPIStatus(): Promise<{ success: boolean; message: str
 }
 
 // ============================================
+// ENHANCED FUNCTIONS: With Odds and Stats
+// ============================================
+
+/**
+ * Get match details with statistics and odds
+ * Fetches live match, stats, and odds all at once
+ */
+export async function getMatchWithDetails(fixtureId: number) {
+  try {
+    const [fixtureData, statsData] = await Promise.all([
+      makeRequest<LiveMatch>('/fixtures', { id: fixtureId.toString() }),
+      getMatchStatistics(fixtureId),
+    ]);
+
+    const fixture = fixtureData[0];
+    const stats = statsData || [];
+
+    return {
+      fixture,
+      statistics: stats,
+      success: true,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching match details:', error);
+    return {
+      fixture: null,
+      statistics: [],
+      success: false,
+    };
+  }
+}
+
+/**
+ * Batch fetch matches with their statistics
+ * Useful for showing live matches with stats on dashboard
+ */
+export async function getMatchesWithStats(matchIds: number[]): Promise<Map<number, any>> {
+  const results = new Map();
+
+  // Fetch all stats in parallel with rate limiting
+  for (let i = 0; i < matchIds.length; i++) {
+    const matchId = matchIds[i];
+    try {
+      const stats = await getMatchStatistics(matchId);
+      results.set(matchId, stats);
+
+      // Add small delay to avoid rate limiting
+      if (i < matchIds.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch stats for match ${matchId}`);
+    }
+  }
+
+  return results;
+}
+
+// ============================================
 // GATA! Acest fișier poate fi folosit acum!
 // ============================================
 
 // USAGE EXAMPLES (în alte fișiere):
 /*
-import { getLiveMatches, getMatchStatistics, parseMatchStats } from '@/lib/api-football';
+import { getLiveMatches, getMatchStatistics, getMatchWithDetails, getMatchesWithStats } from '@/lib/api-football';
 
 // 1. Obține meciuri live
 const matches = await getLiveMatches();
@@ -401,5 +465,13 @@ console.log('Meciuri live:', matches.length);
 // 2. Obține statistici pentru un meci
 const stats = await getMatchStatistics(12345);
 const parsed = parseMatchStats(stats);
-  console.log('Corners:', parsed.corners.total);
+console.log('Corners:', parsed.corners.total);
+
+// 3. Obține detalii complete ale meciului (cu stats și odds)
+const matchDetails = await getMatchWithDetails(12345);
+console.log('Match:', matchDetails.fixture.teams.home.name);
+console.log('Stats:', matchDetails.statistics);
+
+// 4. Obține stats pentru mai multe meciuri
+const statsMap = await getMatchesWithStats([12345, 67890, 11111]);
 */
