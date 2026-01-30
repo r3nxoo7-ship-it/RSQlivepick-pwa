@@ -87,8 +87,10 @@ export default function FiltersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: currentUser.id,
-          filter_id: filterId,
-          notification_enabled: !currentStatus,
+          filterId: filterId,
+          updates: {
+            notification_enabled: !currentStatus,
+          },
         }),
       });
 
