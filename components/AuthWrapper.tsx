@@ -47,7 +47,7 @@ export default function AuthWrapper({ children, requireAdmin = false }: AuthWrap
           className="text-center"
         >
           <div className="w-16 h-16 rounded-full border-4 border-accent-cyan border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="text-text-secondary">Verificare autentificare...</p>
+          <p className="text-text-secondary">Checking authentication...</p>
         </motion.div>
       </div>
     );

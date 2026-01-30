@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +20,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { user, error } = await authHelpers.login(username, password);
+    const { user, error } = await authHelpers.login(username, password, keepLoggedIn);
 
       if (error) {
         setError(error);
@@ -28,20 +29,12 @@ export default function LoginPage() {
       }
 
       if (user) {
-        // 1. Salvează în localStorage pentru client
-        authHelpers.saveUser(user);
-        
-        // 2. SETEAZĂ COOKIE-UL PENTRU MIDDLEWARE (IMPORTANT!)
-        // Acest pas face ca serverul să te lase să intri în /dashboard
-        document.cookie = "rsq_session=active; path=/; max-age=86400; SameSite=Lax";
-        
-        // 3. Dacă ești admin, setează și cookie-ul de admin (opțional)
-        if (username === 'admin') { // Exemplu de verificare
-           document.cookie = "rsq_is_admin=true; path=/; max-age=86400; SameSite=Lax";
-        }
+          // Server-side helpers already set lightweight cookies and persisted session
+          // Save minimal user client-side for UI helpers
+          authHelpers.saveUser(user);
 
         // Redirect la dashboard
-        router.push('/dashboard');
+          router.push('/dashboard');
         router.refresh(); // Forțează reîncărcarea pentru middleware
       }
     } catch (err) {
@@ -107,7 +100,7 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="input-field pl-12"
-                  placeholder="Introdu username-ul"
+                  placeholder="username"
                   required
                   autoFocus
                   disabled={loading}
@@ -118,7 +111,7 @@ export default function LoginPage() {
             {/* Password Input */}
             <div>
               <label htmlFor="password" className="block text-sm font-display text-text-secondary mb-2">
-                Parolă
+                Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -128,13 +121,24 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input-field pl-12"
-                  placeholder="Introdu parola"
+                  placeholder="password"
                   required
                   disabled={loading}
                 />
               </div>
             </div>
           </div>
+
+          {/* Keep me logged in */}
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={keepLoggedIn}
+              onChange={(e) => setKeepLoggedIn(e.target.checked)}
+              className="w-4 h-4 rounded border-glass-medium checked:bg-accent-cyan"
+            />
+            <span className="text-sm text-text-secondary">Keep me logged in</span>
+          </label>
 
           {/* Error Message */}
           {error && (

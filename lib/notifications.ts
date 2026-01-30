@@ -114,7 +114,7 @@ export async function sendNotification(
   try {
     // If a service worker is active, use it to display the notification (PWA-friendly)
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      // Trimite prin service worker (mai bun pentru PWA)
+      // Send via service worker (recommended for PWA)
       const registration = await navigator.serviceWorker.ready;
       
       await registration.showNotification(payload.title, {
@@ -128,7 +128,7 @@ export async function sendNotification(
       } as any);
       console.log('✅ Notification sent via Service Worker');
     } else {
-      // Fallback: trimite direct (pentru testing în development)
+      // Fallback: send directly (useful in development)
       new Notification(payload.title, {
         body: payload.body,
         icon: payload.icon || '/icons/icon-192x192.svg',
@@ -195,6 +195,97 @@ export async function sendTestNotification(): Promise<boolean> {
     body: 'Notifications are working! You will receive alerts when matches match your filters.',
     tag: 'test-notification',
   });
+}
+
+// ============================================
+// PUSH SUBSCRIPTION HELPERS (Web Push / VAPID)
+// ============================================
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+/**
+ * Subscribe the browser to push notifications and send the subscription to the server.
+ * Requires `NEXT_PUBLIC_VAPID_PUBLIC_KEY` to be set in the client environment.
+ */
+export async function subscribeToPush(userId: string): Promise<boolean> {
+  if (!isNotificationSupported()) return false;
+  if (Notification.permission !== 'granted') {
+    const ok = await requestNotificationPermission();
+    if (!ok) return false;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+    if (!vapidKey) {
+      console.warn('VAPID public key not configured (NEXT_PUBLIC_VAPID_PUBLIC_KEY)');
+      return false;
+    }
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+
+    // Send subscription to server to save
+    const res = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, subscription }),
+    });
+
+    if (!res.ok) {
+      console.error('Failed to save push subscription on server');
+      return false;
+    }
+
+    console.log('✅ Push subscribed and saved');
+    return true;
+  } catch (err) {
+    console.error('Error subscribing to push:', err);
+    return false;
+  }
+}
+
+export async function unsubscribeFromPush(userId: string): Promise<boolean> {
+  if (!isNotificationSupported()) return false;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      console.log('No push subscription found to unsubscribe');
+      return true;
+    }
+
+    // Delete on server
+    const res = await fetch('/api/push/unsubscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, endpoint: subscription.endpoint }),
+    });
+
+    if (!res.ok) {
+      console.error('Failed to remove push subscription on server');
+      // continue to unsubscribe locally
+    }
+
+    await subscription.unsubscribe();
+    console.log('✅ Unsubscribed from push');
+    return true;
+  } catch (err) {
+    console.error('Error unsubscribing from push:', err);
+    return false;
+  }
 }
 
 // ============================================
