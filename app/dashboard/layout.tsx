@@ -28,18 +28,18 @@ import { authHelpers } from '@/lib/supabase';
 
 const navigation = [
   {
-    name: 'Dashboard',
+    name: 'Home',
     href: '/dashboard',
     icon: Home,
   },
   {
-    name: 'Live Matches',
+    name: 'Live',
     href: '/dashboard/live',
     icon: Activity,
   },
   {
-    name: 'Analytics',
-    href: '/dashboard/analytics',
+    name: 'Matches',
+    href: '/dashboard/matches',
     icon: BarChart3,
   },
   {
@@ -47,12 +47,16 @@ const navigation = [
     href: '/dashboard/filters',
     icon: Filter,
   },
-    {
-      name: 'Notifications',
-      href: '/dashboard/notifications',
-      icon: Bell,
-    },
-  
+  {
+    name: 'Notifications',
+    href: '/dashboard/notifications',
+    icon: Bell,
+  },
+  {
+    name: 'Library',
+    href: '/dashboard/library',
+    icon: Send,
+  },
 ];
 
 // ============================================
@@ -80,9 +84,12 @@ export default function DashboardLayout({
         <div className="flex grow flex-col gap-y-5 overflow-y-auto glass-card border-r border-glass-medium px-6 pb-4">
           {/* Logo */}
           <div className="flex h-16 shrink-0 items-center">
-            <h1 className="text-2xl font-display font-bold gradient-text">
-              R$Q Scanner
-            </h1>
+            <div className="flex items-center gap-3 w-full">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-cyan to-accent-magenta flex items-center justify-center flex-shrink-0">
+                <Activity className="w-6 h-6 text-dark" />
+              </div>
+              <h1 className="text-2xl font-display font-bold gradient-text">R$Q</h1>
+            </div>
           </div>
           
           {/* Navigation */}
@@ -139,28 +146,24 @@ export default function DashboardLayout({
       </aside>
       
       {/* ========== MOBILE HEADER ========== */}
-      <div className="sticky top-0 z-40 flex items-center gap-x-6 glass-card border-b border-glass-medium px-4 py-4 shadow-sm lg:hidden">
+      <div className="sticky top-0 z-40 flex items-center gap-x-4 glass-card border-b border-glass-medium px-4 py-4 shadow-lg lg:hidden backdrop-blur-xl">
         <button
           type="button"
-          className="-m-2.5 p-2.5 text-text-secondary lg:hidden"
+          className="-m-2.5 p-2.5 text-text-secondary lg:hidden hover:text-accent-cyan transition-colors"
           onClick={() => setMobileMenuOpen(true)}
         >
           <span className="sr-only">Open sidebar</span>
           <Menu className="h-6 w-6" />
         </button>
         
-        <div className="flex-1 text-sm font-semibold leading-6">
-          <h1 className="text-xl font-display font-bold gradient-text">
-            R$Q Scanner
-          </h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan to-accent-magenta flex items-center justify-center">
+              <Activity className="w-5 h-5 text-dark" />
+            </div>
+            <h1 className="text-lg font-display font-bold gradient-text">R$Q</h1>
+          </div>
         </div>
-        
-        <button
-          onClick={handleLogout}
-          className="text-text-secondary hover:text-accent-red transition-colors"
-        >
-          <LogOut className="h-5 w-5" />
-        </button>
       </div>
       
       {/* ========== MOBILE MENU ========== */}
@@ -169,12 +172,15 @@ export default function DashboardLayout({
           <div className="fixed inset-0 z-50" />
           <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto glass-card px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-glass-medium">
             <div className="flex items-center justify-between">
-              <h1 className="text-xl font-display font-bold gradient-text">
-                R$Q Scanner
-              </h1>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-cyan to-accent-magenta flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-dark" />
+                </div>
+                <h1 className="text-xl font-display font-bold gradient-text">R$Q</h1>
+              </div>
               <button
                 type="button"
-                className="-m-2.5 rounded-md p-2.5 text-text-secondary"
+                className="-m-2.5 rounded-md p-2.5 text-text-secondary hover:text-accent-cyan transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <span className="sr-only">Close menu</span>
@@ -218,17 +224,6 @@ export default function DashboardLayout({
                     <Settings className="h-6 w-6 shrink-0" />
                     Settings
                   </Link>
-                  
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="-mx-3 w-full flex gap-x-3 rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-accent-red hover:bg-accent-red/10"
-                  >
-                    <LogOut className="h-6 w-6 shrink-0" />
-                    Logout
-                  </button>
                 </div>
               </div>
             </div>

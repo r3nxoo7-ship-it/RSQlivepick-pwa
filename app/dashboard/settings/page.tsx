@@ -12,8 +12,10 @@ import {
   Save,
   AlertCircle,
   CheckCircle,
+  LogOut,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
+import { authHelpers } from '@/lib/supabase';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -162,6 +164,11 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLogout = () => {
+    authHelpers.logout();
+    router.push('/login');
   };
 
   if (loading) {
@@ -361,6 +368,26 @@ export default function SettingsPage() {
               </button>
             </motion.form>
           )}
+
+          {/* Logout Section */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="mt-8 pt-8 border-t border-glass-medium"
+          >
+            <div className="mb-6">
+              <h2 className="text-xl font-display font-bold text-text-primary mb-2">Account</h2>
+              <p className="text-text-secondary">Sign out of your account</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-accent-red/50 hover:border-accent-red text-accent-red hover:bg-accent-red/10 transition-all font-semibold"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </motion.div>
         </motion.div>
       </div>
     </AuthWrapper>

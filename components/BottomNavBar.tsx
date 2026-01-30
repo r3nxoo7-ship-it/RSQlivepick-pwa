@@ -16,7 +16,7 @@ export default function BottomNavBar() {
   const router = useRouter();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-glass-light border-t border-glass-lighter shadow-lg flex justify-around items-center h-16 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-dark/95 backdrop-blur-xl border-t border-accent-cyan/20 shadow-2xl flex justify-around items-center h-16 md:hidden">
       {navItems.map(({ label, icon: Icon, href }) => {
         const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
         return (
