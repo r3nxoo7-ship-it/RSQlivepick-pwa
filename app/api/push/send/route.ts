@@ -44,8 +44,17 @@ export async function POST(request: NextRequest) {
 
     const { data: subs, error } = await query;
     if (error) {
-      console.error('Error fetching subscriptions:', error);
-      return NextResponse.json({ error: 'Error fetching subscriptions' }, { status: 500 });
+      console.error('Error fetching subscriptions:', {
+        message: error.message,
+        code: (error as any).code,
+        hint: (error as any).hint,
+        details: (error as any).details,
+        fullError: error
+      });
+      return NextResponse.json({ 
+        error: 'Error fetching subscriptions',
+        details: error.message 
+      }, { status: 500 });
     }
 
     if (!subs || subs.length === 0) {
