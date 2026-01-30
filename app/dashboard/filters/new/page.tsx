@@ -151,6 +151,13 @@ export default function CompleteFilterBuilder() {
       // ignore
     }
   }, []);
+
+  // Auto-set description for super/combine mode
+  useEffect(() => {
+    if (showCombineMode) {
+      setDescription('Combine Filters');
+    }
+  }, [showCombineMode]);
   
   const loadUserFilters = async () => {
     try {
@@ -627,10 +634,10 @@ export default function CompleteFilterBuilder() {
             </button>
             <div>
               <h1 className="text-3xl font-display font-bold gradient-text">
-                Create Complete Filter
+                {showCombineMode ? 'Create Super Filter' : 'Create Complete Filter'}
               </h1>
               <p className="text-text-secondary text-sm mt-1">
-                All available conditions
+                {showCombineMode ? 'Combine Filters' : 'All available conditions'}
               </p>
             </div>
           </div>
@@ -715,6 +722,8 @@ export default function CompleteFilterBuilder() {
             </div>
           </div>
 
+          {!showCombineMode && (
+          <>
           {/* PRE-MATCH ODDS */}
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
@@ -837,7 +846,7 @@ export default function CompleteFilterBuilder() {
               </div>
             )}
           </div>
-          
+
           {/* SCORE CONDITIONS */}
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
@@ -989,7 +998,7 @@ export default function CompleteFilterBuilder() {
               </div>
             )}
           </div>
-          
+
           {/* STATISTICS CONDITIONS */}
           <div className="space-y-6">
             {renderTeamCondition(
@@ -1055,7 +1064,7 @@ export default function CompleteFilterBuilder() {
               <Users className="w-5 h-5 text-accent-cyan" />
             )}
           </div>
-          
+
           {/* POSSESSION */}
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
@@ -1142,6 +1151,8 @@ export default function CompleteFilterBuilder() {
               </div>
             )}
           </div>
+          </>
+          )}
 
           {showCombineMode && (
             <div className="space-y-4 pb-6">
