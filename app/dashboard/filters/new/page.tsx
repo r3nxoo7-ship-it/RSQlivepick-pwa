@@ -460,7 +460,7 @@ export default function CompleteFilterBuilder() {
       }
       
       // Create filter
-      console.log('≡뿯ƽ뿯½뿯½ About to call createFilter with user_id:', user?.id);
+      console.log('Creating filter with user_id:', user?.id);
       const { data, error } = await dbHelpers.createFilter({
         user_id: user?.id || undefined,
         name,
@@ -526,7 +526,7 @@ export default function CompleteFilterBuilder() {
           {/* Home Team */}
           <div>
             <label className="block text-sm font-semibold mb-2 text-accent-green">
-              ≡뿯ƽ뿯½뿯½ Home
+              Home
             </label>
             <div className="grid grid-cols-2 gap-3">
               <input
@@ -555,7 +555,7 @@ export default function CompleteFilterBuilder() {
           {/* Away Team */}
           <div>
             <label className="block text-sm font-semibold mb-2 text-accent-cyan">
-              ≡뿯ƽ뿯½뿯½ Away
+              Away
             </label>
             <div className="grid grid-cols-2 gap-3">
               <input
@@ -584,7 +584,7 @@ export default function CompleteFilterBuilder() {
           {/* Total */}
           <div>
             <label className="block text-sm font-semibold mb-2 text-accent-purple">
-              ≡뿯ƽ뿯½뿯½ Match Total
+              Match Total
             </label>
             <div className="grid grid-cols-2 gap-3">
               <input
@@ -906,7 +906,7 @@ export default function CompleteFilterBuilder() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-accent-green">
-                        ≡뿯ƽ뿯½뿯½ Home Goals
+                        Home Goals
                       </label>
                       <div className="grid grid-cols-2 gap-3">
                         <input
@@ -936,7 +936,7 @@ export default function CompleteFilterBuilder() {
                     
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-accent-cyan">
-                        ≡뿯ƽ뿯½뿯½ Away Goals
+                        Away Goals
                       </label>
                       <div className="grid grid-cols-2 gap-3">
                         <input
@@ -966,7 +966,7 @@ export default function CompleteFilterBuilder() {
                     
                     <div>
                       <label className="block text-sm font-semibold mb-2 text-accent-purple">
-                        ≡뿯ƽ뿯½뿯½ Match Total Goals
+                        Match Total Goals
                       </label>
                       <div className="grid grid-cols-2 gap-3">
                         <input
@@ -1002,7 +1002,7 @@ export default function CompleteFilterBuilder() {
           {/* STATISTICS CONDITIONS */}
           <div className="space-y-6">
             {renderTeamCondition(
-              'Cornere',
+              'Corners',
               cornersEnabled,
               setCornersEnabled,
               corners,
@@ -1011,7 +1011,7 @@ export default function CompleteFilterBuilder() {
             )}
             
             {renderTeamCondition(
-              '╚뿯½uturi',
+              'Shots',
               shotsEnabled,
               setShotsEnabled,
               shots,
@@ -1020,7 +1020,7 @@ export default function CompleteFilterBuilder() {
             )}
             
             {renderTeamCondition(
-              '╚뿯½uturi pe Poart─뿯½',
+              'Shots on Target',
               shotsOnTargetEnabled,
               setShotsOnTargetEnabled,
               shotsOnTarget,
@@ -1029,7 +1029,7 @@ export default function CompleteFilterBuilder() {
             )}
             
             {renderTeamCondition(
-              'Cartona╚뿯½e Galbene',
+              'Yellow Cards',
               yellowCardsEnabled,
               setYellowCardsEnabled,
               yellowCards,
@@ -1038,7 +1038,7 @@ export default function CompleteFilterBuilder() {
             )}
             
             {renderTeamCondition(
-              'Cartona╚뿯½e Ro╚뿯½ii ≡뿯ƽ뿯½┤',
+              'Red Cards',
               redCardsEnabled,
               setRedCardsEnabled,
               redCards,
@@ -1047,7 +1047,7 @@ export default function CompleteFilterBuilder() {
             )}
             
             {renderTeamCondition(
-              'Atacuri Periculoase',
+              'Dangerous Attacks',
               attacksEnabled,
               setAttacksEnabled,
               attacks,
@@ -1056,7 +1056,7 @@ export default function CompleteFilterBuilder() {
             )}
             
             {renderTeamCondition(
-              'Schimb─뿯½ri (Substitutions)',
+              'Substitutions',
               substitutionsEnabled,
               setSubstitutionsEnabled,
               substitutions,
@@ -1087,7 +1087,7 @@ export default function CompleteFilterBuilder() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-accent-green">
-                    ≡뿯ƽ뿯½뿯½ Home Possession (%)
+                    Home Possession (%)
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <input
@@ -1119,7 +1119,7 @@ export default function CompleteFilterBuilder() {
                 
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-accent-cyan">
-                    ≡뿯ƽ뿯½뿯½ Away Possession (%)
+                    Away Possession (%)
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <input
