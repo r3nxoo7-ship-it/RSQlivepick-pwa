@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { supabase, authHelpers } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
+
+// Create admin client with service role key for bypassing RLS
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,7 +51,9 @@ export async function POST(req: NextRequest) {
         if (email) updateData.email = email;
         updateData.updated_at = new Date().toISOString();
 
-        const { data, error } = await supabase
+        console.log('📝 Updating user profile:', { userId, ...updateData });
+
+        const { data, error } = await supabaseAdmin
           .from('users')
           .update(updateData)
           .eq('id', userId)
@@ -49,9 +61,9 @@ export async function POST(req: NextRequest) {
           .single();
 
         if (error) {
-          console.error('Profile update error:', error);
+          console.error('❌ Profile update error:', error);
           return NextResponse.json(
-            { error: 'Failed to update profile' },
+            { error: 'Failed to update profile: ' + error.message },
             { status: 400 }
           );
         }
@@ -73,8 +85,8 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Get current user
-        const { data: users, error: getUserError } = await supabase
+        // Get current user using admin client
+        const { data: users, error: getUserError } = await supabaseAdmin
           .from('users')
           .select('*')
           .eq('id', userId)
@@ -101,8 +113,10 @@ export async function POST(req: NextRequest) {
         // Hash new password
         const newPasswordHash = bcrypt.hashSync(newPassword, 10);
 
-        // Update password
-        const { data, error: updateError } = await supabase
+        console.log('🔐 Changing password for user:', userId);
+
+        // Update password using admin client
+        const { data, error: updateError } = await supabaseAdmin
           .from('users')
           .update({
             password_hash: newPasswordHash,
@@ -112,12 +126,14 @@ export async function POST(req: NextRequest) {
           .select();
 
         if (updateError) {
-          console.error('Password update error:', updateError);
+          console.error('❌ Password update error:', updateError);
           return NextResponse.json(
-            { error: 'Failed to change password' },
+            { error: 'Failed to change password: ' + updateError.message },
             { status: 400 }
           );
         }
+
+        console.log('✅ Password changed successfully');
 
         return NextResponse.json({
           success: true,
