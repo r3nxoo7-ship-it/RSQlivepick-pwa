@@ -157,7 +157,7 @@ export default function LiveMatchesPage() {
   useEffect(() => {
     loadUserFilters();
     checkNotificationPermissions();
-  }, []);
+  }, [loadUserFilters, checkNotificationPermissions]);
   
   useEffect(() => {
     fetchMatches();
