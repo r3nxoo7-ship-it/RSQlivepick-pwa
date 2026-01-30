@@ -27,6 +27,8 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   sendMatchNotification,
+  subscribeToPush,
+  unsubscribeFromPush,
 } from '@/lib/notifications';
 
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -223,6 +225,80 @@ export default function NotificationSettingsPage() {
   // ============================================
   // HANDLERS
   // ============================================
+  const [pushSubscribed, setPushSubscribed] = useState<boolean>(false);
+
+  const handleSubscribePush = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) {
+        setMessage({ type: 'error', text: 'User not found. Please login again.' });
+        return;
+      }
+      const ok = await subscribeToPush(currentUser.id);
+      if (ok) {
+        setPushSubscribed(true);
+        setMessage({ type: 'success', text: '✅ Subscribed to push (client) and saved on server.' });
+      } else {
+        setMessage({ type: 'error', text: '❌ Could not subscribe to push.' });
+      }
+    } catch (err) {
+      console.error('Subscribe error:', err);
+      setMessage({ type: 'error', text: '❌ Error subscribing to push.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnsubscribePush = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) {
+        setMessage({ type: 'error', text: 'User not found. Please login again.' });
+        return;
+      }
+      const ok = await unsubscribeFromPush(currentUser.id);
+      if (ok) {
+        setPushSubscribed(false);
+        setMessage({ type: 'success', text: '✅ Unsubscribed from push.' });
+      } else {
+        setMessage({ type: 'error', text: '❌ Could not unsubscribe from push.' });
+      }
+    } catch (err) {
+      console.error('Unsubscribe error:', err);
+      setMessage({ type: 'error', text: '❌ Error unsubscribing from push.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendServerPushTest = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      const payload = { title: 'R$Q Server Push Test', body: 'This is a server-sent push test.' };
+      const res = await fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser?.id, payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to send server push.' });
+      } else {
+        setMessage({ type: 'success', text: '✅ Server push request enqueued/sent.' });
+      }
+    } catch (err) {
+      console.error('Error sending server push test:', err);
+      setMessage({ type: 'error', text: '❌ Error sending server push.' });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   /**
    * Request permission for notifications
@@ -692,6 +768,15 @@ export default function NotificationSettingsPage() {
                       </div>
                     </div>
                   </button>
+                </div>
+                <div className="mt-4 flex gap-3">
+                  {!pushSubscribed ? (
+                    <button onClick={handleSubscribePush} className="btn-primary">Subscribe (client)</button>
+                  ) : (
+                    <button onClick={handleUnsubscribePush} className="btn-secondary">Unsubscribe</button>
+                  )}
+
+                  <button onClick={handleSendServerPushTest} className="btn-secondary">Send Server Push Test</button>
                 </div>
               </>
             )}
