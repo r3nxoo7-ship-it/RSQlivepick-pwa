@@ -27,10 +27,8 @@ import {
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import { ExtendedFilterConditions } from '@/lib/extended-filters';
-export default function NewFilterPage() {
-  // MAIN CONTENT
-    return (<>
-      {showCombineMode ? (
+          {/* MAIN CONTENT */}
+          {showCombineMode ? (
             <div className="space-y-6">
               {/* Minimal info for Super Filter */}
               <div className="glass-card p-6">
@@ -206,6 +204,7 @@ export default function NewFilterPage() {
                   </div>
                 </div>
               </div>
+              </h1>
               <p className="text-text-secondary text-sm mt-1">
                 All available conditions
               </p>
@@ -862,6 +861,5 @@ export default function NewFilterPage() {
         </div>
       </div>
     </AuthWrapper>
-    </>
   );
 }
