@@ -236,12 +236,22 @@ export default function DashboardLayout({
         </div>
       )}
       
+
       {/* ========== MAIN CONTENT ========== */}
       <main className="lg:pl-72">
         <div className="min-h-screen">
           {children}
         </div>
       </main>
+
+      {/* ========== MOBILE BOTTOM NAV ========== */}
+      {/* Only show on mobile (md:hidden) */}
+      <div className="md:hidden">
+        {/* Dynamically import to avoid SSR issues */}
+        {typeof window !== 'undefined' && (
+          require('@/components/BottomNavBar').default()
+        )}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,8 @@ export interface FilterTemplate {
   experimental?: boolean;
   experimentalSince?: string;
   confidence?: 'Low' | 'Medium' | 'High';
+  backgroundImage?: string; // Unsplash URL or gradient
+  color?: 'cyan' | 'green' | 'amber' | 'purple' | 'blue' | 'red'; // Color theme for new filters
 }
 
 // Raw full templates list (kept for reference). We derive a cleaned
@@ -45,6 +47,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     successRate: 84,
     notificationEnabled: true,
     tags: ['predictive', 'live', 'high-probability', 'corners'],
+    backgroundImage: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=80',
+    color: 'cyan',
     conditions: {
       corners: {
         min: 6,
@@ -75,6 +79,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     successRate: 78,
     notificationEnabled: true,
     tags: ['predictive', 'live', 'safe', 'corners'],
+    backgroundImage: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&q=80',
+    color: 'blue',
     conditions: {
       corners: {
         min: 5,
@@ -98,6 +104,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     description: 'Alert at 60min with 4+ corners. Probability: 4 corners at 60min = ~72% chance of 7+ final. Earliest reliable signal, most time for betting.',
     category: 'advanced',
     icon: '💡',
+    backgroundImage: 'https://images.unsplash.com/photo-1517747323999-67f42424e3a1?w=800&q=80',
+    color: 'green',
     popularity: 5,
     successRate: 72,
     notificationEnabled: true,

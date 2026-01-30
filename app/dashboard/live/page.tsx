@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
+import MatchStatsDisplay from '@/components/MatchStatsDisplay';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter } from '@/lib/supabase';
@@ -53,6 +54,9 @@ export default function LiveMatchesPage() {
   // Scanner state
   const [scannerEnabled, setScannerEnabled] = useState(false);
   const [notificationsReady, setNotificationsReady] = useState(false);
+  
+  // Modal state
+  const [selectedMatch, setSelectedMatch] = useState<LiveMatch | null>(null);
   
   // ============================================
   // MATCH SCANNER HOOK
@@ -245,16 +249,19 @@ export default function LiveMatchesPage() {
         <div className="max-w-7xl mx-auto space-y-6">
           
           {/* ========== HEADER ========== */}
-          <div className="flex items-center justify-between">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+          >
             <div>
-              <h1 className="text-3xl font-display font-bold gradient-text mb-2">
+              <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent mb-2">
                 ⚽ Live Matches
               </h1>
-              <p className="text-text-secondary">
-                {lastUpdate ? (
-                  <>Last update: {lastUpdate.toLocaleTimeString()}</>
-                ) : (
-                  'Loading matches...'
+              <p className="text-text-secondary text-lg">
+                Real-time scanner with <span className="text-accent-cyan font-semibold">{matches.length} matches</span>
+                {lastUpdate && (
+                  <> • Last update: <span className="text-accent-cyan">{lastUpdate.toLocaleTimeString()}</span></>
                 )}
               </p>
             </div>
@@ -267,33 +274,38 @@ export default function LiveMatchesPage() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-          </div>
+          </motion.div>
           
           {/* ========== STATS BAR ========== */}
-          <div className="glass-card p-4 sm:p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="glass-card p-4 sm:p-6 border-t border-glass-lighter"
+          >
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Live</div>
-                <div className="stat-value text-lg sm:text-2xl">{matches.length}</div>
+              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-cyan-900/5 border border-accent-cyan/20">
+                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Live</div>
+                <div className="stat-value text-2xl sm:text-3xl font-bold text-accent-cyan">{matches.length}</div>
               </div>
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Scanned</div>
-                <div className="stat-value text-accent-green text-lg sm:text-2xl">{matchesWithFilters}</div>
+              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-green/10 to-green-900/5 border border-accent-green/20">
+                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Scanned</div>
+                <div className="stat-value text-accent-green text-2xl sm:text-3xl font-bold">{matchesWithFilters}</div>
               </div>
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Filters</div>
-                <div className="stat-value text-lg sm:text-2xl">{activeFiltersCount}</div>
+              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-amber/10 to-amber-900/5 border border-accent-amber/20">
+                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Filters</div>
+                <div className="stat-value text-accent-amber text-2xl sm:text-3xl font-bold">{activeFiltersCount}</div>
               </div>
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Scans</div>
-                <div className="stat-value text-accent-amber text-lg sm:text-2xl">{scannerStats.totalScans}</div>
+              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-purple/10 to-purple-900/5 border border-accent-purple/20">
+                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Scans</div>
+                <div className="stat-value text-accent-purple text-2xl sm:text-3xl font-bold">{scannerStats.totalScans}</div>
               </div>
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Alerts</div>
-                <div className="stat-value text-accent-purple text-lg sm:text-2xl">{scannerStats.notificationsSent}</div>
+              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-blue/10 to-blue-900/5 border border-accent-blue/20">
+                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Alerts</div>
+                <div className="stat-value text-accent-blue text-2xl sm:text-3xl font-bold">{scannerStats.notificationsSent}</div>
               </div>
             </div>
-          </div>
+          </motion.div>
           
           {/* ========== SCANNER CONTROL ========== */}
           <div className="glass-card p-4 sm:p-6">
@@ -497,7 +509,7 @@ export default function LiveMatchesPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
             >
               {filteredMatches.map((match, index) => (
                 <motion.div
@@ -508,13 +520,48 @@ export default function LiveMatchesPage() {
                 >
                   <MatchCard
                     match={match}
-                    onClick={() => handleMatchClick(match)}
-                    showStatistics={false}
+                    onClick={() => setSelectedMatch(match)}
+                    showStatistics={true}
                     filterResults={filterResults.get(match.fixture.id)}
                   />
                 </motion.div>
               ))}
             </motion.div>
+          )}
+
+          {/* Floating Action Button for New Filter */}
+          <button
+            onClick={() => router.push('/dashboard/filters/new')}
+            className="fixed bottom-20 right-4 z-40 bg-gradient-to-br from-accent-cyan to-accent-blue text-white rounded-full shadow-lg p-4 flex items-center justify-center md:hidden hover:scale-105 transition"
+            aria-label="Create New Filter"
+          >
+            <FilterIcon className="w-7 h-7" />
+          </button>
+
+          {/* Match Details Modal */}
+          {selectedMatch && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+              <div className="bg-glass-light rounded-2xl shadow-2xl max-w-lg w-full p-6 relative animate-fadeIn">
+                <button
+                  onClick={() => setSelectedMatch(null)}
+                  className="absolute top-3 right-3 text-text-secondary hover:text-accent-cyan"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+                <h2 className="text-xl font-bold mb-2 text-accent-cyan">
+                  {selectedMatch.teams.home.name} vs {selectedMatch.teams.away.name}
+                </h2>
+                <div className="text-sm text-text-secondary mb-4">
+                  <p>League: {selectedMatch.league.name}</p>
+                  <p>Time: {selectedMatch.fixture.status.long} ({selectedMatch.fixture.status.elapsed}&apos;)</p>
+                  <p>Score: {selectedMatch.goals.home} - {selectedMatch.goals.away}</p>
+                </div>
+                <div className="text-center text-sm text-text-muted">
+                  <p>Full stats integration coming soon</p>
+                </div>
+              </div>
+            </div>
           )}
           
           {/* ========== EMPTY STATE ========== */}

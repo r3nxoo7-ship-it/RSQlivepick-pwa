@@ -355,6 +355,14 @@ export default function FilterTemplatesPage() {
                       whileHover={{ y: -4 }}
                       className="group relative"
                     >
+                      {/* Background Image */}
+                      {template.backgroundImage && (
+                        <div
+                          className="absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-30 transition duration-300 bg-cover bg-center"
+                          style={{ backgroundImage: `url(${template.backgroundImage})` }}
+                        />
+                      )}
+                      
                       {/* Glow effect */}
                       <div className="absolute inset-0 bg-gradient-to-br from-accent-amber/20 via-transparent to-accent-amber/5 opacity-0 group-hover:opacity-100 transition duration-300 rounded-2xl" />
                       
@@ -486,7 +494,7 @@ export default function FilterTemplatesPage() {
                 </button>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {displayedTemplates.map((template, index) => {
                   const CategoryIcon = getCategoryIcon(template.category);
                   const categoryColor = getCategoryColor(template.category);
