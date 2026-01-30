@@ -19,13 +19,20 @@ export default function PublicFiltersPage() {
   const loadFilters = useCallback(async () => {
     try {
       setLoading(true);
-      const [publicList, userList] = await Promise.all([
-        dbHelpers.getPublicFilters(),
-        user ? dbHelpers.getUserFilters(user.id) : Promise.resolve([]),
-      ]);
+      console.log('📚 Loading public filters...');
+      
+      const publicList = await dbHelpers.getPublicFilters();
+      console.log('✅ Public filters loaded:', publicList.length);
+      
+      const userList = user ? await dbHelpers.getUserFilters(user.id) : [];
+      console.log('✅ User filters loaded:', userList.length);
 
       setPublicFilters(publicList);
       setUserFilters(userList);
+      
+      if (publicList.length === 0) {
+        console.warn('⚠️ No public filters available');
+      }
     } catch (err) {
       console.error('Error loading filters:', err);
       setMessage({ type: 'error', text: 'Failed to load public filters' });

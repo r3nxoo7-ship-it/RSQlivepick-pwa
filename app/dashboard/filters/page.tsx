@@ -70,6 +70,43 @@ export default function FiltersPage() {
   // ============================================
   
   /**
+   * Toggle filter notifications
+   */
+  const handleToggleNotifications = async (filterId: string, currentStatus: boolean) => {
+    console.log('🔔 Toggling notifications:', filterId, 'from', currentStatus, 'to', !currentStatus);
+    
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) {
+        alert('Please log in');
+        return;
+      }
+
+      const response = await fetch('/api/filters/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          filter_id: filterId,
+          notification_enabled: !currentStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(`Error: ${data.error || 'Failed to update notifications'}`);
+        return;
+      }
+
+      console.log('✅ Notifications toggled successfully');
+      await loadFilters();
+    } catch (err) {
+      console.error('❌ Exception in handleToggleNotifications:', err);
+      alert('Error updating notifications');
+    }
+  };
+
+  /**
    * Toggle filter active/inactive - IMPLEMENTARE COMPLETĂ
    */
   const handleToggleActive = async (filterId: string, currentStatus: boolean) => {
@@ -347,6 +384,15 @@ export default function FiltersPage() {
                     
                     {/* Actions - responsive layout */}
                     <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
+                      {/* Toggle Notifications */}
+                      <button
+                        onClick={() => handleToggleNotifications(filter.id, filter.notification_enabled)}
+                        className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
+                        title={filter.notification_enabled ? 'Disable notifications' : 'Enable notifications'}
+                      >
+                        <Bell className={`w-5 h-5 ${filter.notification_enabled ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                      </button>
+
                       {/* Toggle Active */}
                       <button
                         onClick={() => handleToggleActive(filter.id, filter.is_active)}

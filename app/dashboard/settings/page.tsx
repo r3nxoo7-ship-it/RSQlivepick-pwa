@@ -88,13 +88,18 @@ export default function SettingsPage() {
         return;
       }
 
-      // Update localStorage with new data
-      const updatedUser = {
-        ...user,
-        full_name: formData.full_name,
-      };
-      localStorage.setItem('rsq_user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      // Update localStorage with new data - FIXED
+      if (typeof window !== 'undefined') {
+        const updatedUser = {
+          id: user.id,
+          username: user.username,
+          full_name: formData.full_name || data.full_name || user.full_name,
+          email: formData.email || data.email || user.email,
+          is_admin: user.is_admin,
+        };
+        localStorage.setItem('rsq_user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      }
 
       setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
