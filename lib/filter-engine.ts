@@ -388,42 +388,9 @@ export async function evaluateFilterGroup(
   filter: Filter,
   allFilters: Filter[]
 ): Promise<boolean> {
-  // If no combined filters, evaluate normally
-  if (!filter.combined_filter_ids || filter.combined_filter_ids.length === 0) {
-    const result = await matchesFilter(match, filter);
-    return result.matches;
-  }
-  
-  const combinedFilters = allFilters.filter(f => 
-    filter.combined_filter_ids?.includes(f.id)
-  );
-  
-  if (combinedFilters.length === 0) {
-    // Fallback to normal matching if combined filters not found
-    const result = await matchesFilter(match, filter);
-    return result.matches;
-  }
-  
-  const combinationLogic = filter.combination_logic || 'OR';
-  
-  // Evaluate all combined filters
-  const results = await Promise.all(
-    combinedFilters.map(f => matchesFilter(match, f))
-  );
-  
-  if (combinationLogic === 'OR') {
-    // At least one filter must match
-    const anyMatched = results.some(r => r.matches);
-    // AND also check the main filter
-    const mainMatches = await matchesFilter(match, filter);
-    return anyMatched && mainMatches.matches;
-  } else {
-    // ALL filters must match
-    const allMatched = results.every(r => r.matches);
-    // AND also check the main filter
-    const mainMatches = await matchesFilter(match, filter);
-    return allMatched && mainMatches.matches;
-  }
+  // Evaluate filter normally
+  const result = await matchesFilter(match, filter);
+  return result.matches;
 }
 
 /**
@@ -439,31 +406,9 @@ export async function applyFiltersToMatchesWithGroups(
     const matchResults: FilterMatchResult[] = [];
     
     for (const filter of filters) {
-      // Check if this filter is part of a group
-      const includesInGroup = filters.some(f => 
-        f.combined_filter_ids?.includes(filter.id)
-      );
-      
-      // Skip filters that are only part of groups (will be evaluated by parent)
-      if (includesInGroup && !filter.combined_filter_ids) {
-        continue;
-      }
-      
-      // If it's a group filter, use group logic
-      if (filter.combined_filter_ids && filter.combined_filter_ids.length > 0) {
-        const groupMatches = await evaluateFilterGroup(match, filter, filters);
-        if (groupMatches) {
-          const result = await matchesFilter(match, filter);
-          if (result.matches) {
-            matchResults.push(result);
-          }
-        }
-      } else {
-        // Regular filter matching
-        const result = await matchesFilter(match, filter);
-        if (result.matches) {
-          matchResults.push(result);
-        }
+      const result = await matchesFilter(match, filter);
+      if (result.matches) {
+        matchResults.push(result);
       }
     }
     

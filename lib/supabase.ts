@@ -69,9 +69,6 @@ export interface Filter {
   forked_from_user?: string; // Username of original creator (read-only reference)
   version: number; // v1.0 = original, v2.0+ = user's modified version
   is_editable: boolean; // Can this be edited? (false for base/forked filters users can't edit)
-  // Filter groups - combine multiple filters with OR logic for better accuracy
-  combined_filter_ids?: string[]; // IDs of filters to combine with OR
-  combination_logic?: 'AND' | 'OR'; // AND = all must match, OR = any can match
 }
 
 export interface FilterConditions {
@@ -422,8 +419,6 @@ export const dbHelpers = {
           notification_enabled: filter.notification_enabled,
           telegram_enabled: filter.telegram_enabled,
           is_public: (filter as any).is_public || false,
-          combined_filter_ids: (filter as any).combined_filter_ids || undefined,
-          combination_logic: (filter as any).combination_logic || undefined,
         }),
       });
 

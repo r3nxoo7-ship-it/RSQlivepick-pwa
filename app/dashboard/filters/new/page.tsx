@@ -469,8 +469,6 @@ export default function CompleteFilterBuilder() {
         is_active: isActive,
         notification_enabled: notificationEnabled,
         telegram_enabled: telegramEnabled,
-        combined_filter_ids: combinedFilterIds.length > 0 ? combinedFilterIds : undefined,
-        combination_logic: combinedFilterIds.length > 0 ? combinationLogic : undefined,
       });
       
       if (error) {

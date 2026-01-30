@@ -117,11 +117,6 @@ export async function POST(request: NextRequest) {
         trigger_count: 0,
         success_rate: null,
         last_triggered: null,
-        // Preserve combined filter logic if exists
-        combined_filter_ids: sourceFilter.combined_filter_ids,
-        combination_logic: sourceFilter.combination_logic,
-        color: sourceFilter.color, // Copy styling
-        template_id: sourceFilter.template_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }])
