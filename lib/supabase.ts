@@ -17,7 +17,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables!');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Enable client-side session persistence and auto-refresh where applicable.
+// Note: the app uses a custom users table + bcrypt; Supabase auth is optional,
+// but enabling persistence here helps if Supabase auth/session tokens are used.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});
 
 // ============================================
 // TYPESCRIPT INTERFACES
@@ -154,7 +163,9 @@ export const authHelpers = {
   /**
    * Login utilizator
    */
-  async login(username: string, password: string): Promise<{ user: User | null; error: string | null }> {
+  // Login user using the local users table (bcrypt).
+  // keepLoggedIn: when true (default) store user in localStorage; when false use sessionStorage.
+  async login(username: string, password: string, keepLoggedIn: boolean = true): Promise<{ user: User | null; error: string | null }> {
     try {
       // Caută user-ul în database (case-insensitive)
       const { data: users, error } = await supabase
@@ -200,15 +211,24 @@ export const authHelpers = {
         .update({ last_login: new Date().toISOString() })
         .eq('id', user.id);
 
-      // Salvează în localStorage
+      // Persist user according to preference (localStorage vs sessionStorage)
       if (typeof window !== 'undefined') {
-        localStorage.setItem('rsq_user', JSON.stringify({
+        const payload = JSON.stringify({
           id: user.id,
           username: user.username,
           full_name: user.full_name,
           is_admin: user.is_admin,
-        }));
-        // Set auth cookies immediately so middleware can detect session
+        });
+
+        if (keepLoggedIn) {
+          localStorage.setItem('rsq_user', payload);
+          localStorage.setItem('rsq_keep_logged_in', '1');
+        } else {
+          sessionStorage.setItem('rsq_user', payload);
+          localStorage.removeItem('rsq_keep_logged_in');
+        }
+
+        // Set lightweight cookies for middleware detection
         try {
           document.cookie = `rsq_session=${new Date().toISOString()}; path=/`;
           document.cookie = `rsq_is_admin=${user.is_admin}; path=/`;
@@ -230,7 +250,14 @@ export const authHelpers = {
   logout(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('rsq_user');
-      document.cookie = 'rsq_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      sessionStorage.removeItem('rsq_user');
+      localStorage.removeItem('rsq_keep_logged_in');
+      try {
+        document.cookie = 'rsq_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        document.cookie = 'rsq_is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      } catch (e) {
+        console.warn('Could not clear auth cookies on logout', e);
+      }
     }
   },
 
@@ -239,8 +266,10 @@ export const authHelpers = {
    */
   isAuthenticated(): boolean {
     if (typeof window === 'undefined') return false;
-    const user = localStorage.getItem('rsq_user');
-    return !!user;
+    // Check both persistent and session storage
+    const ls = localStorage.getItem('rsq_user');
+    const ss = sessionStorage.getItem('rsq_user');
+    return !!(ls || ss);
   },
 
   /**
@@ -248,7 +277,8 @@ export const authHelpers = {
    */
   getCurrentUser(): { id: string; username: string; full_name: string; is_admin: boolean } | null {
     if (typeof window === 'undefined') return null;
-    const userStr = localStorage.getItem('rsq_user');
+    // Prefer persistent storage, fallback to sessionStorage
+    const userStr = localStorage.getItem('rsq_user') || sessionStorage.getItem('rsq_user');
     if (!userStr) {
       console.log('No user in localStorage');
       return null;
@@ -291,6 +321,19 @@ export const authHelpers = {
       console.log('Saving user to localStorage:', { id: user.id, username: user.username });
       localStorage.setItem('rsq_user', JSON.stringify(user));
     }
+  },
+  
+  /**
+   * Keep-me-logged-in helpers
+   */
+  setKeepLoggedIn(value: boolean) {
+    if (typeof window === 'undefined') return;
+    if (value) localStorage.setItem('rsq_keep_logged_in', '1');
+    else localStorage.removeItem('rsq_keep_logged_in');
+  },
+  isKeepLoggedIn(): boolean {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('rsq_keep_logged_in') === '1';
   },
 };
 

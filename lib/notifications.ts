@@ -3,8 +3,7 @@
 // ============================================
 // NOTIFICATION HELPERS
 // ============================================
-// Functions for browser push notifications
-// For beginners: learn Notification API, Service Workers
+// Functions for browser push notifications (Notification API + Service Worker)
 
 // ============================================
 // TYPES
@@ -24,7 +23,7 @@ export interface NotificationPayload {
 // ============================================
 
 /**
- * Check if browser supports notifications
+ * Check whether the current browser environment supports Notifications + Service Worker
  */
 export function isNotificationSupported(): boolean {
   return 'Notification' in window && 'serviceWorker' in navigator;
@@ -49,13 +48,8 @@ export function getNotificationPermission(): NotificationPermission {
 }
 
 /**
- * Request notification permission
- * 
+ * Request notification permission from the user.
  * @returns Promise<boolean> - true if permission was granted
- * 
- * EXPLANATION:
- * Shows a browser popup with "Allow" or "Block"
- * User decides whether they want notifications
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!isNotificationSupported()) {
@@ -76,16 +70,16 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 
   try {
-  // Request permission
-  const permission = await Notification.requestPermission();
+    // Request permission
+    const permission = await Notification.requestPermission();
 
-  if (permission === 'granted') {
-    console.log('✅ Notification permission granted!');
-    return true;
-  } else {
-    console.warn('❌ Notification permission denied');
-    return false;
-  }
+    if (permission === 'granted') {
+      console.log('✅ Notification permission granted!');
+      return true;
+    } else {
+      console.warn('❌ Notification permission denied');
+      return false;
+    }
 } catch (error) {
   console.error('Error requesting notification permission:', error);
   return false;
@@ -98,15 +92,9 @@ export async function requestNotificationPermission(): Promise<boolean> {
 // ============================================
 
 /**
- * Send a browser notification
- *
+ * Send a browser notification using the Service Worker when possible.
  * @param payload - Notification payload
  * @returns Promise<boolean> - true if sent successfully
- *
- * DETAILS:
- * Creates a notification that appears in the corner of the screen
- * On Windows: bottom-right
- * On Mac: top-right
  */
 export async function sendNotification(
   payload: NotificationPayload
@@ -124,7 +112,7 @@ export async function sendNotification(
   }
   
   try {
-    // Verifică dacă avem service worker
+    // If a service worker is active, use it to display the notification (PWA-friendly)
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       // Trimite prin service worker (mai bun pentru PWA)
       const registration = await navigator.serviceWorker.ready;
@@ -138,7 +126,6 @@ export async function sendNotification(
         requireInteraction: true, // Notificarea rămâne până user-ul dă click
         vibrate: [200, 100, 200], // Vibrație pe mobile
       } as any);
-      
       console.log('✅ Notification sent via Service Worker');
     } else {
       // Fallback: trimite direct (pentru testing în development)
@@ -165,10 +152,9 @@ export async function sendNotification(
 // ============================================
 
 /**
- * Trimite notificare pentru un meci care match-uiește filtre
- * 
- * @param matchInfo - Info despre meci
- * @param filterNames - Numele filtrelor matched
+ * Send a match notification when a match matches filters.
+ * @param matchInfo - match information
+ * @param filterNames - list of matched filter names
  */
 export async function sendMatchNotification(
   matchInfo: {
