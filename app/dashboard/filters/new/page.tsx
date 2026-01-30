@@ -60,6 +60,7 @@ export default function CompleteFilterBuilder() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
   const [notificationEnabled, setNotificationEnabled] = useState(false);
   const [telegramEnabled, setTelegramEnabled] = useState(false);
   
@@ -467,6 +468,7 @@ export default function CompleteFilterBuilder() {
         description: description || undefined,
         conditions: conditions as any,
         is_active: isActive,
+        is_public: isPublic,
         notification_enabled: notificationEnabled,
         telegram_enabled: telegramEnabled,
       };
@@ -722,6 +724,16 @@ export default function CompleteFilterBuilder() {
                     className="w-5 h-5 rounded"
                   />
                   <span className="text-sm">Telegram</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="w-5 h-5 rounded"
+                  />
+                  <span className="text-sm">Share in Community</span>
                 </label>
               </div>
             </div>
