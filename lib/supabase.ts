@@ -60,6 +60,9 @@ export interface Filter {
   success_rate: number | null;
   created_at: string;
   updated_at: string;
+  // Filter styling
+  color?: 'cyan' | 'green' | 'amber' | 'purple' | 'blue' | 'red' | 'gray'; // Color theme for card display
+  template_id?: string; // Reference to template this was created from
   // Filter groups - combine multiple filters with OR logic for better accuracy
   combined_filter_ids?: string[]; // IDs of filters to combine with OR
   combination_logic?: 'AND' | 'OR'; // AND = all must match, OR = any can match
