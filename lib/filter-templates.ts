@@ -25,7 +25,10 @@ export interface FilterTemplate {
   confidence?: 'Low' | 'Medium' | 'High';
 }
 
-export const FILTER_TEMPLATES: FilterTemplate[] = [
+// Raw full templates list (kept for reference). We derive a cleaned
+// `FILTER_TEMPLATES` below to remove experimental/low-value entries
+// from the UI while keeping the original data for auditing.
+export const RAW_TEMPLATES: FilterTemplate[] = [
   // ============================================
   // PREDICTIVE LIVE BETTING (Most Valuable)
   // ============================================
@@ -536,27 +539,7 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
       },
     },
   },
-  {
-    id: 'full-match-under-1-5-goals',
-    name: 'Full Match: Under 1.5 Goals (0-1)',
-    description: 'Very defensive. 0-1 goals only. Success rate 58%. Rare, high odds.',
-    category: 'goals',
-    icon: '🔐',
-    popularity: 2,
-    successRate: 58,
-    notificationEnabled: true,
-    tags: ['defensive', 'under', 'rare'],
-    conditions: {
-      goals: {
-        max: 1,
-        team: 'total',
-      },
-      match_time: {
-        min: 40,
-        max: 90,
-      },
-    },
-  },
+  // (Removed low-value template: full-match-under-1-5-goals)
   // ============================================
   // ADVANCED: 20 HIGH-QUALITY MULTI-METRIC TEMPLATES
   // Each template combines 3-5 metrics and includes a confidence label
@@ -632,24 +615,7 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
       shots_on_target: { min: 2 },
     },
   },
-  {
-    id: 'adv-fast-start-20min',
-    name: 'Fast Start: 2+ SOT + 3+ Dangerous Attacks in First 20min',
-    description: 'Early match momentum—useful for early market scalps. Confidence: Medium',
-    category: 'experimental',
-    icon: '🔥',
-    popularity: 3,
-    successRate: 58,
-    confidence: 'Medium',
-    experimental: true,
-    notificationEnabled: true,
-    tags: ['early', 'momentum'],
-    conditions: {
-      shots_on_target: { min: 2 },
-      dangerous_attacks: { min: 3 },
-      match_time: { min: 0, max: 20 },
-    },
-  },
+  // (Removed experimental template: adv-fast-start-20min)
   {
     id: 'adv-low-possession-high-shots',
     name: 'Low Possession, High Shots: <45% Possession + 6+ Total Shots',
@@ -824,6 +790,18 @@ export const FILTER_TEMPLATES: FilterTemplate[] = [
     },
   },
 ];
+
+// Filter out templates that are experimental or clearly low-value for
+// regular users. This keeps the UI focused on useful templates while
+// preserving the raw list for maintainers.
+export const FILTER_TEMPLATES: FilterTemplate[] = RAW_TEMPLATES.filter(t => {
+  if (t.experimental) return false;
+  // Always keep popular or advanced templates with decent success rate
+  if (t.category === 'popular') return true;
+  if ((t.popularity || 0) >= 3) return true;
+  if ((t.successRate || 0) >= 60) return true;
+  return false;
+});
 
 export const getTemplates = () => FILTER_TEMPLATES;
 export const getTemplatesByCategory = (category: string) => FILTER_TEMPLATES.filter(t => t.category === category);

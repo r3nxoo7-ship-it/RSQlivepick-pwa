@@ -369,6 +369,8 @@ export const dbHelpers = {
           is_active: filter.is_active,
           notification_enabled: filter.notification_enabled,
           telegram_enabled: filter.telegram_enabled,
+          combined_filter_ids: (filter as any).combined_filter_ids || undefined,
+          combination_logic: (filter as any).combination_logic || undefined,
         }),
       });
 
@@ -381,7 +383,7 @@ export const dbHelpers = {
           console.warn('⚠️ Duplicate filter detected:', result.message);
           return { 
             data: null, 
-            error: result.message || 'Duplicate filter - nu poți importa același filtru de două ori' 
+            error: result.message || 'Duplicate filter - you cannot import the same filter twice' 
           };
         } else if (response.status === 400) {
           // Validation error
@@ -606,13 +608,13 @@ export const dbHelpers = {
 
       if (error) {
         console.error('Error logging notification:', error);
-        return { error: 'Eroare la salvarea notificării' };
+        return { error: 'Error saving notification' };
       }
 
       return { error: null };
     } catch (err) {
       console.error('Error in logNotification:', err);
-      return { error: 'Eroare la salvarea notificării' };
+      return { error: 'Error saving notification' };
     }
   },
 
@@ -753,13 +755,13 @@ export const dbHelpers = {
 
       if (error) {
         console.error('Error creating user:', error);
-        return { error: 'Eroare la crearea utilizatorului' };
+        return { error: 'Error creating user' };
       }
 
       return { error: null };
     } catch (err) {
       console.error('Error in createUser:', err);
-      return { error: 'Eroare la crearea utilizatorului' };
+      return { error: 'Error creating user' };
     }
   },
 
@@ -775,13 +777,13 @@ export const dbHelpers = {
 
       if (error) {
         console.error('Error deleting user:', error);
-        return { error: 'Eroare la ștergerea utilizatorului' };
+        return { error: 'Error deleting user' };
       }
 
       return { error: null };
     } catch (err) {
       console.error('Error in deleteUser:', err);
-      return { error: 'Eroare la ștergerea utilizatorului' };
+      return { error: 'Error deleting user' };
     }
   },
 
@@ -800,13 +802,13 @@ export const dbHelpers = {
 
       if (error) {
         console.error('Error toggling user status:', error);
-        return { error: 'Eroare la schimbarea statusului' };
+        return { error: 'Error changing status' };
       }
 
       return { error: null };
     } catch (err) {
       console.error('Error in toggleUserStatus:', err);
-      return { error: 'Eroare la schimbarea statusului' };
+      return { error: 'Error changing status' };
     }
   },
 };

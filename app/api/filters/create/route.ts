@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get current user from localStorage (sent in request body)
     const body = await request.json();
-    const { user_id, name, description, conditions, is_active, notification_enabled, telegram_enabled } = body;
+    const { user_id, name, description, conditions, is_active, notification_enabled, telegram_enabled, combined_filter_ids, combination_logic } = body;
 
     // Validate user_id
     if (!user_id || user_id === 'anon' || typeof user_id !== 'string') {
@@ -52,13 +52,17 @@ export async function POST(request: NextRequest) {
     // ============================================
     // VALIDATION 2: COMPLETE CONDITIONS
     // ============================================
-    const conditionsComplete = areConditionsComplete(conditions);
+    // If this is a Super/Combine filter (combining existing filters), skip
+    // the completeness requirement for `conditions` because the filter may
+    // rely solely on `combined_filter_ids`.
+    const isCombine = Array.isArray(combined_filter_ids) && combined_filter_ids.length > 0;
+    const conditionsComplete = areConditionsComplete(conditions) || isCombine;
     if (!conditionsComplete && notification_enabled) {
       console.warn('⚠️ Cannot enable notifications with incomplete conditions');
       return NextResponse.json(
         { 
-          error: 'Notifications require complete conditions',
-          details: ['Define at least one value (min or max) for a condition']
+          error: 'Notifications require complete conditions or combined filters',
+          details: ['Define at least one value (min or max) for a condition or combine existing filters']
         },
         { status: 400 }
       );
@@ -112,6 +116,8 @@ export async function POST(request: NextRequest) {
         is_shared: false,
         notification_enabled: notification_enabled && conditionsComplete,
         telegram_enabled: telegram_enabled && conditionsComplete,
+        combined_filter_ids: isCombine ? combined_filter_ids : null,
+        combination_logic: isCombine ? combination_logic || null : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }])

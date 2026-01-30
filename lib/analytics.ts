@@ -214,6 +214,7 @@ export function formatTriggers(count: number): string {
   return `${count} triggers`;
 }
 
+
 /**
  * Get performance rating
  */
@@ -223,13 +224,13 @@ export function getPerformanceRating(successRate: number): {
   label: string;
 } {
   if (successRate >= 75) {
-    return { rating: 'excellent', color: 'text-accent-green', label: 'Excelent' };
+    return { rating: 'excellent', color: 'text-accent-green', label: 'Excellent' };
   } else if (successRate >= 60) {
-    return { rating: 'good', color: 'text-accent-cyan', label: 'Bun' };
+    return { rating: 'good', color: 'text-accent-cyan', label: 'Good' };
   } else if (successRate >= 45) {
-    return { rating: 'average', color: 'text-accent-amber', label: 'Mediu' };
+    return { rating: 'average', color: 'text-accent-amber', label: 'Average' };
   } else {
-    return { rating: 'poor', color: 'text-accent-red', label: 'Slab' };
+    return { rating: 'poor', color: 'text-accent-red', label: 'Poor' };
   }
 }
 
@@ -238,25 +239,25 @@ export function getPerformanceRating(successRate: number): {
  */
 export function exportToCSV(filters: Filter[]): string {
   const headers = [
-    'Nume',
+    'Name',
     'Triggers',
     'Success Rate',
-    'Activ',
-    'Notificări',
+    'Active',
+    'Notifications',
     'Telegram',
-    'Creat la',
-    'Ultimul trigger',
+    'Created At',
+    'Last Trigger',
   ].join(',');
   
   const rows = filters.map(f => [
     f.name,
     f.trigger_count || 0,
     formatSuccessRate(f.success_rate || 0),
-    f.is_active ? 'Da' : 'Nu',
-    f.notification_enabled ? 'Da' : 'Nu',
-    f.telegram_enabled ? 'Da' : 'Nu',
-    new Date(f.created_at).toLocaleDateString('ro-RO'),
-    f.last_triggered ? new Date(f.last_triggered).toLocaleDateString('ro-RO') : 'Niciodată',
+    f.is_active ? 'Yes' : 'No',
+    f.notification_enabled ? 'Yes' : 'No',
+    f.telegram_enabled ? 'Yes' : 'No',
+    new Date(f.created_at).toLocaleDateString('en-US'),
+    f.last_triggered ? new Date(f.last_triggered).toLocaleDateString('en-US') : 'Never',
   ].join(','));
   
   return [headers, ...rows].join('\n');
