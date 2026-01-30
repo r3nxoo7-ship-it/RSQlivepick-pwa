@@ -49,16 +49,35 @@ export async function POST(request: NextRequest) {
         code: (error as any).code,
         hint: (error as any).hint,
         details: (error as any).details,
+        user_id,
         fullError: error
       });
+      
+      // Check if it's a table not found error
+      const errorStr = error.message?.toLowerCase() || '';
+      if (errorStr.includes('relation') || errorStr.includes('does not exist')) {
+        console.error('⚠️ SETUP REQUIRED: push_subscriptions table does not exist.');
+        console.error('Run: PUSH_SUBSCRIPTIONS_SETUP.sql in Supabase SQL Editor');
+        return NextResponse.json({ 
+          error: 'Push subscriptions table not set up',
+          details: 'Run PUSH_SUBSCRIPTIONS_SETUP.sql in Supabase',
+          code: 'TABLE_NOT_FOUND'
+        }, { status: 500 });
+      }
+      
       return NextResponse.json({ 
         error: 'Error fetching subscriptions',
-        details: error.message 
+        details: error.message,
+        code: (error as any).code
       }, { status: 500 });
     }
 
     if (!subs || subs.length === 0) {
-      return NextResponse.json({ message: 'No subscriptions found' });
+      console.log('ℹ️ No push subscriptions found for user:', user_id);
+      return NextResponse.json({ 
+        message: 'No subscriptions found',
+        info: 'User has not subscribed to push notifications yet'
+      });
     }
 
     const results: any[] = [];
