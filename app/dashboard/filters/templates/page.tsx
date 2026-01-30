@@ -293,12 +293,12 @@ export default function FilterTemplatesPage() {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="input-field md:w-48"
               >
-                <option value="all">Toate ({allTemplates.length})</option>
+                <option value="all">All ({allTemplates.length})</option>
                 <option value="popular">⭐ Popular ({categoryCounts.popular || 0})</option>
-                <option value="corners">🎯 Cornere ({categoryCounts.corners || 0})</option>
-                <option value="shots">🎯 Șuturi ({categoryCounts.shots || 0})</option>
-                <option value="cards">🟨 Cartonașe ({categoryCounts.cards || 0})</option>
-                <option value="advanced">✨ Avansate ({categoryCounts.advanced || 0})</option>
+                <option value="corners">🎯 Corners ({categoryCounts.corners || 0})</option>
+                <option value="shots">🎯 Shots ({categoryCounts.shots || 0})</option>
+                <option value="cards">🟨 Cards ({categoryCounts.cards || 0})</option>
+                <option value="advanced">✨ Advanced ({categoryCounts.advanced || 0})</option>
               </select>
             </div>
           </div>
@@ -309,7 +309,7 @@ export default function FilterTemplatesPage() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-accent-amber" />
                 <h2 className="text-xl font-display font-semibold">
-                  🔥 Cele mai populare
+                  🔥 Top Popular
                 </h2>
               </div>
               

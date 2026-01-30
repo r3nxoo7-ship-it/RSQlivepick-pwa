@@ -100,7 +100,7 @@ export async function sendNotification(
   payload: NotificationPayload
 ): Promise<boolean> {
   
-  // Verificări
+  // Validations
   if (!isNotificationSupported()) {
     console.warn('Notifications not supported');
     return false;
@@ -123,8 +123,8 @@ export async function sendNotification(
         badge: payload.badge || '/icons/icon-72x72.svg',
         tag: payload.tag || 'rsq-notification',
         data: payload.data,
-        requireInteraction: true, // Notificarea rămâne până user-ul dă click
-        vibrate: [200, 100, 200], // Vibrație pe mobile
+        requireInteraction: true, // Notification remains until the user clicks
+        vibrate: [200, 100, 200], // Vibrate on mobile
       } as any);
       console.log('✅ Notification sent via Service Worker');
     } else {
@@ -338,23 +338,23 @@ import {
   sendTestNotification 
 } from '@/lib/notifications';
 
-// 1. Cere permisiune la început
-const hasPermission = await requestNotificationPermission();
+  // 1. Request permission at start
+  const hasPermission = await requestNotificationPermission();
 
-if (hasPermission) {
-  // 2. Trimite notificare de test
-  await sendTestNotification();
-  
-  // 3. Trimite notificare pentru meci
-  await sendMatchNotification(
-    {
-      homeTeam: 'Arsenal',
-      awayTeam: 'Chelsea',
-      league: 'Premier League',
-      minute: 67,
-      matchId: 12345,
-    },
-    ['Cornere Over 8', 'Atacuri Intense']
-  );
-}
+  if (hasPermission) {
+    // 2. Send test notification
+    await sendTestNotification();
+    
+    // 3. Send a match notification example
+    await sendMatchNotification(
+      {
+        homeTeam: 'Arsenal',
+        awayTeam: 'Chelsea',
+        league: 'Premier League',
+        minute: 67,
+        matchId: 12345,
+      },
+      ['Corners Over 8', 'Intense Attacks']
+    );
+  }
 */

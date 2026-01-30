@@ -111,7 +111,7 @@ These templates use **timing intelligence**: they check match stats at 60-75 min
 
 ### Test Score Conditions
 1. Go to Dashboard → Filters → Edit any filter
-2. Scroll to "🎯 Scor Exact" section
+2. Scroll to "🎯 Exact Score" section
 3. Set Home = 0, Away = 0
 4. Save filter
 5. Verify filter matches matches with 0-0 score

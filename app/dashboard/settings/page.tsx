@@ -61,7 +61,7 @@ export default function SettingsPage() {
 
     try {
       if (!user?.id) {
-        setError('ID utilizator nu găsit');
+        setError('User ID not found');
         setSaving(false);
         return;
       }
@@ -82,7 +82,7 @@ export default function SettingsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Nu s-a putut actualiza profilul');
+        setError(data.error || 'Failed to update profile');
         return;
       }
 
@@ -94,11 +94,11 @@ export default function SettingsPage() {
       localStorage.setItem('rsq_user', JSON.stringify(updatedUser));
       setUser(updatedUser);
 
-      setSuccess('Profil actualizat cu succes!');
+      setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Profile update error:', err);
-      setError('Nu s-a putut actualiza profilul');
+      setError('Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -149,7 +149,7 @@ export default function SettingsPage() {
         return;
       }
 
-      setSuccess('Parola schimbată cu succes!');
+      setSuccess('Password changed successfully!');
       setPasswordData({
         currentPassword: '',
         newPassword: '',
@@ -158,7 +158,7 @@ export default function SettingsPage() {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Password change error:', err);
-      setError('Nu s-a putut schimba parola');
+      setError('Failed to change password');
     } finally {
       setSaving(false);
     }

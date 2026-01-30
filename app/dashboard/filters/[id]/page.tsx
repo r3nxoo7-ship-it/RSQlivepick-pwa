@@ -23,7 +23,7 @@ import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, FilterConditions } from '@/lib/supabase';
 
 // ============================================
-// COMPONENTA PRINCIPALĂ
+// MAIN COMPONENT
 // ============================================
 
 export default function FilterEditPage() {
@@ -381,8 +381,8 @@ export default function FilterEditPage() {
                       className="input-field"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Max</label>
+                    <div>
+                      <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.corners?.max || ''}
@@ -399,7 +399,7 @@ export default function FilterEditPage() {
                 <h3 className="font-semibold mb-3">🎯 Shots on Target</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
                     <input
                       type="number"
                       value={formData.conditions.shots_on_target?.min || ''}
@@ -408,8 +408,8 @@ export default function FilterEditPage() {
                       className="input-field"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <div>
+                      <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.shots_on_target?.max || ''}
@@ -423,10 +423,10 @@ export default function FilterEditPage() {
               
               {/* Total Shots */}
               <div>
-                <h3 className="font-semibold mb-3">⚡ Șuturi Totale</h3>
+                <h3 className="font-semibold mb-3">⚡ Total Shots</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
                     <input
                       type="number"
                       value={formData.conditions.total_shots?.min || ''}
@@ -436,7 +436,7 @@ export default function FilterEditPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.total_shots?.max || ''}
@@ -450,10 +450,10 @@ export default function FilterEditPage() {
               
               {/* Yellow Cards */}
               <div>
-                <h3 className="font-semibold mb-3">🟨 Cartonașe Galbene</h3>
+                <h3 className="font-semibold mb-3">🟨 Yellow Cards</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
                     <input
                       type="number"
                       value={formData.conditions.yellow_cards?.min || ''}
@@ -463,7 +463,7 @@ export default function FilterEditPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.yellow_cards?.max || ''}
@@ -477,10 +477,10 @@ export default function FilterEditPage() {
               
               {/* Match Time */}
               <div>
-                <h3 className="font-semibold mb-3">⏱️ Timp Meci (Minute)</h3>
+                <h3 className="font-semibold mb-3">⏱️ Match Time (Minutes)</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">De la minut</label>
+                    <label className="block text-sm text-text-muted mb-2">From minute</label>
                     <input
                       type="number"
                       value={formData.conditions.match_time?.min || 1}
@@ -490,7 +490,7 @@ export default function FilterEditPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Până la minut</label>
+                    <label className="block text-sm text-text-muted mb-2">To minute</label>
                     <input
                       type="number"
                       value={formData.conditions.match_time?.max || 90}
@@ -504,10 +504,10 @@ export default function FilterEditPage() {
               
               {/* Red Cards */}
               <div>
-                <h3 className="font-semibold mb-3">🔴 Cartonașe Roșii</h3>
+                <h3 className="font-semibold mb-3">🔴 Red Cards</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
                     <input
                       type="number"
                       value={formData.conditions.red_cards?.min || ''}
@@ -517,7 +517,7 @@ export default function FilterEditPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.red_cards?.max || ''}
@@ -534,7 +534,7 @@ export default function FilterEditPage() {
                 <h3 className="font-semibold mb-3">⚽ Goals</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
                     <input
                       type="number"
                       value={formData.conditions.goals?.min || ''}
@@ -543,8 +543,8 @@ export default function FilterEditPage() {
                       className="input-field"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <div>
+                      <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.goals?.max || ''}
@@ -561,7 +561,7 @@ export default function FilterEditPage() {
                 <h3 className="font-semibold mb-3">📊 Possession (%)</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-text-muted mb-2">Minim</label>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
                     <input
                       type="number"
                       value={formData.conditions.possession?.min || ''}
@@ -570,8 +570,8 @@ export default function FilterEditPage() {
                       className="input-field"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Maxim</label>
+                    <div>
+                      <label className="block text-sm text-text-muted mb-2">Max</label>
                     <input
                       type="number"
                       value={formData.conditions.possession?.max || ''}
@@ -585,8 +585,8 @@ export default function FilterEditPage() {
               
               {/* Score (Exact) */}
               <div>
-                <h3 className="font-semibold mb-3">🎯 Scor Exact</h3>
-                <p className="text-xs text-text-muted mb-3">Alege scorul exact pe care îl cauți (ex: 0-0, 1-1, 2-2)</p>
+                <h3 className="font-semibold mb-3">🎯 Exact Score</h3>
+                <p className="text-xs text-text-muted mb-3">Choose the exact score you're looking for (e.g. 0-0, 1-1, 2-2)</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-text-muted mb-2">Home Goals</label>
@@ -635,7 +635,7 @@ export default function FilterEditPage() {
                 </div>
                 {formData.conditions.score?.home !== undefined && formData.conditions.score?.away !== undefined && (
                   <div className="mt-2 p-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20">
-                    <p className="text-xs text-accent-cyan">Scor cautat: <strong>{formData.conditions.score.home}-{formData.conditions.score.away}</strong></p>
+                    <p className="text-xs text-accent-cyan">Target score: <strong>{formData.conditions.score.home}-{formData.conditions.score.away}</strong></p>
                   </div>
                 )}
               </div>
@@ -646,7 +646,7 @@ export default function FilterEditPage() {
           <div className="glass-card p-6">
             <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
               <Bell className="w-5 h-5 text-accent-purple" />
-              Notificări
+              Notifications
             </h2>
             
             <div className="space-y-3">
@@ -664,7 +664,7 @@ export default function FilterEditPage() {
                     Push Notifications (browser)
                   </p>
                   <p className="text-sm text-text-muted">
-                    Primești notificare în browser când meciul match-uiește
+                    Receive a browser notification when this filter matches
                   </p>
                 </div>
               </label>
@@ -683,7 +683,7 @@ export default function FilterEditPage() {
                     Telegram Notifications
                   </p>
                   <p className="text-sm text-text-muted">
-                    Primești alertă instant pe Telegram (configurează în Settings)
+                    Receive an instant alert on Telegram (configure in Settings)
                   </p>
                 </div>
               </label>
@@ -691,12 +691,12 @@ export default function FilterEditPage() {
           </div>
           
           {/* ========== ACTIONS ========== */}
-          <div className="flex gap-4">
+            <div className="flex gap-4">
             <button
               onClick={() => router.push('/dashboard/filters')}
               className="btn-secondary flex-1"
             >
-              Anulează
+              Cancel
             </button>
             
             <button

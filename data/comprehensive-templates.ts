@@ -18,16 +18,16 @@ export interface FilterTemplate {
 // ============================================
 
 export const CATEGORIES = {
-  CORNERS: 'Cornere',
-  SHOTS: 'Șuturi',
-  CARDS: 'Cartonașe',
-  SCORE: 'Scor',
-  POSSESSION: 'Posesie',
-  ADVANCED: 'Avansate',
+  CORNERS: 'Corners',
+  SHOTS: 'Shots',
+  CARDS: 'Cards',
+  SCORE: 'Score',
+  POSSESSION: 'Possession',
+  ADVANCED: 'Advanced',
   LIVE_BETTING: 'Live Betting',
   DEFENSIVE: 'Defensive',
   HIGH_SCORING: 'High Scoring',
-  TEAM_SPECIFIC: 'Specifice Echipă',
+  TEAM_SPECIFIC: 'Team Specific',
 };
 
 // ============================================
@@ -38,30 +38,30 @@ export const filterTemplates: FilterTemplate[] = [
   // ========== CORNERS (10 templates) ==========
   
   {
-    name: 'Over 9.5 Cornere',
-    description: 'Minim 10 cornere total în meci',
+    name: 'Over 9.5 Corners',
+    description: 'Minimum 10 corners total in the match',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: { total: { min: 10 } },
       match_time: { after: 30 },
     },
-    tags: ['popular', 'cornere', 'total'],
+    tags: ['popular', 'corners', 'total'],
   },
   
   {
-    name: 'Over 11.5 Cornere',
-    description: 'Minim 12 cornere total',
+    name: 'Over 11.5 Corners',
+    description: 'Minimum 12 corners total',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: { total: { min: 12 } },
       match_time: { after: 35 },
     },
-    tags: ['cornere', 'high'],
+    tags: ['corners', 'high'],
   },
   
   {
-    name: 'Gazde Dominant Cornere',
-    description: 'Gazde cu minim 7 cornere, oaspeți max 3',
+    name: 'Home Dominant Corners',
+    description: 'Home team with at least 7 corners, away max 3',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: {
@@ -70,12 +70,12 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 40 },
     },
-    tags: ['cornere', 'gazde', 'dominant'],
+    tags: ['corners', 'home', 'dominant'],
   },
   
   {
-    name: 'Oaspeți Dominant Cornere',
-    description: 'Oaspeți cu minim 7 cornere, gazde max 3',
+    name: 'Away Dominant Corners',
+    description: 'Away team with at least 7 corners, home max 3',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: {
@@ -84,12 +84,12 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 40 },
     },
-    tags: ['cornere', 'oaspeți', 'dominant'],
+    tags: ['corners', 'away', 'dominant'],
   },
   
   {
-    name: 'Cornere Echilibrate',
-    description: 'Ambele echipe 4-6 cornere fiecare',
+    name: 'Balanced Corners',
+    description: 'Both teams 4-6 corners each',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: {
@@ -98,149 +98,149 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 50 },
     },
-    tags: ['cornere', 'echilibrat'],
+    tags: ['corners', 'balanced'],
   },
   
   {
-    name: 'Cornere Repriza 2',
-    description: 'Minim 6 cornere după minutul 60',
+    name: 'Second Half Corners',
+    description: 'At least 6 corners after minute 60',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: { total: { min: 6 } },
       match_time: { after: 60 },
     },
-    tags: ['cornere', 'repriza-2', 'late'],
+    tags: ['corners', 'second-half', 'late'],
   },
   
   {
-    name: 'Cornere Finale Meci',
-    description: 'Peste 12 cornere înainte de min 85',
+    name: 'Late Match Corners',
+    description: 'Over 12 corners before minute 85',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: { total: { min: 12 } },
       match_time: { before: 85 },
     },
-    tags: ['cornere', 'final', 'urgent'],
+    tags: ['corners', 'final', 'urgent'],
   },
   
   {
-    name: 'Cornere Rapid Start',
-    description: 'Minim 5 cornere înainte de min 25',
+    name: 'Early Corners',
+    description: 'Minimum 5 corners before minute 25',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: { total: { min: 5 } },
       match_time: { before: 25 },
     },
-    tags: ['cornere', 'early', 'fast'],
+    tags: ['corners', 'early', 'fast'],
   },
   
   {
-    name: 'Cornere Interval',
-    description: '6+ cornere între min 20-45',
+    name: 'Corner Interval',
+    description: '6+ corners between minutes 20-45',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: { total: { min: 6 } },
       match_time: { between: [20, 45] },
     },
-    tags: ['cornere', 'interval', 'first-half'],
+    tags: ['corners', 'interval', 'first-half'],
   },
   
   {
-    name: 'Cornere Low Activity',
-    description: 'Sub 6 cornere după min 60 (safe under)',
+    name: 'Low Corners Activity',
+    description: 'Under 6 corners after minute 60 (safe under)',
     category: CATEGORIES.CORNERS,
     conditions: {
       corners: { total: { max: 5 } },
       match_time: { after: 60 },
     },
-    tags: ['cornere', 'under', 'defensive'],
+    tags: ['corners', 'under', 'defensive'],
   },
   
   // ========== SHOTS (10 templates) ==========
   
   {
-    name: 'Over 20 Șuturi',
-    description: 'Minim 21 șuturi total',
+    name: 'Over 20 Shots',
+    description: 'Minimum 21 shots total',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { total: { min: 21 } },
       match_time: { after: 40 },
     },
-    tags: ['șuturi', 'offensive', 'total'],
+    tags: ['shots', 'offensive', 'total'],
   },
   
   {
-    name: 'Șuturi pe Poartă 10+',
-    description: 'Minim 10 șuturi pe poartă total',
+    name: 'Shots on Target 10+',
+    description: 'Minimum 10 shots on target total',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots_on_target: { total: { min: 10 } },
       match_time: { after: 50 },
     },
-    tags: ['șuturi', 'pe-poartă', 'precision'],
+    tags: ['shots', 'on-target', 'precision'],
   },
   
   {
-    name: 'Gazde Attack Minded',
-    description: 'Gazde 12+ șuturi, 5+ pe poartă',
+    name: 'Home Attack Minded',
+    description: 'Home: 12+ shots, 5+ on target',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { home: { min: 12 } },
       shots_on_target: { home: { min: 5 } },
       match_time: { after: 45 },
     },
-    tags: ['șuturi', 'gazde', 'attack'],
+    tags: ['shots', 'home', 'attack'],
   },
   
   {
-    name: 'Oaspeți Counter Attack',
-    description: 'Oaspeți 8+ șuturi, 4+ pe poartă',
+    name: 'Away Counter Attack',
+    description: 'Away: 8+ shots, 4+ on target',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { away: { min: 8 } },
       shots_on_target: { away: { min: 4 } },
       match_time: { after: 40 },
     },
-    tags: ['șuturi', 'oaspeți', 'counter'],
+    tags: ['shots', 'away', 'counter'],
   },
   
   {
     name: 'High Accuracy',
-    description: 'Minim 50% șuturi pe poartă (8/16)',
+    description: 'At least 50% shots on target (e.g. 8/16)',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { total: { min: 16 } },
       shots_on_target: { total: { min: 8 } },
       match_time: { after: 55 },
     },
-    tags: ['șuturi', 'acuratețe', 'quality'],
+    tags: ['shots', 'accuracy', 'quality'],
   },
   
   {
-    name: 'Șuturi Repriza 1',
-    description: '10+ șuturi înainte de pauză',
+    name: 'Shots First Half',
+    description: '10+ shots before halftime',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { total: { min: 10 } },
       match_time: { before: 45 },
     },
-    tags: ['șuturi', 'first-half', 'early'],
+    tags: ['shots', 'first-half', 'early'],
   },
   
   {
     name: 'Late Pressure',
-    description: '15+ șuturi după min 70',
+    description: '15+ shots after minute 70',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { total: { min: 15 } },
       match_time: { after: 70 },
     },
-    tags: ['șuturi', 'late', 'pressure'],
+    tags: ['shots', 'late', 'pressure'],
   },
   
   {
     name: 'Balanced Shooting',
-    description: 'Ambele echipe 8-12 șuturi',
+    description: 'Both teams 8-12 shots each',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: {
@@ -249,69 +249,69 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 60 },
     },
-    tags: ['șuturi', 'balanced', 'equal'],
+    tags: ['shots', 'balanced', 'equal'],
   },
   
   {
     name: 'Shooting Frenzy',
-    description: 'Peste 30 șuturi total!',
+    description: 'Over 30 shots total!',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { total: { min: 30 } },
       match_time: { after: 60 },
     },
-    tags: ['șuturi', 'extreme', 'frenzy'],
+    tags: ['shots', 'extreme', 'frenzy'],
   },
   
   {
     name: 'Low Shots Defensive',
-    description: 'Sub 12 șuturi după min 50 (defensive match)',
+    description: 'Under 12 shots after minute 50 (defensive match)',
     category: CATEGORIES.SHOTS,
     conditions: {
       shots: { total: { max: 11 } },
       match_time: { after: 50 },
     },
-    tags: ['șuturi', 'under', 'defensive'],
+    tags: ['shots', 'under', 'defensive'],
   },
   
   // ========== CARDS (10 templates) ==========
   
   {
-    name: 'Over 4.5 Cartonașe',
-    description: 'Minim 5 cartonașe galbene total',
+    name: 'Over 4.5 Cards',
+    description: 'Minimum 5 yellow cards total',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: { total: { min: 5 } },
       match_time: { after: 50 },
     },
-    tags: ['cartonașe', 'galbene', 'rough'],
+    tags: ['cards', 'yellow', 'rough'],
   },
   
   {
-    name: 'Cartonaș Roșu Probabil',
-    description: '6+ galbene, căutăm roșu',
+    name: 'Red Card Likely',
+    description: '6+ yellow cards, looking for a red',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: { total: { min: 6 } },
       red_cards: { total: { max: 0 } },
       match_time: { after: 55, before: 85 },
     },
-    tags: ['cartonașe', 'roșu', 'escalation'],
+    tags: ['cards', 'red', 'escalation'],
   },
   
   {
-    name: 'Cartonaș Roșu Dat',
-    description: 'Măcar un cartonaș roșu în meci',
+    name: 'Red Card Occurred',
+    description: 'At least one red card in the match',
     category: CATEGORIES.CARDS,
     conditions: {
       red_cards: { total: { min: 1 } },
     },
-    tags: ['cartonașe', 'roșu', 'expulsion'],
+    tags: ['cards', 'red', 'expulsion'],
   },
   
   {
-    name: 'Meci Nervos',
-    description: '7+ galbene, 2+ roșii sau dublă galbenă',
+    name: 'Heated Match',
+    description: '7+ yellow or 2+ red cards (heated game)',
     category: CATEGORIES.CARDS,
     conditions: {
       combined: {
@@ -322,12 +322,12 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 60 },
     },
-    tags: ['cartonașe', 'extreme', 'nervous'],
+    tags: ['cards', 'extreme', 'heated'],
   },
   
   {
-    name: 'Gazde Aggressive',
-    description: 'Gazde 4+ cartonașe, oaspeți max 2',
+    name: 'Home Aggressive Cards',
+    description: 'Home 4+ cards, away max 2',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: {
@@ -336,57 +336,57 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 50 },
     },
-    tags: ['cartonașe', 'gazde', 'aggressive'],
+    tags: ['cards', 'home', 'aggressive'],
   },
   
   {
-    name: 'Oaspeți Rough Play',
-    description: 'Oaspeți 4+ cartonașe',
+    name: 'Away Rough Play',
+    description: 'Away team 4+ cards',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: { away: { min: 4 } },
       match_time: { after: 45 },
     },
-    tags: ['cartonașe', 'oaspeți', 'rough'],
+    tags: ['cards', 'away', 'rough'],
   },
   
   {
     name: 'Early Cards',
-    description: '3+ cartonașe înainte de min 30',
+    description: '3+ cards before minute 30',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: { total: { min: 3 } },
       match_time: { before: 30 },
     },
-    tags: ['cartonașe', 'early', 'aggressive-start'],
+    tags: ['cards', 'early', 'aggressive-start'],
   },
   
   {
     name: 'Late Cards Tension',
-    description: '4+ cartonașe după min 75',
+    description: '4+ cards after minute 75',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: { total: { min: 4 } },
       match_time: { after: 75 },
     },
-    tags: ['cartonașe', 'late', 'tension'],
+    tags: ['cards', 'late', 'tension'],
   },
   
   {
     name: 'Clean Match',
-    description: 'Max 2 cartonașe după min 60 (fair play)',
+    description: 'Max 2 cards after minute 60 (fair play)',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: { total: { max: 2 } },
       red_cards: { total: { exact: 0 } },
       match_time: { after: 60 },
     },
-    tags: ['cartonașe', 'under', 'clean'],
+    tags: ['cards', 'under', 'clean'],
   },
   
   {
     name: 'Balanced Cards',
-    description: 'Ambele echipe 2-3 cartonașe',
+    description: 'Both teams 2-3 cards each',
     category: CATEGORIES.CARDS,
     conditions: {
       yellow_cards: {
@@ -395,82 +395,82 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 55 },
     },
-    tags: ['cartonașe', 'balanced', 'even'],
+    tags: ['cards', 'balanced', 'even'],
   },
   
   // ========== SCORE (10 templates) ==========
   
   {
-    name: '0-0 Defensiv',
-    description: 'Scor 0-0, meci defensiv, după min 60',
+    name: '0-0 Defensive',
+    description: 'Score 0-0, defensive match after minute 60',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { exact: { home: 0, away: 0 } },
       match_time: { after: 60 },
       shots_on_target: { total: { max: 4 } },
     },
-    tags: ['scor', '0-0', 'defensive'],
+    tags: ['score', '0-0', 'defensive'],
   },
   
   {
-    name: '0-0 Atacant',
-    description: '0-0 dar multe ocazii, gol probabil',
+    name: '0-0 High Chances',
+    description: '0-0 but many chances; a goal likely',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { exact: { home: 0, away: 0 } },
       shots_on_target: { total: { min: 8 } },
       match_time: { after: 50, before: 75 },
     },
-    tags: ['scor', '0-0', 'btts-likely'],
+    tags: ['score', '0-0', 'btts-likely'],
   },
   
   {
-    name: 'Gazde Conduc 1-0',
-    description: 'Gazde conduc 1-0, după min 55',
+    name: 'Home Leading 1-0',
+    description: 'Home team leading 1-0 after minute 55',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { exact: { home: 1, away: 0 } },
       match_time: { after: 55 },
     },
-    tags: ['scor', '1-0', 'gazde-lead'],
+    tags: ['score', '1-0', 'home-lead'],
   },
   
   {
     name: 'Over 2.5 Goals',
-    description: 'Minim 3 goluri în meci',
+    description: 'Minimum 3 goals in the match',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { total_goals: { min: 3 } },
       match_time: { after: 50 },
     },
-    tags: ['scor', 'over-2.5', 'goals'],
+    tags: ['score', 'over-2.5', 'goals'],
   },
   
   {
     name: 'Over 3.5 Goals',
-    description: 'Minim 4 goluri, meci spectaculos',
+    description: 'Minimum 4 goals, high-scoring match',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { total_goals: { min: 4 } },
       match_time: { after: 60 },
     },
-    tags: ['scor', 'over-3.5', 'high-scoring'],
+    tags: ['score', 'over-3.5', 'high-scoring'],
   },
   
   {
-    name: 'Egalitate Târzie',
-    description: 'Scor egal, după min 70, presiune pentru câștig',
+    name: 'Late Draw',
+    description: 'Score tied after minute 70; pressure to win',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { difference: { exact: 0 } },
       match_time: { after: 70 },
     },
-    tags: ['scor', 'draw', 'late', 'pressure'],
+    tags: ['score', 'draw', 'late', 'pressure'],
   },
   
   {
-    name: 'Gazde Winning Big',
-    description: 'Gazde conduc cu 2+ goluri',
+    name: 'Home Winning Big',
+    description: 'Home team leading by 2+ goals',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { difference: { min: 2 } },
@@ -481,12 +481,12 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 60 },
     },
-    tags: ['scor', 'big-lead', 'gazde'],
+    tags: ['score', 'big-lead', 'home'],
   },
   
   {
     name: 'Comeback Potential',
-    description: 'Pierde cu 1 gol, mult presiune, posibil comeback',
+    description: 'Losing by 1 goal with high pressure; comeback possible',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { difference: { exact: 1 } },
@@ -494,12 +494,12 @@ export const filterTemplates: FilterTemplate[] = [
       corners: { total: { min: 8 } },
       match_time: { after: 65, before: 85 },
     },
-    tags: ['scor', 'comeback', 'pressure', 'live-betting'],
+    tags: ['score', 'comeback', 'pressure', 'live-betting'],
   },
   
   {
     name: 'BTTS Yes',
-    description: 'Ambele echipe au marcat',
+    description: 'Both teams have scored',
     category: CATEGORIES.SCORE,
     conditions: {
       score: {
@@ -508,18 +508,18 @@ export const filterTemplates: FilterTemplate[] = [
       },
       match_time: { after: 50 },
     },
-    tags: ['scor', 'btts', 'both-score'],
+    tags: ['score', 'btts', 'both-score'],
   },
   
   {
     name: 'Under 1.5 First Half',
-    description: 'Max 1 gol în repriza 1',
+    description: 'Max 1 goal in the first half',
     category: CATEGORIES.SCORE,
     conditions: {
       score: { total_goals: { max: 1 } },
       match_time: { before: 45 },
     },
-    tags: ['scor', 'under', 'first-half', 'defensive'],
+    tags: ['score', 'under', 'first-half', 'defensive'],
   },
 ];
 

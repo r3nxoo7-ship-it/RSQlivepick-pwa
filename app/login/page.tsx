@@ -33,9 +33,8 @@ export default function LoginPage() {
           // Save minimal user client-side for UI helpers
           authHelpers.saveUser(user);
 
-        // Redirect la dashboard
+        // Redirect to dashboard
           router.push('/dashboard');
-        router.refresh(); // Forțează reîncărcarea pentru middleware
       }
     } catch (err) {
       setError('Authentication error. Please try again.');

@@ -66,20 +66,20 @@ export interface LiveMatch {
     };
   };
   
-  // Golurile marcate
+  // Goals scored
   goals: {
-    home: number | null;     // Goluri echipa gazdă (null dacă meciul nu a început)
-    away: number | null;     // Goluri echipa oaspete
+    home: number | null;     // Home team goals (null if match hasn't started)
+    away: number | null;     // Away team goals
   };
-  
-  // Scorul (poate include prelungiri, penaltiuri)
+
+  // Score (may include extra time, penalties)
   score: {
     halftime: {
-      home: number | null;   // Scor la pauză
+      home: number | null;   // Halftime score
       away: number | null;
     };
     fulltime: {
-      home: number | null;   // Scor final
+      home: number | null;   // Final score
       away: number | null;
     };
   };
@@ -92,11 +92,11 @@ export interface LiveMatch {
 export interface MatchStatistics {
   team: {
     id: number;
-    name: string;            // "Arsenal" sau "Chelsea"
+    name: string;            // "Arsenal" or "Chelsea"
   };
   statistics: Array<{
-    type: string;            // Tipul statisticii (ex: "Corners", "Shots on Goal")
-    value: number | string;  // Valoarea (ex: 8 cornere, "58%" posesie)
+    type: string;            // Statistic type (e.g., "Corners", "Shots on Goal")
+    value: number | string;  // Value (e.g., 8 corners, "58%" possession)
   }>;
 }
 
@@ -104,15 +104,15 @@ export interface MatchStatistics {
  * Răspunsul complet de la API pentru live matches
  */
 interface ApiResponse<T> {
-  get: string;               // Endpoint-ul apelat
-  parameters: any;           // Parametrii trimiși
-  errors: any[];             // Array cu erori (gol dacă totul e ok)
-  results: number;           // Câte rezultate am primit
+  get: string;               // Called endpoint
+  parameters: any;           // Parameters sent
+  errors: any[];             // Array with errors (empty if ok)
+  results: number;           // How many results we received
   paging: {
-    current: number;         // Pagina curentă
-    total: number;           // Total pagini
+    current: number;         // Current page
+    total: number;           // Total pages
   };
-  response: T[];             // Datele propriu-zise (array de meciuri)
+  response: T[];             // The actual data (array of matches)
 }
 
 // ============================================
@@ -401,5 +401,5 @@ console.log('Meciuri live:', matches.length);
 // 2. Obține statistici pentru un meci
 const stats = await getMatchStatistics(12345);
 const parsed = parseMatchStats(stats);
-console.log('Cornere:', parsed.corners.total);
+  console.log('Corners:', parsed.corners.total);
 */

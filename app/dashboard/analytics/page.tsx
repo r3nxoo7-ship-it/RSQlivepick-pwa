@@ -422,7 +422,7 @@ export default function AnalyticsPage() {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">⚽ Cornere</span>
+                      <span className="text-sm">⚽ Corners</span>
                       <span className="font-semibold">{categoryStats.corners}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
@@ -437,7 +437,7 @@ export default function AnalyticsPage() {
                   
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">🎯 Șuturi</span>
+                      <span className="text-sm">🎯 Shots</span>
                       <span className="font-semibold">{categoryStats.shots}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
@@ -452,7 +452,7 @@ export default function AnalyticsPage() {
                   
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">🟨 Cartonașe</span>
+                      <span className="text-sm">🟨 Cards</span>
                       <span className="font-semibold">{categoryStats.cards}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
@@ -467,7 +467,7 @@ export default function AnalyticsPage() {
                   
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">🔥 Mixte</span>
+                      <span className="text-sm">🔥 Mixed</span>
                       <span className="font-semibold">{categoryStats.mixed}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">

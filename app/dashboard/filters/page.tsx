@@ -164,13 +164,13 @@ export default function FiltersPage() {
     const conditions = filter.conditions;
     const preview: string[] = [];
     
-    // Cornere
+    // Corners
       if (conditions.corners) {
       const c = conditions.corners;
       if (c.min) preview.push(`Corners >${c.min}`);
     }
     
-    // Șuturi
+    // Shots
     if (conditions.shots_on_target?.min) {
       preview.push(`Shots >${conditions.shots_on_target.min}`);
     }

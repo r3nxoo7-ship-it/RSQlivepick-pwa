@@ -129,8 +129,8 @@ CORRECTO:
 Si ves error rojo:
 ```
 ❌ Errores de validación:
-  - Cornuri (total): min no puede ser > max
-  - Cartonașe galbene: valor fuera de rango
+  - Corners (total): min no puede ser > max
+  - Yellow cards: value out of range
 ```
 
 **Acción:** Corrige los valores y guarda de nuevo
@@ -151,7 +151,7 @@ Si ves error rojo:
 ### Condiciones "Completas"
 
 Una condición está completa si tiene:
-- Mínimo (ej: min: 5 corneres)
+-- Mínimo (ej: min: 5 corners)
 - **O** Máximo (ej: max: 15 corneres)
 - **O** Ambos (ej: 5-10 corneres)
 
@@ -160,7 +160,7 @@ Una condición está completa si tiene:
 ✅ **COMPLETO - Notificaciones ACTIVADAS:**
 ```
 Filtro: "Over 9.5 Corners"
-  Min: 10 corneres ← ✅ Tiene valor
+  Min: 10 corners ← ✅ Tiene valor
   Notificaciones: ON
   Resultado: 🔔 ALERTAS ACTIVADAS
 ```
@@ -168,7 +168,7 @@ Filtro: "Over 9.5 Corners"
 ✅ **COMPLETO - Notificaciones ACTIVADAS:**
 ```
 Filtro: "Corners Range"
-  Min: 5, Max: 15 corneres ← ✅ Tiene valores
+  Min: 5, Max: 15 corners ← ✅ Tiene valores
   Notificaciones: ON
   Resultado: 🔔 ALERTAS ACTIVADAS
 ```

@@ -1,51 +1,51 @@
 // ============================================
 // R$Q - LIVE INDICATOR COMPONENT
 // ============================================
-// Un indicator animat care arată că meciul e LIVE
-// Pentru începători: învață despre animations, CSS classes
+// An animated indicator that shows a match is LIVE
+// For beginners: demonstrates animations and CSS classes
 
-import { motion } from 'framer-motion'; // Bibliotecă pentru animații smooth
+import { motion } from 'framer-motion'; // Library for smooth animations
 
 // ============================================
-// COMPONENTA
+// COMPONENT
 // ============================================
 
 /**
- * LiveIndicator - Afișează un dot roșu pulsing + text "LIVE"
- * 
+ * LiveIndicator - Displays a pulsing red dot + "LIVE" text
+ *
  * Props:
- * @param minute - Minutul curent al meciului (opțional)
- * @param className - CSS classes extra (opțional)
- * 
+ * @param minute - Current match minute (optional)
+ * @param className - Extra CSS classes (optional)
+ *
  * Usage:
  * <LiveIndicator minute={67} />
- * <LiveIndicator /> // fără minut
+ * <LiveIndicator /> // without minute
  */
 interface LiveIndicatorProps {
-  minute?: number | null;     // Minutul curent (ex: 67)
-  className?: string;          // CSS classes extra
+  minute?: number | null;     // Current minute (e.g., 67)
+  className?: string;          // Extra CSS classes
 }
 
 export default function LiveIndicator({ minute, className = '' }: LiveIndicatorProps) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {/* Dot roșu animat */}
+      {/* Animated red dot */}
       <div className="relative flex items-center justify-center">
-        {/* Outer pulse (cerculețul mare care pulsează) */}
+        {/* Outer pulse (larger pulsing circle) */}
         <motion.div
           className="absolute w-3 h-3 rounded-full bg-accent-red"
           animate={{
-            scale: [1, 1.5, 1],           // Mărește și micșorează
+            scale: [1, 1.5, 1],           // Scale up and down
             opacity: [0.7, 0, 0.7],       // Fade in/out
           }}
           transition={{
-            duration: 2,                   // 2 secunde per ciclu
-            repeat: Infinity,              // Repetă la infinit
-            ease: "easeInOut",             // Animație smooth
+            duration: 2,                   // 2 seconds per cycle
+            repeat: Infinity,              // Repeat indefinitely
+            ease: "easeInOut",             // Smooth easing
           }}
         />
         
-        {/* Inner dot (cerculețul mic fix) */}
+        {/* Inner dot (static small circle) */}
         <div className="relative w-2 h-2 rounded-full bg-accent-red" />
       </div>
       
@@ -54,7 +54,7 @@ export default function LiveIndicator({ minute, className = '' }: LiveIndicatorP
         LIVE
       </span>
       
-      {/* Minutul (dacă există) */}
+      {/* Minute (if provided) */}
       {minute !== null && minute !== undefined && (
         <span className="text-text-muted text-sm">
           {minute}&apos;
@@ -72,12 +72,12 @@ export default function LiveIndicator({ minute, className = '' }: LiveIndicatorP
 /*
 import LiveIndicator from '@/components/LiveIndicator';
 
-// Cu minut
+// With minute
 <LiveIndicator minute={67} />
 
-// Fără minut
+// Without minute
 <LiveIndicator />
 
-// Cu className custom
+// With custom className
 <LiveIndicator minute={45} className="ml-4" />
 */

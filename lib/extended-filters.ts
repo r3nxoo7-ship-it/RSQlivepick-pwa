@@ -20,10 +20,10 @@ export interface TeamSpecificCondition {
 }
 
 export interface TimeCondition {
-  before?: number;      // Înainte de minut X
-  after?: number;       // După minut Y
-  between?: [number, number];  // Între [X, Y]
-  exact?: number;       // La exact minutul X
+  before?: number;      // Before minute X
+  after?: number;       // After minute Y
+  between?: [number, number];  // Between [X, Y]
+  exact?: number;       // At the exact minute X
 }
 
 // ============================================
@@ -93,22 +93,22 @@ export interface ExtendedFilterConditions {
   // ========== COMBINED CONDITIONS ==========
   
   combined?: {
-    // Toate condițiile trebuie îndeplinite
+    // All conditions must be met
     all?: ExtendedFilterConditions[];
-    // Cel puțin una din condiții
+    // At least one of the conditions
     any?: ExtendedFilterConditions[];
-    // Niciuna din condiții (NOT)
+    // None of the conditions (NOT)
     none?: ExtendedFilterConditions[];
   };
   
   // ========== TREND CONDITIONS ==========
   
   trends?: {
-    corners_increasing?: boolean;     // Cornere în creștere?
-    shots_increasing?: boolean;       // Șuturi în creștere?
-    cards_increasing?: boolean;       // Cartonașe în creștere?
-    home_pressure?: boolean;          // Presiune gazde?
-    away_pressure?: boolean;          // Presiune oaspeți?
+    corners_increasing?: boolean;     // Corners increasing?
+    shots_increasing?: boolean;       // Shots increasing?
+    cards_increasing?: boolean;       // Cards increasing?
+    home_pressure?: boolean;          // Home team pressure?
+    away_pressure?: boolean;          // Away team pressure?
   };
 }
 

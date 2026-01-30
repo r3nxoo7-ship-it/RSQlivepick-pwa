@@ -166,14 +166,14 @@ export default function APITestPage() {
                     </span>
                   </div>
                   
-                  {/* Echipe + Scor */}
+                  {/* Teams + Score */}
                   <div className="grid grid-cols-3 gap-4 items-center">
                     {/* Echipa gazdă */}
                     <div className="text-right">
                       <p className="font-semibold">{match.teams.home.name}</p>
                     </div>
                     
-                    {/* Scor */}
+                    {/* Score */}
                     <div className="text-center">
                       <div className="text-3xl font-bold gradient-text">
                         {match.goals.home ?? 0} - {match.goals.away ?? 0}
