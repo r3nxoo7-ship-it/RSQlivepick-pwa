@@ -145,16 +145,6 @@ export const filterTemplates: FilterTemplate[] = [
     tags: ['corners', 'interval', 'first-half'],
   },
   
-  {
-    name: 'Low Corners Activity',
-    description: 'Under 6 corners after minute 60 (safe under)',
-    category: CATEGORIES.CORNERS,
-    conditions: {
-      corners: { total: { max: 5 } },
-      match_time: { after: 60 },
-    },
-    tags: ['corners', 'under', 'defensive'],
-  },
   
   // ========== SHOTS (10 templates) ==========
   
@@ -300,16 +290,6 @@ export const filterTemplates: FilterTemplate[] = [
   },
   
   {
-    name: 'Red Card Occurred',
-    description: 'At least one red card in the match',
-    category: CATEGORIES.CARDS,
-    conditions: {
-      red_cards: { total: { min: 1 } },
-    },
-    tags: ['cards', 'red', 'expulsion'],
-  },
-  
-  {
     name: 'Heated Match',
     description: '7+ yellow or 2+ red cards (heated game)',
     category: CATEGORIES.CARDS,
@@ -361,28 +341,6 @@ export const filterTemplates: FilterTemplate[] = [
     tags: ['cards', 'early', 'aggressive-start'],
   },
   
-  {
-    name: 'Late Cards Tension',
-    description: '4+ cards after minute 75',
-    category: CATEGORIES.CARDS,
-    conditions: {
-      yellow_cards: { total: { min: 4 } },
-      match_time: { after: 75 },
-    },
-    tags: ['cards', 'late', 'tension'],
-  },
-  
-  {
-    name: 'Clean Match',
-    description: 'Max 2 cards after minute 60 (fair play)',
-    category: CATEGORIES.CARDS,
-    conditions: {
-      yellow_cards: { total: { max: 2 } },
-      red_cards: { total: { exact: 0 } },
-      match_time: { after: 60 },
-    },
-    tags: ['cards', 'under', 'clean'],
-  },
   
   {
     name: 'Balanced Cards',
@@ -424,16 +382,6 @@ export const filterTemplates: FilterTemplate[] = [
     tags: ['score', '0-0', 'btts-likely'],
   },
   
-  {
-    name: 'Home Leading 1-0',
-    description: 'Home team leading 1-0 after minute 55',
-    category: CATEGORIES.SCORE,
-    conditions: {
-      score: { exact: { home: 1, away: 0 } },
-      match_time: { after: 55 },
-    },
-    tags: ['score', '1-0', 'home-lead'],
-  },
   
   {
     name: 'Over 2.5 Goals',
@@ -457,16 +405,6 @@ export const filterTemplates: FilterTemplate[] = [
     tags: ['score', 'over-3.5', 'high-scoring'],
   },
   
-  {
-    name: 'Late Draw',
-    description: 'Score tied after minute 70; pressure to win',
-    category: CATEGORIES.SCORE,
-    conditions: {
-      score: { difference: { exact: 0 } },
-      match_time: { after: 70 },
-    },
-    tags: ['score', 'draw', 'late', 'pressure'],
-  },
   
   {
     name: 'Home Winning Big',
