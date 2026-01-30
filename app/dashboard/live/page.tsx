@@ -72,37 +72,18 @@ export default function LiveMatchesPage() {
   const loadUserFilters = useCallback(async () => {
     try {
       const currentUser = authHelpers.getCurrentUser();
-      if (!currentUser) return;
+      if (!currentUser) return [];
 
       const filters = await dbHelpers.getUserFilters(currentUser.id);
       setUserFilters(filters);
 
       console.log(`✅ Loaded ${filters.length} user filters`);
+      return filters;
     } catch (err) {
       console.error('Error loading filters:', err);
+      return [];
     }
   }, []);
-  
-  const applyFilters = useCallback(async (matchesToFilter: LiveMatch[]) => {
-    if (userFilters.length === 0) {
-      setFilterResults(new Map());
-      return;
-    }
-    
-    setApplyingFilters(true);
-    
-    try {
-      console.log('🎯 Applying filters to matches...');
-      const results = await applyFiltersToMatches(matchesToFilter, userFilters);
-      setFilterResults(results);
-      
-      console.log(`✅ ${results.size} matches have filter matches`);
-    } catch (err) {
-      console.error('Error applying filters:', err);
-    } finally {
-      setApplyingFilters(false);
-    }
-  }, [userFilters]);
   
   const fetchMatches = useCallback(async () => {
     setLoading(true);
@@ -117,7 +98,22 @@ export default function LiveMatchesPage() {
       
       console.log(`✅ Loaded ${liveMatches.length} live matches`);
       
-      await applyFilters(liveMatches);
+      // Apply filters directly inline to avoid dependency issues
+      if (userFilters.length > 0) {
+        setApplyingFilters(true);
+        try {
+          console.log('🎯 Applying filters to matches...');
+          const results = await applyFiltersToMatches(liveMatches, userFilters);
+          setFilterResults(results);
+          console.log(`✅ ${results.size} matches have filter matches`);
+        } catch (err) {
+          console.error('Error applying filters:', err);
+        } finally {
+          setApplyingFilters(false);
+        }
+      } else {
+        setFilterResults(new Map());
+      }
       
     } catch (err) {
       console.error('❌ Error fetching matches:', err);
@@ -125,15 +121,19 @@ export default function LiveMatchesPage() {
     } finally {
       setLoading(false);
     }
-  }, [applyFilters]);
+  }, [userFilters]);
   
   const checkNotificationPermissions = useCallback(async () => {
-    const status = await checkNotificationStatus();
-    setNotificationsReady(status.ready);
-    console.log('🔔 Notification status:', status);
-    
-    if (!status.ready && status.supported) {
-      console.log('⚠️ Notifications not ready. User needs to grant permission.');
+    try {
+      const status = await checkNotificationStatus();
+      setNotificationsReady(status.ready);
+      console.log('🔔 Notification status:', status);
+      
+      if (!status.ready && status.supported) {
+        console.log('⚠️ Notifications not ready. User needs to grant permission.');
+      }
+    } catch (err) {
+      console.error('Error checking notification permissions:', err);
     }
   }, []);
   
@@ -156,17 +156,15 @@ export default function LiveMatchesPage() {
   
   useEffect(() => {
     loadUserFilters();
-    fetchMatches();
     checkNotificationPermissions();
-  }, [loadUserFilters, fetchMatches, checkNotificationPermissions]);
+  }, []);
   
   useEffect(() => {
-    if (matches.length > 0 && userFilters.length > 0) {
-      applyFilters(matches);
-    }
-  }, [userFilters, matches, applyFilters]);
+    fetchMatches();
+  }, [fetchMatches]);
   
   useEffect(() => {
+    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       console.log('⏰ Auto-refresh matches...');
       fetchMatches();
