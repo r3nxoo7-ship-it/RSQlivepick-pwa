@@ -117,6 +117,17 @@ export async function sendNotification(
       // Send via service worker (recommended for PWA)
       const registration = await navigator.serviceWorker.ready;
       
+      // Store notification data in localStorage so the app can access it after click
+      if (payload.data?.triggeredMatchId) {
+        sessionStorage.setItem(
+          'lastNotificationClick',
+          JSON.stringify({
+            triggeredMatchId: payload.data.triggeredMatchId,
+            timestamp: Date.now(),
+          })
+        );
+      }
+      
       await registration.showNotification(payload.title, {
         body: payload.body,
         icon: payload.icon || '/icons/icon-192x192.svg',
@@ -125,6 +136,13 @@ export async function sendNotification(
         data: payload.data,
         requireInteraction: true, // Notification remains until the user clicks
         vibrate: [200, 100, 200], // Vibrate on mobile
+        actions: [
+          {
+            action: 'open',
+            title: 'View Details',
+            icon: '/icons/icon-72x72.svg',
+          },
+        ],
       } as any);
       console.log('✅ Notification sent via Service Worker');
     } else {
@@ -163,6 +181,7 @@ export async function sendMatchNotification(
     league: string;
     minute?: number;
     matchId: number;
+    triggeredMatchId?: string;
   },
   filterNames: string[]
 ): Promise<boolean> {
@@ -181,7 +200,10 @@ export async function sendMatchNotification(
     data: {
       type: 'match',
       matchId: matchInfo.matchId,
+      triggeredMatchId: matchInfo.triggeredMatchId,
       filters: filterNames,
+      action: 'open_match_details',
+      url: matchInfo.triggeredMatchId ? `/dashboard/triggered/${matchInfo.triggeredMatchId}` : '/dashboard/live',
     },
   });
 }

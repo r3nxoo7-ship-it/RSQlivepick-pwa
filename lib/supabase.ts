@@ -797,21 +797,25 @@ export const dbHelpers = {
   /**
    * Log a triggered match (when filter matches a live match)
    */
-  async logTriggeredMatch(triggeredMatch: Partial<TriggeredMatch>): Promise<{ error: string | null }> {
+  async logTriggeredMatch(triggeredMatch: Partial<TriggeredMatch>): Promise<{ error: string | null; id?: string }> {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('triggered_matches')
         .insert([{
           ...triggeredMatch,
           created_at: new Date().toISOString(),
-        }]);
+        }])
+        .select('id');
 
       if (error) {
         console.error('Error logging triggered match:', error);
         return { error: 'Error saving triggered match' };
       }
 
-      return { error: null };
+      return { 
+        error: null,
+        id: data?.[0]?.id
+      };
     } catch (err) {
       console.error('Error in logTriggeredMatch:', err);
       return { error: 'Error saving triggered match' };

@@ -159,44 +159,12 @@ class BackgroundScannerService {
         matchId: match.fixture.id,
       };
 
-      // Send web push notification
-      if (filter.notification_enabled) {
-        await sendMatchNotification(matchData, [filter.name]);
-      }
-
-      // Send Telegram notification
-      if (filter.telegram_enabled) {
-        const currentUser = authHelpers.getCurrentUser();
-        if (currentUser) {
-          const telegramMatchData = {
-            homeTeam: match.teams.home.name,
-            awayTeam: match.teams.away.name,
-            league: match.league.name,
-            score: `${match.goals.home || 0}-${match.goals.away || 0}`,
-            minute: match.fixture.status.elapsed || null,
-            filters: [filter.name],
-          };
-          await sendTelegramMatchNotification(currentUser.id, telegramMatchData);
-        }
-      }
-
-      // Log to database
+      // Log to database first to get triggered match ID
+      let triggeredMatchId: string | undefined;
       const currentUser = authHelpers.getCurrentUser();
       if (currentUser) {
-        // Log notification
-        await dbHelpers.logNotification({
-          user_id: currentUser.id,
-          match_id: match.fixture.id.toString(),
-          filter_id: filter.id,
-          notification_type: 'background_scan',
-          title: '🎯 R$Q Alert - Match Found!',
-          message: `${match.teams.home.name} vs ${match.teams.away.name} - ${filter.name}`,
-          delivered: true,
-          read: false,
-        });
-
         // Log triggered match for history/analytics
-        await dbHelpers.logTriggeredMatch({
+        const result = await dbHelpers.logTriggeredMatch({
           user_id: currentUser.id,
           match_id: match.fixture.id.toString(),
           filter_id: filter.id,
@@ -209,6 +177,44 @@ class BackgroundScannerService {
           score_home: match.goals.home || null,
           score_away: match.goals.away || null,
           match_status: match.fixture.status.short || 'ongoing',
+        });
+        triggeredMatchId = result.id;
+      }
+
+      // Send web push notification with triggered match ID
+      if (filter.notification_enabled) {
+        const notificationData = {
+          ...matchData,
+          triggeredMatchId,
+        };
+        await sendMatchNotification(notificationData, [filter.name]);
+      }
+
+      // Send Telegram notification
+      if (filter.telegram_enabled && currentUser) {
+        const telegramMatchData = {
+          homeTeam: match.teams.home.name,
+          awayTeam: match.teams.away.name,
+          league: match.league.name,
+          score: `${match.goals.home || 0}-${match.goals.away || 0}`,
+          minute: match.fixture.status.elapsed || null,
+          filters: [filter.name],
+          triggeredMatchId: triggeredMatchId,
+        };
+        await sendTelegramMatchNotification(currentUser.id, telegramMatchData);
+      }
+
+      // Log notification
+      if (currentUser) {
+        await dbHelpers.logNotification({
+          user_id: currentUser.id,
+          match_id: match.fixture.id.toString(),
+          filter_id: filter.id,
+          notification_type: 'background_scan',
+          title: '🎯 R$Q Alert - Match Found!',
+          message: `${match.teams.home.name} vs ${match.teams.away.name} - ${filter.name}`,
+          delivered: true,
+          read: false,
         });
       }
     } catch (error) {

@@ -214,6 +214,40 @@ export async function getLiveMatches(): Promise<LiveMatch[]> {
 }
 
 /**
+ * Get a specific match by ID
+ */
+export async function getMatchById(matchId: number): Promise<LiveMatch | null> {
+  if (!FOOTBALL_DATA_API_KEY) {
+    throw new Error('Football-Data API key not configured');
+  }
+  
+  try {
+    console.log(`🔍 Fetching match ${matchId} (via proxy)...`);
+    
+    // Folosim API route proxy
+    const response = await fetch(`${PROXY_URL}?endpoint=/matches/${matchId}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const match = convertMatch(data);
+    
+    console.log(`✅ Fetched match: ${match.teams.home.name} vs ${match.teams.away.name}`);
+    
+    return match;
+    
+  } catch (error) {
+    console.error(`❌ Error fetching match ${matchId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Get match statistics
  */
 export async function getMatchStatistics(matchId: number): Promise<MatchStatistics[]> {

@@ -28,6 +28,7 @@ import { applyFiltersToMatches, FilterMatchResult } from '@/lib/filter-engine';
 import { useBackgroundScanner } from '@/lib/background-scanner';
 import { checkNotificationStatus, requestNotificationPermission } from '@/lib/notifications';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 // ============================================
 // COMPONENTA PRINCIPALĂ
@@ -441,12 +442,13 @@ export default function LiveMatchesPage() {
                   })();
 
                   return (
-                    <div
-                      key={`${match.match_id}-${match.filter_id}-${match.created_at}`}
-                      className="flex items-center justify-between p-3 rounded-lg bg-glass-light border border-accent-cyan/30 hover:border-accent-cyan/60 transition-all text-sm"
+                    <Link
+                      key={match.id || `${match.match_id}-${match.filter_id}-${match.created_at}`}
+                      href={`/dashboard/triggered/${match.id}`}
+                      className="flex items-center justify-between p-3 rounded-lg bg-glass-light border border-accent-cyan/30 hover:border-accent-cyan/60 hover:bg-glass-light/80 transition-all text-sm cursor-pointer group"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-accent-cyan truncate">
+                        <p className="font-semibold text-accent-cyan truncate group-hover:text-accent-blue transition-colors">
                           {match.home_team} vs {match.away_team}
                         </p>
                         <p className="text-xs text-text-muted">
@@ -462,7 +464,7 @@ export default function LiveMatchesPage() {
                         )}
                         <span className="text-xs text-accent-blue whitespace-nowrap">{timeSinceTriggered}</span>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

@@ -99,6 +99,36 @@ export async function getMatchStatistics(matchId: number) {
 }
 
 /**
+ * Get a specific match by ID
+ */
+export async function getMatchById(matchId: string | number) {
+  try {
+    if (PRIMARY_API === 'football-data') {
+      return await FootballData.getMatchById(parseInt(String(matchId)));
+    } else {
+      return await APIFootball.getMatchById(parseInt(String(matchId)));
+    }
+  } catch (primaryError) {
+    console.error('❌ Match fetch failed:', primaryError);
+    
+    if (ENABLE_FALLBACK) {
+      try {
+        if (PRIMARY_API === 'football-data') {
+          return await APIFootball.getMatchById(parseInt(String(matchId)));
+        } else {
+          return await FootballData.getMatchById(parseInt(String(matchId)));
+        }
+      } catch (fallbackError) {
+        console.error('❌ Match fetch fallback also failed');
+        throw new Error('Could not fetch match details');
+      }
+    } else {
+      throw primaryError;
+    }
+  }
+}
+
+/**
  * Check which API is working
  */
 export async function checkAPIStatus() {
