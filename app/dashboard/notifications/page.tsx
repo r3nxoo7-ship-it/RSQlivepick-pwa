@@ -20,8 +20,11 @@ import {
   ExternalLink,
   Loader2,
   MessageCircle,
+  Radio,
+  Zap,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
+import { useBackgroundScanner } from '@/lib/background-scanner';
 import {
   checkNotificationStatus,
   requestNotificationPermission,
@@ -48,6 +51,16 @@ export default function NotificationSettingsPage() {
   // ============================================
   // STATE
   // ============================================
+  
+  const backgroundScanner = useBackgroundScanner(true);
+  const [scannerStats, setScannerStats] = useState({
+    isRunning: false,
+    totalScans: 0,
+    notificationsSent: 0,
+    activeFilters: 0,
+    matchesScanned: 0,
+    lastScanTime: null as Date | null,
+  });
   
   const [notificationStatus, setNotificationStatus] = useState({
     supported: false,
@@ -85,6 +98,23 @@ export default function NotificationSettingsPage() {
       loadTelegramSettings();
     }
   }, [activeTab]);
+  
+  // Update scanner stats every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const stats = backgroundScanner.getState();
+      setScannerStats({
+        isRunning: stats.isRunning,
+        totalScans: stats.totalScans,
+        notificationsSent: stats.notificationsSent,
+        activeFilters: stats.activeFilters,
+        matchesScanned: stats.matchesScanned,
+        lastScanTime: stats.lastScanTime,
+      });
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [backgroundScanner]);
   
   const loadNotificationStatus = async () => {
     const status = await checkNotificationStatus();
@@ -455,6 +485,64 @@ export default function NotificationSettingsPage() {
               </div>
             </div>
           </div>
+          
+          {/* ========== BACKGROUND SCANNER STATUS ========== */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card p-4 sm:p-6"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* Left side - Info */}
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                {scannerStats.isRunning ? (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Radio className="w-6 h-6 text-accent-green animate-pulse" />
+                  </div>
+                ) : (
+                  <Zap className="w-6 h-6 text-text-muted flex-shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <h3 className="font-display font-semibold text-lg">
+                    Background Scanner
+                    {scannerStats.isRunning && (
+                      <span className="ml-2 text-sm text-accent-cyan animate-pulse">● Active</span>
+                    )}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-text-muted">
+                    {scannerStats.isRunning ? (
+                      <>
+                        ✅ Always running - auto-scanning every 30s in background
+                        {scannerStats.lastScanTime && (
+                          <> • Last: {new Date(scannerStats.lastScanTime).toLocaleTimeString()}</>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        ⏸️ Initializing scanner...
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Right side - Stats */}
+              <div className="grid grid-cols-3 gap-3 text-xs sm:text-sm">
+                <div className="text-center p-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20">
+                  <p className="text-text-muted mb-1">Total Scans</p>
+                  <p className="font-semibold text-accent-cyan">{scannerStats.totalScans}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-accent-purple/10 border border-accent-purple/20">
+                  <p className="text-text-muted mb-1">Active Filters</p>
+                  <p className="font-semibold text-accent-purple">{scannerStats.activeFilters}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-accent-blue/10 border border-accent-blue/20">
+                  <p className="text-text-muted mb-1">Alerts Sent</p>
+                  <p className="font-semibold text-accent-blue">{scannerStats.notificationsSent}</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
           
           {activeTab === 'push' && (
             <div className="glass-card p-6">
