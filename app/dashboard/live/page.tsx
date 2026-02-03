@@ -23,7 +23,7 @@ import MatchCard from '@/components/MatchCard';
 import MatchStatsDisplay from '@/components/MatchStatsDisplay';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
-import type { Filter } from '@/lib/supabase';
+import type { Filter, TriggeredMatch } from '@/lib/supabase';
 import { applyFiltersToMatches, FilterMatchResult } from '@/lib/filter-engine';
 import { useBackgroundScanner } from '@/lib/background-scanner';
 import { checkNotificationStatus, requestNotificationPermission } from '@/lib/notifications';
@@ -64,12 +64,31 @@ export default function LiveMatchesPage() {
     lastScanTime: null as Date | null,
   });
   
+  // Triggered matches state (last 20 minutes)
+  const [recentlyTriggered, setRecentlyTriggered] = useState<any[]>([]);
+  const [triggeredLoading, setTriggeredLoading] = useState(false);
+  
   // Use background scanner hook
   const backgroundScanner = useBackgroundScanner(true);
   
   // ============================================
   // LOAD FUNCTIONS
   // ============================================
+  
+  const loadRecentlyTriggered = useCallback(async () => {
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) return;
+
+      setTriggeredLoading(true);
+      const triggered = await dbHelpers.getTriggeredMatches(currentUser.id, 20, 10);
+      setRecentlyTriggered(triggered);
+    } catch (err) {
+      console.error('Error loading triggered matches:', err);
+    } finally {
+      setTriggeredLoading(false);
+    }
+  }, []);
   
   const loadUserFilters = useCallback(async () => {
     try {
@@ -168,6 +187,16 @@ export default function LiveMatchesPage() {
     
     return () => clearInterval(interval);
   }, [backgroundScanner]);
+
+  // Load recently triggered matches every 10 seconds
+  useEffect(() => {
+    loadRecentlyTriggered();
+    const interval = setInterval(() => {
+      loadRecentlyTriggered();
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [loadRecentlyTriggered]);
   
   // Persist showOnlyFiltered to localStorage when it changes
   useEffect(() => {
@@ -464,6 +493,68 @@ export default function LiveMatchesPage() {
               </span>
             </div>
           </div>
+          
+          {/* ========== RECENTLY TRIGGERED (Last 20 min) ========== */}
+          {recentlyTriggered.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card p-4 sm:p-6 border-l-4 border-accent-cyan"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-accent-cyan animate-pulse" />
+                  Recently Triggered
+                  <span className="text-sm text-accent-cyan ml-2">({recentlyTriggered.length})</span>
+                </h3>
+                <button
+                  onClick={() => router.push('/dashboard/history')}
+                  className="text-sm text-accent-cyan hover:text-accent-blue transition-colors"
+                >
+                  View Full History →
+                </button>
+              </div>
+              
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {recentlyTriggered.map((match) => {
+                  const timeSinceTriggered = (() => {
+                    const now = new Date();
+                    const triggered = new Date(match.triggered_at);
+                    const diffMs = now.getTime() - triggered.getTime();
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                    if (diffMins < 1) return `${diffSecs}s ago`;
+                    return `${diffMins}m ago`;
+                  })();
+
+                  return (
+                    <div
+                      key={`${match.match_id}-${match.filter_id}-${match.created_at}`}
+                      className="flex items-center justify-between p-3 rounded-lg bg-glass-light border border-accent-cyan/30 hover:border-accent-cyan/60 transition-all text-sm"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-accent-cyan truncate">
+                          {match.home_team} vs {match.away_team}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          <FilterIcon className="w-3 h-3 inline mr-1" />
+                          {match.filter_name}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                        {match.match_time && (
+                          <span className="text-xs bg-accent-green/20 text-accent-green px-2 py-1 rounded font-semibold">
+                            {match.match_time}'
+                          </span>
+                        )}
+                        <span className="text-xs text-accent-blue whitespace-nowrap">{timeSinceTriggered}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
           
           {/* ========== LOADING ========== */}
           {loading && matches.length === 0 && (

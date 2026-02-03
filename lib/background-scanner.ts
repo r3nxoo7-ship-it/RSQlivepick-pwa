@@ -175,9 +175,34 @@ class BackgroundScannerService {
       // Log to database
       const currentUser = authHelpers.getCurrentUser();
       if (currentUser) {
+        // Log notification
         await dbHelpers.logNotification({
           user_id: currentUser.id,
           match_id: match.fixture.id.toString(),
+          filter_id: filter.id,
+          notification_type: 'background_scan',
+          title: '🎯 R$Q Alert - Match Found!',
+          message: `${match.teams.home.name} vs ${match.teams.away.name} - ${filter.name}`,
+          delivered: true,
+          read: false,
+        });
+
+        // Log triggered match for history/analytics
+        await dbHelpers.logTriggeredMatch({
+          user_id: currentUser.id,
+          match_id: match.fixture.id.toString(),
+          filter_id: filter.id,
+          filter_name: filter.name,
+          home_team: match.teams.home.name,
+          away_team: match.teams.away.name,
+          league_name: match.league.name,
+          triggered_at: new Date().toISOString(),
+          match_time: match.fixture.status.elapsed || null,
+          score_home: match.goals.home || null,
+          score_away: match.goals.away || null,
+          match_status: match.fixture.status.short || 'ongoing',
+        });
+      }
           filter_id: filter.id,
           notification_type: 'background_scan',
           title: '🎯 R$Q Alert - Match Found!',

@@ -161,6 +161,23 @@ export interface NotificationLog {
   retry_count: number;
 }
 
+export interface TriggeredMatch {
+  id: string;
+  user_id: string;
+  match_id: string;
+  filter_id: string;
+  filter_name: string;
+  home_team: string;
+  away_team: string;
+  league_name: string;
+  triggered_at: string; // When the match triggered this filter
+  match_time: number | null; // Elapsed minutes when triggered
+  score_home: number | null;
+  score_away: number | null;
+  match_status: string; // 'ongoing', 'finished', 'scheduled'
+  created_at: string; // When this record was created
+}
+
 // ============================================
 // AUTH HELPERS
 // ============================================
@@ -773,6 +790,106 @@ export const dbHelpers = {
       return (data as NotificationLog[]) || [];
     } catch (err) {
       console.error('Error in getNotificationsLog:', err);
+      return [];
+    }
+  },
+
+  /**
+   * Log a triggered match (when filter matches a live match)
+   */
+  async logTriggeredMatch(triggeredMatch: Partial<TriggeredMatch>): Promise<{ error: string | null }> {
+    try {
+      const { error } = await supabase
+        .from('triggered_matches')
+        .insert([{
+          ...triggeredMatch,
+          created_at: new Date().toISOString(),
+        }]);
+
+      if (error) {
+        console.error('Error logging triggered match:', error);
+        return { error: 'Error saving triggered match' };
+      }
+
+      return { error: null };
+    } catch (err) {
+      console.error('Error in logTriggeredMatch:', err);
+      return { error: 'Error saving triggered match' };
+    }
+  },
+
+  /**
+   * Get triggered matches for user (last 15-20 minutes + historical data)
+   */
+  async getTriggeredMatches(userId: string, minutesBack: number = 20, limit: number = 50): Promise<TriggeredMatch[]> {
+    try {
+      const cutoffTime = new Date(Date.now() - minutesBack * 60 * 1000).toISOString();
+      
+      const { data, error } = await supabase
+        .from('triggered_matches')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', cutoffTime)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching triggered matches:', error);
+        return [];
+      }
+
+      return (data as TriggeredMatch[]) || [];
+    } catch (err) {
+      console.error('Error in getTriggeredMatches:', err);
+      return [];
+    }
+  },
+
+  /**
+   * Get triggered matches history (full history, paginated)
+   */
+  async getTriggeredMatchesHistory(userId: string, limit: number = 100, offset: number = 0): Promise<TriggeredMatch[]> {
+    try {
+      const { data, error } = await supabase
+        .from('triggered_matches')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        console.error('Error fetching triggered matches history:', error);
+        return [];
+      }
+
+      return (data as TriggeredMatch[]) || [];
+    } catch (err) {
+      console.error('Error in getTriggeredMatchesHistory:', err);
+      return [];
+    }
+  },
+
+  /**
+   * Get triggered matches for a specific match (all filters that triggered it)
+   */
+  async getMatchTriggeredBy(matchId: string, userId: string): Promise<TriggeredMatch[]> {
+    try {
+      const { data, error } = await supabase
+        .from('triggered_matches')
+        .select('*')
+        .eq('match_id', matchId)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching triggered matches for match:', error);
+        return [];
+      }
+
+      return (data as TriggeredMatch[]) || [];
+    } catch (err) {
+      console.error('Error in getMatchTriggeredBy:', err);
       return [];
     }
   },
