@@ -6,124 +6,127 @@
 
 ### Core Data Flow
 ```
-Live Football API → Match Stats → Filter Engine → Notifications (Telegram/Web)
-                                        ↓
-                                   Supabase RLS
-                                   User-scoped
+Football API → Match Stats → Filter Engine → Match Scoring → Notifications (Telegram/Web Push)
+                                  ↓
+                          Live Matcher (real-time)
+                          Supabase RLS (user-scoped)
 ```
 
 ### Key Components
 
-- **Frontend (Next.js App Router):** Dashboard (`/dashboard`), Login, Filters UI
-- **Filter Engine (`lib/filter-engine.ts`):** Matches live stats against user filters using multi-condition logic (AND operations on all conditions)
-- **Filter Validation (`lib/filter-validation.ts`):** Prevents duplicates, validates ranges, ensures completeness before notification
-- **Database Layer (`lib/supabase.ts`):** Handles auth + CRUD with RLS policies (users can only access their own data)
-- **API Routes (`app/api/`):** Thin wrappers using server-side Supabase client with `SERVICE_ROLE_KEY` to bypass RLS for admin operations
-- **Telegram Integration (`app/api/telegram/`):** Webhook handler for Telegram verification and notifications
+- **Filter Engine** (`lib/filter-engine.ts`): AND-logic matching of live stats vs filters; returns `FilterMatchResult` with matched/failed conditions
+- **Live Matcher** (`lib/live-filter-matcher.ts`): Real-time batch evaluation of all user filters against a match; includes team history context and predictability scoring
+- **Filter Validation** (`lib/filter-validation.ts`): 3-layer pattern (condition validation, completeness checks, duplicate prevention)
+- **Unified API** (`lib/unified-api.ts`): Abstraction layer for live matches/stats fetching and status checks
+- **Supabase Client** (`lib/supabase.ts`): Auth, CRUD helpers with RLS policies; Filter interface has 30+ condition types
+- **Notifications** (`lib/notifications.ts`, `lib/telegram.ts`): Web push + Telegram integration with permission/subscription handling
+- **Odds Provider** (`lib/odds-provider.ts`): Fetches match odds for informed filtering (supports multiple bookmaker formats)
 
 ## Critical Developer Workflows
 
 ### Building & Running
 ```bash
-# Development (with hot reload)
-npm run dev                   # http://localhost:3000
-
-# Production build
-npm build && npm start
-
-# Generate PWA icons from manifest
-npm run generate-icons
+npm run dev              # http://localhost:3000 (hot reload)
+npm run build            # Production build
+npm start                # Start production server
+npm run generate-icons   # PWA icon generation from manifest
 ```
 
-### Authentication Architecture
-- **Client Side:** User object in `localStorage` (via `authHelpers.login/logout/getCurrentUser`)
-- **Server Side:** Session validated via `rsq_session` cookie in middleware
-- **Database:** Simple users table with bcrypt password hashing
-- **Key Pattern:** Pass `user_id` in API request bodies (client gets from localStorage), server validates it matches request context
+### Authentication Flow (Custom + RLS)
+1. **Client:** User logs in, credentials sent to `/api/register` or via `authHelpers` (stored in localStorage + `rsq_session` cookie)
+2. **Server Middleware:** Validates `rsq_session` cookie for protected routes; redirects to `/login` if missing
+3. **Database:** Users table with bcrypt hashing; filters table has RLS (`WHERE user_id = auth.uid()`)
+4. **API Pattern:** Pass `user_id` in request body (client extracts from localStorage); server uses SERVICE_ROLE_KEY for admin bypass, but must validate `user_id` matches request context
 
-### API Filter Creation Flow
-The `/api/filters/create` route demonstrates a **3-layer validation pattern** used throughout:
-1. **Condition Validation:** Range checks (min ≤ max), realistic values, no contradictions
-2. **Completeness Check:** For notifications, require at least one numeric value (min or max)
-3. **Duplicate Prevention:** Check name + conditions match across user's existing filters
+### Filter Lifecycle (Validation Pattern)
+1. **Receive conditions** → Validate min/max ranges, realistic values, no contradictions
+2. **Check completeness** → For notifications, require at least one numeric value
+3. **Check duplicates** → Query user's filters for name + condition matches
+4. **Write to DB** → Return 400/409 for errors, 201 for success
 
-Always validate **before** writing to database. Return `400` for validation errors, `409` for conflicts.
+Example: `/api/filters/create` route implements this 3-layer validation.
 
-### Supabase RLS Policy Pattern
-Users can only access their own filters via RLS:
-```sql
--- filters table RLS
-WHERE user_id = auth.uid()
-```
-But API routes bypass RLS using `SUPABASE_SERVICE_ROLE_KEY`, so they must validate `user_id` in request body.
+### Real-Time Match Evaluation
+- `getMatchingFiltersForMatch()` in `lib/live-filter-matcher.ts` evaluates all user filters against a single match
+- `evaluateFilterForMatch()` calculates match predictability and historical context
+- Notifications sent only if filter.notification_enabled AND filter.telegram_enabled (or web push enabled)
 
 ## Code Patterns & Conventions
 
-### Filter Conditions Structure
+### Filter Conditions (30+ types, nested min/max/team)
 ```typescript
-// FilterConditions is a JSON object with optional nested min/max/team
 conditions: {
   corners?: { min?: number; max?: number; team?: 'home'|'away'|'total' },
   shots_on_target?: { min?: number; max?: number },
   goals?: { min?: number; max?: number; team?: 'home'|'away'|'total' },
-  // ... 20+ more condition types in lib/supabase.ts
+  yellow_cards?: { min?: number; max?: number },
+  red_cards?: { min?: number; max?: number },
+  possession?: { min?: number; max?: number }, // percentage
+  // See lib/supabase.ts for complete FilterConditions interface
 }
 ```
 
 ### Filter Matching Logic
-- All conditions use **AND logic** (must match ALL)
-- Each condition type checks min/max against match stats
-- Returns `FilterMatchResult` with matched/failed conditions for debugging
+- **AND Logic:** ALL conditions must match for filter to trigger
+- **Output:** `FilterMatchResult` includes `matchedConditions[]` and `failedConditions[]` for debugging
+- **Batch Evaluation:** `getMatchingFiltersForMatch()` returns array of `FilterMatchDetails` with predictability scores
 
 ### File Organization
-- `lib/` - Core business logic (filters, auth, analytics, validation)
-- `app/api/` - RESTful endpoints using server-side Supabase
-- `app/dashboard/` - Protected pages (live, filters, settings, analytics, telegram)
-- `components/` - Reusable UI (MatchCard, LiveIndicator, etc.)
+- `lib/` — Core business logic (filters, matching, API abstraction, validation, notifications, odds)
+- `app/api/` — RESTful endpoints with service-role auth validation
+- `app/dashboard/` — Protected UI (live matches, filters, settings, telegram config)
+- `components/` — Reusable UI (MatchCard, FilterCard, LiveIndicator)
+- `supabase/functions/` — Edge functions (Telegram bot webhooks)
 
-### Error Handling Pattern
-```typescript
-// API routes use status codes consistently
-401 - Invalid/missing user authentication
-400 - Validation errors (details array included)
-409 - Conflict (e.g., duplicate filter)
-500 - Server errors
+### API Status Codes
+```
+401 - Auth required or user_id mismatch
+400 - Validation failed (errors array in response)
+409 - Conflict (duplicate filter, etc.)
+500 - Server error
 ```
 
 ## Project-Specific Conventions
 
-1. **TypeScript Interfaces:** All domain objects (Filter, User, FilterConditions) are explicitly typed in `lib/supabase.ts`
-2. **Validation Functions:** Pure functions in `lib/filter-validation.ts` that return structured results (ValidationResult, DuplicateCheckResult)
-3. **Templates Over Code:** 100+ filter templates in `lib/filter-templates.ts` provide preset conditions (corners ranges, goal patterns, etc.)
-4. **Analytics on Filters:** Track `trigger_count`, `success_rate`, `last_triggered` for each filter; `lib/analytics.ts` provides stats calculations
-5. **Consistent Error Messages:** All validation errors and warnings use English for global accessibility
+1. **Interfaces in supabase.ts:** Filter, User, FilterConditions defined with full TypeScript types
+2. **Validation returns structured results:** `ValidationResult { isValid, errors[], warnings[] }`, `DuplicateCheckResult { isDuplicate, existingFilter }`
+3. **Template-First Design:** 100+ templates in `lib/filter-templates.ts` (corners ranges, goal patterns, specific leagues, etc.)
+4. **Filter Analytics:** Track `trigger_count`, `success_rate`, `last_triggered`, `version` (for fork tracking)
+5. **Odds Integration:** `lib/odds-provider.ts` provides decimal/US odds formatting and implied probability calculations
+6. **Predictability Scoring:** `calculateMatchPredictability()` in `lib/live-filter-matcher.ts` uses team history context
 
 ## Integration Points
 
-- **Football API:** `lib/api-football.ts` fetches live matches and stats via RapidAPI/direct API
-- **Telegram Bot:** Supabase Edge Function (`supabase/functions/telegram-bot/`) handles incoming webhooks
-- **Notifications:** Sent when filter matches (if enabled) via Telegram or web push
-- **PWA Cache:** Service worker (next-pwa) caches static assets and fonts aggressively
+- **API-Football:** Fetches live matches + detailed stats via RapidAPI (see `lib/api-football.ts`)
+- **Unified API Layer:** `lib/unified-api.ts` abstracts direct API calls; check `checkAPIStatus()` for debugging
+- **Telegram:** `lib/telegram.ts` sends notifications; verify `isTelegramConfigured()` before sending
+- **Web Push:** `lib/notifications.ts` handles subscription/permission management with VAPID keys
+- **Odds Data:** `lib/odds-provider.ts` fetches from multiple bookmakers; caches results in `matchOdds` map
+- **PWA:** Service worker via `next-pwa` caches static assets aggressively; manifest.json defines VAPID keys and app metadata
 
 ## Important Files Reference
 
-| File | Purpose | Key Exports |
-|------|---------|-------------|
-| `lib/filter-engine.ts` | Core matching logic | `matchesFilter()`, `applyFiltersToMatches()` |
-| `lib/filter-validation.ts` | Validation rules | `validateFilterConditions()`, `checkDuplicate()` |
-| `lib/supabase.ts` | DB + Auth helpers | `supabase` client, all CRUD functions |
-| `app/api/filters/create/route.ts` | Create filter with validation | 3-layer validation demo |
-| `middleware.ts` | Route protection | Session cookie checks |
-| `app/login/page.tsx` | Auth entry point | Login form + password reset |
-| `lib/filter-templates.ts` | 100+ preset filters | `FILTER_TEMPLATES` array |
-| `lib/analytics.ts` | Performance calculations | Filter stats aggregations |
+| File | Purpose | Key Functions |
+|------|---------|----------------|
+| `lib/filter-engine.ts` | Core AND-logic matching | `matchesFilter(match, filter)` → `FilterMatchResult` |
+| `lib/live-filter-matcher.ts` | Real-time batch evaluation | `getMatchingFiltersForMatch()`, `evaluateFilterForMatch()`, `calculateMatchPredictability()` |
+| `lib/filter-validation.ts` | Range/completeness/duplicate checks | `validateFilterConditions()`, `checkDuplicate()` |
+| `lib/supabase.ts` | DB client + CRUD + interfaces | Filter, User, FilterConditions interfaces + DB helpers |
+| `lib/unified-api.ts` | Abstracted API layer | `getLiveMatches()`, `getMatchStatistics()`, `checkAPIStatus()` |
+| `lib/notifications.ts` | Web push management | `subscribeToPush()`, `sendMatchNotification()`, `requestNotificationPermission()` |
+| `lib/telegram.ts` | Telegram bot integration | `sendTelegramMatchNotification()`, `verifyTelegramChatId()`, `formatMatchForTelegram()` |
+| `lib/odds-provider.ts` | Odds fetching + formatting | `getOddsForMatch()`, `formatOdds()`, `getImpliedProbability()` |
+| `lib/filter-templates.ts` | 100+ preset conditions | `FILTER_TEMPLATES` array with ready-made filter objects |
+| `middleware.ts` | Route protection | Cookie validation for protected routes |
 
 ## Common Tasks
 
-**Add a new filter condition:** Edit `FilterConditions` interface in `lib/supabase.ts`, add validation rule in `lib/filter-validation.ts`, add matching logic in `lib/filter-engine.ts`.
+**Add new filter condition:** (1) Edit `FilterConditions` interface in `lib/supabase.ts` (2) Add validation rules in `lib/filter-validation.ts` (3) Add matching logic in `lib/filter-engine.ts` (4) Optional: add odds/predictability context in `lib/live-filter-matcher.ts`
 
-**Fix filter matching logic:** Check `lib/filter-engine.ts` for AND/OR logic; verify stats parsing in `lib/api-football.ts` returns expected format.
+**Debug match scoring:** Check `calculateMatchPredictability()` in `lib/live-filter-matcher.ts`; verify `TeamHistoryData` context is populated correctly
 
-**Debug Telegram notifications:** Check `supabase/functions/telegram-bot/` for webhook handling; verify `telegram_enabled` flag and filter `notification_enabled` before sending.
+**Fix notification delivery:** (1) Verify `notification_enabled` on filter (2) Check `isTelegramConfigured()` returns true (3) Validate chat_id exists (4) See `supabase/functions/telegram-bot/` for webhook parsing
 
-**Add API endpoint:** Create route in `app/api/` with server-side Supabase client (SERVICE_ROLE_KEY), validate `user_id` from request body, return appropriate status codes.
+**Add API endpoint:** Create route in `app/api/` with server-side Supabase client (SERVICE_ROLE_KEY); validate `user_id` from request body; return consistent status codes
+
+**Optimize filter matching:** Profile `getMatchingFiltersForMatch()` performance; consider caching filter conditions or using indexed DB queries for large filter sets

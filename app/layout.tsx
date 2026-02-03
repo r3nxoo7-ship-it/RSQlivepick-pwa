@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ScannerInitializer } from "@/components/ScannerInitializer";
 
 // ============================================
 // FONTS
@@ -62,8 +63,9 @@ export default function RootLayout({
     >
       <head />
       <body className="font-body antialiased bg-primary text-text-primary">
-   {children}
-</body>
+        <ScannerInitializer />
+        {children}
+      </body>
     </html>
   );
 }

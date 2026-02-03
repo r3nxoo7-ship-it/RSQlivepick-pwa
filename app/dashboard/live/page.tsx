@@ -15,7 +15,8 @@ import {
   Bell, 
   BellOff, 
   Zap,
-  Settings
+  Settings,
+  Radio
 } from 'lucide-react';
 import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
@@ -24,7 +25,7 @@ import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter } from '@/lib/supabase';
 import { applyFiltersToMatches, FilterMatchResult } from '@/lib/filter-engine';
-import { useMatchScanner } from '@/hooks/useMatchScanner';
+import { useBackgroundScanner } from '@/lib/background-scanner';
 import { checkNotificationStatus, requestNotificationPermission } from '@/lib/notifications';
 import { useRouter } from 'next/navigation';
 
@@ -54,20 +55,17 @@ export default function LiveMatchesPage() {
   // Scanner state
   const [scannerEnabled, setScannerEnabled] = useState(false);
   const [notificationsReady, setNotificationsReady] = useState(false);
+  const [scannerStats, setScannerStats] = useState({
+    isRunning: false,
+    totalScans: 0,
+    notificationsSent: 0,
+    activeFilters: 0,
+    matchesScanned: 0,
+    lastScanTime: null as Date | null,
+  });
   
-  // Modal state
-  const [selectedMatch, setSelectedMatch] = useState<LiveMatch | null>(null);
-  
-  // ============================================
-  // MATCH SCANNER HOOK
-  // ============================================
-  
-  const { stats: scannerStats, resetNotifications } = useMatchScanner(
-    matches,
-    userFilters,
-    scannerEnabled,
-    45 // Scanează la 45 secunde
-  );
+  // Use background scanner hook
+  const backgroundScanner = useBackgroundScanner(true);
   
   // ============================================
   // LOAD FUNCTIONS
@@ -145,11 +143,31 @@ export default function LiveMatchesPage() {
   // EFFECTS
   // ============================================
   
+  // Add modal state
+  const [selectedMatch, setSelectedMatch] = useState<LiveMatch | null>(null);
+  
   // Load showOnlyFiltered from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('live-show-only-filtered');
     setShowOnlyFiltered(saved === 'true' ? true : false);
   }, []);
+  
+  // Update scanner stats every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const stats = backgroundScanner.getState();
+      setScannerStats({
+        isRunning: stats.isRunning,
+        totalScans: stats.totalScans,
+        notificationsSent: stats.notificationsSent,
+        activeFilters: stats.activeFilters,
+        matchesScanned: stats.matchesScanned,
+        lastScanTime: stats.lastScanTime,
+      });
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [backgroundScanner]);
   
   // Persist showOnlyFiltered to localStorage when it changes
   useEffect(() => {
@@ -225,20 +243,6 @@ export default function LiveMatchesPage() {
     fetchMatches();
   };
   
-  const handleToggleScanner = async () => {
-    if (!scannerEnabled && !notificationsReady) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        alert('You must grant notification permission to enable the scanner!');
-        return;
-      }
-      setNotificationsReady(true);
-    }
-    
-    setScannerEnabled(!scannerEnabled);
-    console.log(`🔄 Scanner ${!scannerEnabled ? 'ENABLED' : 'DISABLED'}`);
-  };
-  
   // ============================================
   // RENDER
   // ============================================
@@ -312,28 +316,32 @@ export default function LiveMatchesPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               {/* Left side - Info */}
               <div className="flex items-start sm:items-center gap-3 min-w-0">
-                {scannerEnabled ? (
-                  <Zap className="w-6 h-6 text-accent-green animate-pulse flex-shrink-0" />
+                {scannerStats.isRunning ? (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Radio className="w-6 h-6 text-accent-green animate-pulse" />
+                  </div>
                 ) : (
                   <Zap className="w-6 h-6 text-text-muted flex-shrink-0" />
                 )}
                 <div className="min-w-0">
                   <h3 className="font-display font-semibold text-lg">
-                    Auto-Scanner
-                    {scannerStats.isScanning && (
-                      <span className="ml-2 text-sm text-accent-cyan">Scanning...</span>
+                    Background Scanner
+                    {scannerStats.isRunning && (
+                      <span className="ml-2 text-sm text-accent-cyan animate-pulse">● Active</span>
                     )}
                   </h3>
                   <p className="text-xs sm:text-sm text-text-muted">
-                    {scannerEnabled ? (
+                    {scannerStats.isRunning ? (
                       <>
-                        ✅ Active - auto-scanning every 45s
+                        ✅ Always running - auto-scanning every 30s in background
                         {scannerStats.lastScanTime && (
-                          <> • Last: {scannerStats.lastScanTime.toLocaleTimeString()}</>
+                          <> • Last: {new Date(scannerStats.lastScanTime).toLocaleTimeString()}</>
                         )}
                       </>
                     ) : (
-                      'Disabled - enable for automatic notifications'
+                      <>
+                        ⏸️ Initializing scanner...
+                      </>
                     )}
                   </p>
                 </div>
@@ -350,31 +358,6 @@ export default function LiveMatchesPage() {
                   </div>
                 )}
                 
-                {/* Scanner Toggle */}
-                <button
-                  onClick={handleToggleScanner}
-                  className={`
-                    px-4 py-2 sm:px-6 sm:py-3 rounded-xl font-semibold transition-all flex items-center gap-2 text-sm sm:text-base whitespace-nowrap
-                    ${scannerEnabled 
-                      ? 'bg-accent-green/20 text-accent-green hover:bg-accent-green/30 border-2 border-accent-green' 
-                      : 'bg-glass-light text-text-secondary hover:bg-glass-medium border-2 border-glass-medium'}
-                  `}
-                >
-                  {scannerEnabled ? (
-                    <>
-                      <BellOff className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="hidden sm:inline">Stop Scanner</span>
-                      <span className="sm:hidden">Stop</span>
-                    </>
-                  ) : (
-                    <>
-                      <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="hidden sm:inline">Start Scanner</span>
-                      <span className="sm:hidden">Start</span>
-                    </>
-                  )}
-                </button>
-                
                 {/* Settings Button */}
                 <button
                   onClick={() => router.push('/dashboard/notifications')}
@@ -385,7 +368,6 @@ export default function LiveMatchesPage() {
                 </button>
               </div>
             </div>
-            
             {/* Scanner Info - Expanded when enabled */}
             {scannerEnabled && (
               <motion.div
