@@ -15,12 +15,14 @@ Football API → Match Stats → Filter Engine → Match Scoring → Notificatio
 ### Key Components
 
 - **Filter Engine** (`lib/filter-engine.ts`): AND-logic matching of live stats vs filters; returns `FilterMatchResult` with matched/failed conditions
+- **Background Scanner** (`lib/background-scanner.ts`): Singleton service for persistent match scanning every 30s, runs across all pages, sends notifications automatically
 - **Live Matcher** (`lib/live-filter-matcher.ts`): Real-time batch evaluation of all user filters against a match; includes team history context and predictability scoring
 - **Filter Validation** (`lib/filter-validation.ts`): 3-layer pattern (condition validation, completeness checks, duplicate prevention)
 - **Unified API** (`lib/unified-api.ts`): Abstraction layer for live matches/stats fetching and status checks
 - **Supabase Client** (`lib/supabase.ts`): Auth, CRUD helpers with RLS policies; Filter interface has 30+ condition types
 - **Notifications** (`lib/notifications.ts`, `lib/telegram.ts`): Web push + Telegram integration with permission/subscription handling
 - **Odds Provider** (`lib/odds-provider.ts`): Fetches match odds for informed filtering (supports multiple bookmaker formats)
+- **Scanner Initializer** (`components/ScannerInitializer.tsx`): Root component that initializes background scanner on app mount
 
 ## Critical Developer Workflows
 
@@ -45,6 +47,15 @@ npm run generate-icons   # PWA icon generation from manifest
 4. **Write to DB** → Return 400/409 for errors, 201 for success
 
 Example: `/api/filters/create` route implements this 3-layer validation.
+
+### Background Scanner (Always-On Scanning)
+- **Service:** `lib/background-scanner.ts` provides `BackgroundScannerService` singleton
+- **Initialization:** `ScannerInitializer` component in root layout starts scanner on app mount
+- **Behavior:** Runs every 30 seconds continuously, regardless of which page user views
+- **Notifications:** Sends Web Push and Telegram alerts automatically when matches trigger filters
+- **Deduplication:** Won't send same alert twice within 24 hours
+- **Database Logging:** All matches logged with notification type "background_scan"
+- **State:** Uses sessionStorage for cross-tab awareness; survives page refresh
 
 ### Real-Time Match Evaluation
 - `getMatchingFiltersForMatch()` in `lib/live-filter-matcher.ts` evaluates all user filters against a single match
@@ -109,6 +120,8 @@ conditions: {
 | File | Purpose | Key Functions |
 |------|---------|----------------|
 | `lib/filter-engine.ts` | Core AND-logic matching | `matchesFilter(match, filter)` → `FilterMatchResult` |
+| `lib/background-scanner.ts` | Always-on background scanning | `getBackgroundScanner()`, `BackgroundScannerService.start/stop/getState()` |
+| `components/ScannerInitializer.tsx` | Scanner initialization | Mounts in root layout, starts scanner for logged-in users |
 | `lib/live-filter-matcher.ts` | Real-time batch evaluation | `getMatchingFiltersForMatch()`, `evaluateFilterForMatch()`, `calculateMatchPredictability()` |
 | `lib/filter-validation.ts` | Range/completeness/duplicate checks | `validateFilterConditions()`, `checkDuplicate()` |
 | `lib/supabase.ts` | DB client + CRUD + interfaces | Filter, User, FilterConditions interfaces + DB helpers |
