@@ -168,7 +168,15 @@ class BackgroundScannerService {
       if (filter.telegram_enabled) {
         const currentUser = authHelpers.getCurrentUser();
         if (currentUser) {
-          await sendTelegramMatchNotification(currentUser.id, matchData, [filter.name]);
+          const telegramMatchData = {
+            homeTeam: match.teams.home.name,
+            awayTeam: match.teams.away.name,
+            league: match.league.name,
+            score: `${match.goals.home || 0}-${match.goals.away || 0}`,
+            minute: match.fixture.status.elapsed || null,
+            filters: [filter.name],
+          };
+          await sendTelegramMatchNotification(currentUser.id, telegramMatchData);
         }
       }
 
@@ -201,14 +209,6 @@ class BackgroundScannerService {
           score_home: match.goals.home || null,
           score_away: match.goals.away || null,
           match_status: match.fixture.status.short || 'ongoing',
-        });
-      }
-          filter_id: filter.id,
-          notification_type: 'background_scan',
-          title: '🎯 R$Q Alert - Match Found!',
-          message: `${match.teams.home.name} vs ${match.teams.away.name} - ${filter.name}`,
-          delivered: true,
-          read: false,
         });
       }
     } catch (error) {

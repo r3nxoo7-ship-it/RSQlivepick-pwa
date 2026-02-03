@@ -544,7 +544,7 @@ export default function LiveMatchesPage() {
                       <div className="flex items-center gap-3 flex-shrink-0 ml-2">
                         {match.match_time && (
                           <span className="text-xs bg-accent-green/20 text-accent-green px-2 py-1 rounded font-semibold">
-                            {match.match_time}'
+                            {match.match_time}&apos;
                           </span>
                         )}
                         <span className="text-xs text-accent-blue whitespace-nowrap">{timeSinceTriggered}</span>
