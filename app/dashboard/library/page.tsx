@@ -81,17 +81,17 @@ export default function PublicFiltersPage() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="sticky top-20 md:top-28 z-40 bg-background/80 backdrop-blur-md border-b border-glass-light/20 py-6"
+        className="sticky top-20 md:top-28 z-40 bg-background/80 backdrop-blur-md border-b border-glass-light/20 py-4 md:py-6"
       >
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Share2 className="w-8 h-8 text-accent-cyan" />
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent">
+        <div className="container mx-auto px-3 sm:px-4">
+          <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+            <Share2 className="w-6 h-6 sm:w-8 sm:h-8 text-accent-cyan flex-shrink-0" />
+            <h1 className="text-xl sm:text-2xl md:text-4xl font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent line-clamp-1">
               Community Library
             </h1>
           </div>
-          <p className="text-text-secondary mt-1">
-            Import filters from the community • Edit your own version (v2.0) • Share your filters
+          <p className="text-xs sm:text-sm md:text-base text-text-secondary line-clamp-2">
+            Import • Edit • Share filters
           </p>
         </div>
       </motion.div>
@@ -122,51 +122,51 @@ export default function PublicFiltersPage() {
           <p className="text-text-muted">No public filters available yet. Be the first to share!</p>
         </div>
       ) : (
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-3 sm:px-4 py-6 md:py-8">
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-6 md:mb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-cyan-900/5 border border-glass-light"
+              className="p-2 sm:p-4 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-cyan-900/5 border border-glass-light"
             >
-              <div className="text-text-muted text-sm">Available</div>
-              <div className="text-3xl font-bold text-accent-cyan">{publicFilters.length}</div>
+              <div className="text-text-muted text-xs sm:text-sm">Available</div>
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent-cyan">{publicFilters.length}</div>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="p-4 rounded-lg bg-gradient-to-br from-accent-green/10 to-green-900/5 border border-glass-light"
+              className="p-2 sm:p-4 rounded-lg bg-gradient-to-br from-accent-green/10 to-green-900/5 border border-glass-light"
             >
-              <div className="text-text-muted text-sm">You Imported</div>
-              <div className="text-3xl font-bold text-accent-green">{userFilters.filter(f => f.forked_from_id).length}</div>
+              <div className="text-text-muted text-xs sm:text-sm">Imported</div>
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent-green">{userFilters.filter(f => f.forked_from_id).length}</div>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="p-4 rounded-lg bg-gradient-to-br from-accent-amber/10 to-amber-900/5 border border-glass-light"
+              className="p-2 sm:p-4 rounded-lg bg-gradient-to-br from-accent-amber/10 to-amber-900/5 border border-glass-light"
             >
-              <div className="text-text-muted text-sm">Your Filters</div>
-              <div className="text-3xl font-bold text-accent-amber">{userFilters.filter(f => !f.forked_from_id).length}</div>
+              <div className="text-text-muted text-xs sm:text-sm">Your</div>
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent-amber">{userFilters.filter(f => !f.forked_from_id).length}</div>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="p-4 rounded-lg bg-gradient-to-br from-accent-blue/10 to-blue-900/5 border border-glass-light"
+              className="p-2 sm:p-4 rounded-lg bg-gradient-to-br from-accent-blue/10 to-blue-900/5 border border-glass-light"
             >
-              <div className="text-text-muted text-sm">Public Filters</div>
-              <div className="text-3xl font-bold text-accent-blue">{userFilters.filter(f => f.is_public).length}</div>
+              <div className="text-text-muted text-xs sm:text-sm">Public</div>
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent-blue">{userFilters.filter(f => f.is_public).length}</div>
             </motion.div>
           </div>
 
           {/* Public Filters Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {publicFilters.map((filter, idx) => (
               <motion.div
                 key={filter.id}

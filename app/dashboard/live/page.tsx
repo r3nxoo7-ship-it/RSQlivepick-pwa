@@ -285,28 +285,35 @@ export default function LiveMatchesPage() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+            className="relative rounded-xl overflow-hidden mb-4"
           >
-            <div>
-              <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent mb-2">
-                ⚽ Live Matches
-              </h1>
-              <p className="text-text-secondary text-lg">
-                Real-time scanner with <span className="text-accent-cyan font-semibold">{matches.length} matches</span>
-                {lastUpdate && (
-                  <> • Last update: <span className="text-accent-cyan">{lastUpdate.toLocaleTimeString()}</span></>
-                )}
-              </p>
-            </div>
+            {/* Background gradient with mobile optimization */}
+            <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/20 to-accent-blue/20 md:from-accent-cyan/30 md:to-accent-blue/30"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background opacity-70"></div>
             
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="btn-secondary flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+            {/* Header content */}
+            <div className="relative p-4 sm:p-6 md:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent mb-1 sm:mb-2 line-clamp-1">
+                  ⚽ Live Matches
+                </h1>
+                <p className="text-xs sm:text-sm md:text-base text-text-secondary line-clamp-2">
+                  Real-time: <span className="text-accent-cyan font-semibold">{matches.length} matches</span>
+                  {lastUpdate && (
+                    <> • <span className="text-accent-cyan">{lastUpdate.toLocaleTimeString()}</span></>
+                  )}
+                </p>
+              </div>
+              
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="btn-secondary flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 sm:px-4 sm:py-2 px-3 py-2 text-sm sm:text-base"
+              >
+                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            </div>
           </motion.div>
           
           {/* ========== STATS BAR ========== */}
@@ -314,45 +321,45 @@ export default function LiveMatchesPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="glass-card p-4 sm:p-6 border-t border-glass-lighter"
+            className="glass-card p-3 sm:p-4 md:p-6 border-t border-glass-lighter"
           >
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-cyan-900/5 border border-accent-cyan/20">
-                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Live</div>
-                <div className="stat-value text-2xl sm:text-3xl font-bold text-accent-cyan">{matches.length}</div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-cyan-900/5 border border-accent-cyan/20">
+                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Live</div>
+                <div className="stat-value text-lg sm:text-2xl md:text-3xl font-bold text-accent-cyan">{matches.length}</div>
               </div>
-              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-green/10 to-green-900/5 border border-accent-green/20">
-                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Scanned</div>
-                <div className="stat-value text-accent-green text-2xl sm:text-3xl font-bold">{matchesWithFilters}</div>
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-green/10 to-green-900/5 border border-accent-green/20">
+                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Scanned</div>
+                <div className="stat-value text-accent-green text-lg sm:text-2xl md:text-3xl font-bold">{matchesWithFilters}</div>
               </div>
-              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-amber/10 to-amber-900/5 border border-accent-amber/20">
-                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Filters</div>
-                <div className="stat-value text-accent-amber text-2xl sm:text-3xl font-bold">{activeFiltersCount}</div>
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-amber/10 to-amber-900/5 border border-accent-amber/20">
+                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Filters</div>
+                <div className="stat-value text-accent-amber text-lg sm:text-2xl md:text-3xl font-bold">{activeFiltersCount}</div>
               </div>
-              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-purple/10 to-purple-900/5 border border-accent-purple/20">
-                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Scans</div>
-                <div className="stat-value text-accent-purple text-2xl sm:text-3xl font-bold">{scannerStats.totalScans}</div>
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-purple/10 to-purple-900/5 border border-accent-purple/20">
+                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Scans</div>
+                <div className="stat-value text-accent-purple text-lg sm:text-2xl md:text-3xl font-bold">{scannerStats.totalScans}</div>
               </div>
-              <div className="text-center p-3 rounded-lg bg-gradient-to-br from-accent-blue/10 to-blue-900/5 border border-accent-blue/20">
-                <div className="stat-label text-xs sm:text-sm text-text-secondary font-semibold mb-1">Alerts</div>
-                <div className="stat-value text-accent-blue text-2xl sm:text-3xl font-bold">{scannerStats.notificationsSent}</div>
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-blue/10 to-blue-900/5 border border-accent-blue/20">
+                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Alerts</div>
+                <div className="stat-value text-accent-blue text-lg sm:text-2xl md:text-3xl font-bold">{scannerStats.notificationsSent}</div>
               </div>
             </div>
           </motion.div>
 
           
-          {/* ========== FILTERS ========== */}
-          <div className="glass-card p-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <FilterIcon className="w-5 h-5 text-accent-cyan" />
-              <span className="font-display font-semibold">Filters:</span>
+          {/* ========== FILTERS SECTION ========== */}
+          <div className="glass-card p-3 sm:p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 flex-wrap">
+              <FilterIcon className="w-5 h-5 text-accent-cyan flex-shrink-0" />
+              <span className="font-display font-semibold text-sm sm:text-base">Filters:</span>
               
               <select
                 value={selectedLeague}
                 onChange={(e) => setSelectedLeague(e.target.value)}
-                className="input-field max-w-xs"
+                className="input-field max-w-xs text-sm py-2"
               >
-                <option value="all">All Leagues ({matches.length})</option>
+                <option value="all">All ({matches.length})</option>
                 {leagues.map(league => {
                   const count = matches.filter(m => m.league.name === league).length;
                   return (
@@ -364,35 +371,37 @@ export default function LiveMatchesPage() {
               </select>
               
               {activeFiltersCount > 0 && (
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer text-sm flex-shrink-0">
                   <input
                     type="checkbox"
                     checked={showOnlyFiltered || false}
                     onChange={(e) => setShowOnlyFiltered(e.target.checked)}
                     className="w-4 h-4 rounded border-glass-medium bg-glass-light accent-accent-cyan"
                   />
-                  <span className="text-sm">
-                    <Target className="w-4 h-4 inline mr-1 text-accent-green" />
-                    Matched Only ({matchesWithFilters})
+                  <span className="flex items-center gap-1">
+                    <Target className="w-3 h-3 sm:w-4 sm:h-4 text-accent-green flex-shrink-0" />
+                    <span className="hidden sm:inline">Matched</span>
+                    <span className="sm:hidden">({matchesWithFilters})</span>
+                    <span className="hidden sm:inline">({matchesWithFilters})</span>
                   </span>
                 </label>
               )}
               
               {applyingFilters && (
-                <span className="text-sm text-text-muted flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <span className="text-xs sm:text-sm text-text-muted flex items-center gap-2 flex-shrink-0">
+                  <svg className="animate-spin h-3 w-3 sm:h-4 sm:w-4" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Applying filters...
+                  Applying...
                 </span>
               )}
               
-              <span className="text-text-muted text-sm ml-auto">
+              <span className="text-text-muted text-xs sm:text-sm ml-auto sm:ml-0 flex-shrink-0">
                 {activeFiltersCount === 0 ? (
-                  '💡 Create filters in the Filters section'
+                  '💡 Create filters'
                 ) : (
-                  `✅ ${activeFiltersCount} active filters`
+                  `✅ ${activeFiltersCount} filters`
                 )}
               </span>
             </div>

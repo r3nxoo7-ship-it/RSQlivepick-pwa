@@ -1283,10 +1283,10 @@ export default function CompleteFilterBuilder() {
           )}
           
           {/* ACTIONS */}
-          <div className="flex gap-4 sticky bottom-6">
+          <div className="flex gap-2 sm:gap-4 sticky bottom-6 z-50 flex-col-reverse sm:flex-row">
             <button
               onClick={() => router.push('/dashboard/filters')}
-              className="btn-secondary flex-1"
+              className="btn-secondary flex-1 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base"
             >
               Cancel
             </button>
@@ -1294,17 +1294,19 @@ export default function CompleteFilterBuilder() {
             <button
               onClick={handleSave}
               disabled={saving || !name.trim()}
-              className="btn-primary flex-1 flex items-center justify-center gap-2"
+              className="btn-primary flex-1 flex items-center justify-center gap-2 py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base"
             >
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
+                  <span className="hidden sm:inline">Saving...</span>
+                  <span className="sm:hidden">Save...</span>
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Create Filter
+                  <span className="hidden sm:inline">Create Filter</span>
+                  <span className="sm:hidden">Create</span>
                 </>
               )}
             </button>
