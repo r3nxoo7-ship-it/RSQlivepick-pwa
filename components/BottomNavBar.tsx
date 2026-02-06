@@ -1,14 +1,14 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Radio, Filter, Activity, Settings, Share2 } from "lucide-react";
+import { Home, Radio, Filter, Activity, Clock, Share2 } from "lucide-react";
 
 const navItems = [
   { label: "Home", icon: Home, href: "/dashboard" },
   { label: "Live", icon: Radio, href: "/dashboard/live" },
-  { label: "Matches", icon: Activity, href: "/dashboard/matches" },
+  { label: "History", icon: Clock, href: "/dashboard/history" },
   { label: "Filters", icon: Filter, href: "/dashboard/filters" },
-  { label: "Settings", icon: Settings, href: "/dashboard/settings" },
+  { label: "Matches", icon: Activity, href: "/dashboard/matches" },
 ];
 
 export default function BottomNavBar() {

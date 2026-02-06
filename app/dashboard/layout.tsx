@@ -19,6 +19,7 @@ import {
   X,
   LogOut,
   Settings,
+  Clock,
 } from 'lucide-react';
 import { authHelpers } from '@/lib/supabase';
 
@@ -36,6 +37,11 @@ const navigation = [
     name: 'Live',
     href: '/dashboard/live',
     icon: Activity,
+  },
+  {
+    name: 'History',
+    href: '/dashboard/history',
+    icon: Clock,
   },
   {
     name: 'Matches',
