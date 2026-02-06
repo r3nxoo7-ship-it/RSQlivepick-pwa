@@ -42,7 +42,7 @@ interface TeamCondition {
 }
 
 // ============================================
-// COMPONENTA PRINCIPAL─뿯½
+// COMPONENTA PRINCIPALĂ
 // ============================================
 
 export default function CompleteFilterBuilder() {
@@ -255,7 +255,7 @@ export default function CompleteFilterBuilder() {
     }
     
     if (validationErrors.length > 0) {
-      setError(`뿯ν뿯½뿯½ Validation errors:\n${validationErrors.join('\n')}`);
+      setError(`❌ Validation errors:\n${validationErrors.join('\n')}`);
       return;
     }
     
@@ -485,7 +485,7 @@ export default function CompleteFilterBuilder() {
         return;
       }
       
-      setSuccess('뿯ν뿯½뿯½ Filter created successfully!');
+      setSuccess('✅ Filter created successfully!');
       
       setTimeout(() => {
         router.push('/dashboard/filters');
@@ -1262,7 +1262,7 @@ export default function CompleteFilterBuilder() {
                     {combinedFilterIds.length > 0 && (
                       <div className="mt-4 p-3 bg-cyan-900/20 border border-cyan-500/30 rounded-lg">
                         <p className="text-sm text-cyan-300">
-                          뿯ν뿯½뿯½ Combining <strong>{combinedFilterIds.length}</strong> filter{combinedFilterIds.length !== 1 ? 's' : ''} with{' '}
+                          ✅ Combining <strong>{combinedFilterIds.length}</strong> filter{combinedFilterIds.length !== 1 ? 's' : ''} with{' '}
                           <strong>{combinationLogic}</strong> logic. This will create a new filter that matches when{' '}
                           {combinationLogic === 'AND'
                             ? 'all selected filters match'
