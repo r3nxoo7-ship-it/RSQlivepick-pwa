@@ -650,8 +650,8 @@ export const dbHelpers = {
       const response = await fetch('/api/filters/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          filterId, 
+        body: JSON.stringify({
+          filterId,
           updates: { is_public: isPublic }
         }),
       });
@@ -667,6 +667,47 @@ export const dbHelpers = {
     } catch (err) {
       console.error('Error in toggleFilterPublic:', err);
       return { data: null, error: 'Error updating filter' };
+    }
+  },
+
+  /**
+   * Increment filter trigger count
+   * Called when a match triggers a filter
+   */
+  async incrementFilterTriggerCount(filterId: string): Promise<{ error: string | null }> {
+    try {
+      const { data: filter, error: fetchError } = await supabase
+        .from('filters')
+        .select('trigger_count')
+        .eq('id', filterId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching filter for increment:', fetchError);
+        return { error: 'Error fetching filter' };
+      }
+
+      const newCount = (filter?.trigger_count || 0) + 1;
+
+      const { error: updateError } = await supabase
+        .from('filters')
+        .update({
+          trigger_count: newCount,
+          last_triggered: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', filterId);
+
+      if (updateError) {
+        console.error('Error incrementing filter trigger count:', updateError);
+        return { error: 'Error updating filter' };
+      }
+
+      console.log(`✅ Filter ${filterId} trigger_count incremented to ${newCount}`);
+      return { error: null };
+    } catch (err) {
+      console.error('Error in incrementFilterTriggerCount:', err);
+      return { error: 'Error updating filter' };
     }
   },
 

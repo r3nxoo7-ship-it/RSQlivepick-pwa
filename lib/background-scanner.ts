@@ -179,6 +179,9 @@ class BackgroundScannerService {
           match_status: match.fixture.status.short || 'ongoing',
         });
         triggeredMatchId = result.id;
+
+        // 🔥 UPDATE FILTER COUNTERS (fixes analytics showing zero)
+        await dbHelpers.incrementFilterTriggerCount(filter.id);
       }
 
       // Send web push notification with triggered match ID
