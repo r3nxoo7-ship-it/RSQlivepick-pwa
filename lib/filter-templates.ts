@@ -797,6 +797,341 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       match_time: { min: 65, max: 75 },
     },
   },
+
+  // ============================================
+  // LIVEPICK-STYLE PROFESSIONAL TEMPLATES
+  // ============================================
+  // Based on LivePick.eu advanced strategies
+
+  {
+    id: 'livepick-favorite-losing-home',
+    name: '🏠 Favorite Losing at Home (BTTS Opportunity)',
+    description: 'Home team is losing but dominating with shots on target. Classic BTTS setup - home team will push for comeback, both teams likely to score.',
+    category: 'advanced',
+    icon: '🎯',
+    popularity: 5,
+    successRate: 74,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['BTTS', 'comeback', 'home-advantage', 'high-confidence'],
+    backgroundImage: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80',
+    color: 'amber',
+    conditions: {
+      goals: {
+        min: 1, // Game has goals (away winning)
+        max: 2,
+        team: 'total',
+      },
+      shots_on_target: {
+        min: 6, // High shots on target total
+      },
+      dangerous_attacks: {
+        min: 10, // High attacking pressure
+      },
+      match_time: {
+        min: 55,
+        max: 80,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-high-momentum-home',
+    name: '⚡ High Momentum Match',
+    description: 'Match showing strong attacking momentum with high possession + dangerous attacks. Perfect for home win or over goals markets.',
+    category: 'advanced',
+    icon: '🔥',
+    popularity: 5,
+    successRate: 71,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['momentum', 'attacking', 'high-confidence'],
+    backgroundImage: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&q=80',
+    color: 'cyan',
+    conditions: {
+      possession: {
+        min: 55, // Dominant possession
+      },
+      dangerous_attacks: {
+        min: 14, // Strong attacking pressure (both teams)
+      },
+      shots_on_target: {
+        min: 7,
+      },
+      corners: {
+        min: 6,
+        team: 'total',
+      },
+      match_time: {
+        min: 60,
+        max: 85,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-over-25-goals-scenario',
+    name: '⚽ Over 2.5 Goals Scenario (Live)',
+    description: 'Match shows all indicators for 3+ total goals: high shots, dangerous attacks, and open play. Perfect timing for over 2.5 goals bet.',
+    category: 'goals',
+    icon: '🎯',
+    popularity: 5,
+    successRate: 76,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['over-goals', 'attacking', 'high-probability', 'live'],
+    backgroundImage: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&q=80',
+    color: 'green',
+    conditions: {
+      goals: {
+        min: 1,
+        max: 2,
+        team: 'total', // Already 1-2 goals scored
+      },
+      shots_on_target: {
+        min: 8, // High shot quality
+      },
+      dangerous_attacks: {
+        min: 15, // Very attacking match
+      },
+      corners: {
+        min: 6,
+        team: 'total',
+      },
+      match_time: {
+        min: 60,
+        max: 80,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-corner-rush',
+    name: '🚀 Corner Rush (High Action)',
+    description: 'Explosive corner activity with sustained attacking pressure. Perfect for corner betting - rush continues into final minutes.',
+    category: 'corners',
+    icon: '🎪',
+    popularity: 5,
+    successRate: 79,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['corners', 'high-action', 'rush', 'late-game'],
+    backgroundImage: 'https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=800&q=80',
+    color: 'purple',
+    conditions: {
+      corners: {
+        min: 8,
+        team: 'total', // Already high corners
+      },
+      shots_on_target: {
+        min: 6,
+      },
+      dangerous_attacks: {
+        min: 12, // Continuous pressure
+      },
+      match_time: {
+        min: 70,
+        max: 88,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-late-comeback-potential',
+    name: '🔄 Late Comeback Potential',
+    description: 'Close match with high stats - superior possession, shots, attacks suggest late equalizer or comeback. Perfect for BTTS or draw.',
+    category: 'advanced',
+    icon: '💪',
+    popularity: 4,
+    successRate: 68,
+    confidence: 'Medium',
+    notificationEnabled: true,
+    tags: ['comeback', 'late-game', 'value'],
+    backgroundImage: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800&q=80',
+    color: 'blue',
+    conditions: {
+      goals: {
+        min: 1,
+        max: 2, // Close scoreline (1-0 or 1-1 or 2-1)
+        team: 'total',
+      },
+      possession: {
+        min: 50, // Balanced possession
+      },
+      shots_on_target: {
+        min: 8, // High shots on target
+      },
+      dangerous_attacks: {
+        min: 14, // Creating many chances
+      },
+      match_time: {
+        min: 70,
+        max: 88,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-aggressive-counter',
+    name: '⚔️ Aggressive Counter Attack',
+    description: 'Low possession but high shot quality - dangerous counter-attacking setup. Good for underdog win or BTTS.',
+    category: 'advanced',
+    icon: '⚔️',
+    popularity: 4,
+    successRate: 65,
+    confidence: 'Medium',
+    notificationEnabled: true,
+    tags: ['counter-attack', 'value-bet', 'shots'],
+    backgroundImage: 'https://images.unsplash.com/photo-1529079003456-3bac75d7e0e0?w=800&q=80',
+    color: 'red',
+    conditions: {
+      possession: {
+        max: 48, // Lower possession
+      },
+      shots_on_target: {
+        min: 6, // But quality shots
+      },
+      dangerous_attacks: {
+        min: 10,
+      },
+      corners: {
+        min: 5,
+        team: 'total',
+      },
+      match_time: {
+        min: 45,
+        max: 75,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-both-teams-pressing',
+    name: '🔥 Both Teams Pressing (High Intensity)',
+    description: 'Both teams creating chances with very high shots on target and attacks. Perfect BTTS or over goals scenario with balanced attack.',
+    category: 'goals',
+    icon: '⚡',
+    popularity: 5,
+    successRate: 77,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['BTTS', 'balanced', 'high-intensity', 'attacking'],
+    backgroundImage: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=800&q=80',
+    color: 'amber',
+    conditions: {
+      shots_on_target: {
+        min: 10, // Very high total shots on target (both teams)
+      },
+      dangerous_attacks: {
+        min: 16, // Very high attacks (both teams)
+      },
+      corners: {
+        min: 8,
+        team: 'total',
+      },
+      match_time: {
+        min: 55,
+        max: 80,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-late-pressure-draw',
+    name: '🎭 Late Pressure Match',
+    description: 'Low-scoring match with both teams creating chances late - high probability one team breaks through or both score (BTTS). Perfect for late goals.',
+    category: 'goals',
+    icon: '🎲',
+    popularity: 4,
+    successRate: 69,
+    confidence: 'Medium',
+    notificationEnabled: true,
+    tags: ['late-goals', 'BTTS', 'tension'],
+    backgroundImage: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&q=80',
+    color: 'purple',
+    conditions: {
+      goals: {
+        max: 1, // Still low scoring (0-0 or 1-0 or 0-1)
+        team: 'total',
+      },
+      shots_on_target: {
+        min: 8, // Lots of chances
+      },
+      dangerous_attacks: {
+        min: 14,
+      },
+      corners: {
+        min: 8,
+        team: 'total',
+      },
+      match_time: {
+        min: 75,
+        max: 89,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-red-card-chaos',
+    name: '🟥 Red Card Chaos (Set Piece Surge)',
+    description: 'Red card issued with sustained attacking from the team with advantage. Expect corner surge and set-piece goals.',
+    category: 'cards',
+    icon: '🌪️',
+    popularity: 4,
+    successRate: 71,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['red-card', 'set-pieces', 'corners', 'chaos'],
+    backgroundImage: 'https://images.unsplash.com/photo-1552667466-07770ae110d0?w=800&q=80',
+    color: 'red',
+    conditions: {
+      red_cards: {
+        min: 1, // Red card shown
+      },
+      corners: {
+        min: 5,
+        team: 'total',
+      },
+      dangerous_attacks: {
+        min: 8,
+      },
+      match_time: {
+        min: 60,
+        max: 90,
+      },
+    },
+  },
+
+  {
+    id: 'livepick-final-10-minutes-madness',
+    name: '⏰ Final 10 Minutes Madness',
+    description: 'Match in final 10 minutes with high activity - corners, shots, cards all elevated. Perfect for late corner or card markets.',
+    category: 'advanced',
+    icon: '⌛',
+    popularity: 5,
+    successRate: 73,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['late-game', 'final-minutes', 'high-activity', 'pressure'],
+    backgroundImage: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=800&q=80',
+    color: 'amber',
+    conditions: {
+      corners: {
+        min: 9,
+        team: 'total', // High corners
+      },
+      shots_on_target: {
+        min: 7,
+      },
+      yellow_cards: {
+        min: 3, // Physical match
+      },
+      match_time: {
+        min: 80,
+        max: 90,
+      },
+    },
+  },
 ];
 
 // Filter out templates that are experimental or clearly low-value for
