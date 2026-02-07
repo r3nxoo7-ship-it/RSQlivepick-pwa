@@ -282,13 +282,13 @@ export function checkDuplicate(
  * Check if conditions are complete (not empty)
  * to allow enabling notifications
  */
-export function areConditionsComplete(conditions: FilterConditions): boolean {
+export function areConditionsComplete(conditions: FilterConditions | any): boolean {
   if (!conditions || Object.keys(conditions).length === 0) {
     return false;
   }
 
-  // At least one condition must have values defined
-  const hasValues =
+  // Check for basic FilterConditions
+  const hasBasicValues =
     (conditions.corners?.min !== undefined || conditions.corners?.max !== undefined) ||
     (conditions.goals?.min !== undefined || conditions.goals?.max !== undefined) ||
     (conditions.shots_on_target?.min !== undefined || conditions.shots_on_target?.max !== undefined) ||
@@ -301,7 +301,31 @@ export function areConditionsComplete(conditions: FilterConditions): boolean {
     (conditions.shots_off_target?.min !== undefined || conditions.shots_off_target?.max !== undefined) ||
     (conditions.total_shots?.min !== undefined || conditions.total_shots?.max !== undefined);
 
-  return hasValues;
+  // Check for ExtendedFilterConditions
+  const hasExtendedValues =
+    (conditions.score?.home !== undefined) ||
+    (conditions.score?.away !== undefined) ||
+    (conditions.score?.total_goals !== undefined) ||
+    (conditions.score?.difference !== undefined) ||
+    (conditions.score?.exact !== undefined) ||
+    (conditions.possession?.home !== undefined) ||
+    (conditions.possession?.away !== undefined) ||
+    (conditions.possession?.dominant !== undefined) ||
+    (conditions.corners?.home !== undefined) ||
+    (conditions.corners?.away !== undefined) ||
+    (conditions.corners?.total !== undefined) ||
+    (conditions.shots_on_target?.home !== undefined) ||
+    (conditions.shots_on_target?.away !== undefined) ||
+    (conditions.shots_on_target?.total !== undefined) ||
+    (conditions.dangerous_attacks?.home !== undefined) ||
+    (conditions.dangerous_attacks?.away !== undefined) ||
+    (conditions.dangerous_attacks?.total !== undefined) ||
+    (conditions.match_time?.between !== undefined) ||
+    (conditions.match_time?.after !== undefined) ||
+    (conditions.match_time?.before !== undefined) ||
+    (conditions.trends !== undefined);
+
+  return hasBasicValues || hasExtendedValues;
 }
 
 /**
