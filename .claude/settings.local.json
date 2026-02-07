@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add CRITICAL_FIXES_NEEDED.md)",
+      "Bash(git commit -m \"docs: Add critical fixes documentation\n\nComplete guide for remaining production issues:\n- SQL backfill script for analytics\n- Notification click handler solution\n- Debug steps for live matches page\n- Button handler fixes\n- Super filter validation fix\n\nPriority: Run SQL backfill script immediately to fix analytics.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\")",
+      "Bash(git push)"
+    ]
+  }
+}
