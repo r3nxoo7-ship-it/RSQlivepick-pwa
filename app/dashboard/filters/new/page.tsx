@@ -196,8 +196,8 @@ export default function CompleteFilterBuilder() {
         return;
       }
     } else {
-      // Super Filter mode: require at least one combined filter
-      if (combinedFilterIds.length === 0) {
+      // Super Filter mode: require at least TWO combined filters
+      if (combinedFilterIds.length < 2) {
         setError('Select at least two filters to combine');
         return;
       }
