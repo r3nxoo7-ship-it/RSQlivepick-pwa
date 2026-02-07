@@ -20,23 +20,30 @@ export default function MatchesAnalyticsPage() {
   const loadData = useCallback(async () => {
     try {
       if (!user) {
+        console.log('⏸️ Matches page: No user logged in');
         setLoading(false);
         return;
       }
 
+      console.log('🔄 Matches page: Loading data...');
+
       // Load live matches
       const liveMatches = await getLiveMatches();
+      console.log(`📊 Matches page: Got ${liveMatches?.length || 0} live matches`);
       setMatches(liveMatches || []);
 
       // Load user filters
       const filters = await dbHelpers.getUserFilters(user.id);
+      console.log(`🔍 Matches page: Got ${filters.length} user filters`);
       setUserFilters(filters);
 
       setLastUpdate(new Date().toLocaleTimeString());
       setLoading(false);
+      console.log('✅ Matches page: Data loaded successfully');
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error('❌ Matches page: Error loading data:', err);
       setLastUpdate(`Error at ${new Date().toLocaleTimeString()}`);
+      setLoading(false);
     }
   }, [user]);
 
