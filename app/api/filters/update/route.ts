@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-n// Force dynamic rendering - this route uses request parameters
-export const dynamic = 'force-dynamic';
-
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force dynamic rendering - this route uses request parameters
+export const dynamic = 'force-dynamic';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

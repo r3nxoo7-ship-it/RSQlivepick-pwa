@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-n// Force dynamic rendering - this route uses request parameters
-export const dynamic = 'force-dynamic';
-
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force dynamic rendering - this route uses request parameters
+export const dynamic = 'force-dynamic';
 import { 
   validateFilterConditions, 
   checkDuplicate, 
