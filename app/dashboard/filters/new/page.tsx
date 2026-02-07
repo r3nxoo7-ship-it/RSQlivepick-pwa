@@ -929,10 +929,10 @@ export default function CompleteFilterBuilder() {
                         <input
                           type="number"
                           placeholder="Min"
-                          value={scoreRange.home_min || ''}
+                          value={scoreRange.home_min !== undefined ? scoreRange.home_min : ''}
                           onChange={(e) => setScoreRange({
                             ...scoreRange,
-                            home_min: e.target.value ? parseInt(e.target.value) : undefined,
+                            home_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                           })}
                           min={0}
                           className="input-field"
@@ -940,10 +940,10 @@ export default function CompleteFilterBuilder() {
                         <input
                           type="number"
                           placeholder="Max"
-                          value={scoreRange.home_max || ''}
+                          value={scoreRange.home_max !== undefined ? scoreRange.home_max : ''}
                           onChange={(e) => setScoreRange({
                             ...scoreRange,
-                            home_max: e.target.value ? parseInt(e.target.value) : undefined,
+                            home_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                           })}
                           min={0}
                           className="input-field"
@@ -959,10 +959,10 @@ export default function CompleteFilterBuilder() {
                         <input
                           type="number"
                           placeholder="Min"
-                          value={scoreRange.away_min || ''}
+                          value={scoreRange.away_min !== undefined ? scoreRange.away_min : ''}
                           onChange={(e) => setScoreRange({
                             ...scoreRange,
-                            away_min: e.target.value ? parseInt(e.target.value) : undefined,
+                            away_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                           })}
                           min={0}
                           className="input-field"
@@ -970,10 +970,10 @@ export default function CompleteFilterBuilder() {
                         <input
                           type="number"
                           placeholder="Max"
-                          value={scoreRange.away_max || ''}
+                          value={scoreRange.away_max !== undefined ? scoreRange.away_max : ''}
                           onChange={(e) => setScoreRange({
                             ...scoreRange,
-                            away_max: e.target.value ? parseInt(e.target.value) : undefined,
+                            away_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                           })}
                           min={0}
                           className="input-field"
@@ -989,10 +989,10 @@ export default function CompleteFilterBuilder() {
                         <input
                           type="number"
                           placeholder="Min (ex: 3 pentru Over 2.5)"
-                          value={scoreRange.total_min || ''}
+                          value={scoreRange.total_min !== undefined ? scoreRange.total_min : ''}
                           onChange={(e) => setScoreRange({
                             ...scoreRange,
-                            total_min: e.target.value ? parseInt(e.target.value) : undefined,
+                            total_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                           })}
                           min={0}
                           className="input-field"
@@ -1000,10 +1000,10 @@ export default function CompleteFilterBuilder() {
                         <input
                           type="number"
                           placeholder="Max"
-                          value={scoreRange.total_max || ''}
+                          value={scoreRange.total_max !== undefined ? scoreRange.total_max : ''}
                           onChange={(e) => setScoreRange({
                             ...scoreRange,
-                            total_max: e.target.value ? parseInt(e.target.value) : undefined,
+                            total_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                           })}
                           min={0}
                           className="input-field"

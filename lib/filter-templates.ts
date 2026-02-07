@@ -201,27 +201,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       },
     },
   },
-  {
-    id: 'live-goals-1-at-60min',
-    name: 'Live: 1+ Goal at 60min (Predicts 2+ Final)',
-    description: 'At 60min with 1+ goals. Probability: ~58% chance of 2+ final. Common attacking pattern in second half.',
-    category: 'goals',
-    icon: '📊',
-    popularity: 4,
-    successRate: 58,
-    notificationEnabled: true,
-    tags: ['predictive', 'goals', 'live'],
-    conditions: {
-      goals: {
-        min: 1,
-        team: 'total',
-      },
-      match_time: {
-        min: 55,
-        max: 70,
-      },
-    },
-  },
+  // REMOVED: live-goals-1-at-60min (58% success rate - below 60% threshold)
   {
     id: 'live-goals-3-at-75min',
     name: 'Live: 3+ Goals at 75min (Predicts 4+ Final)',
@@ -413,27 +393,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       },
     },
   },
-  {
-    id: 'first-half-1-goal-45min',
-    name: 'First Half: 1+ Goal at 45min (Predicts 2+ Final)',
-    description: 'First half with 1+ goals. At 45min with scoring = ~55% chance of 2+ final. Both teams capable.',
-    category: 'goals',
-    icon: '⚽',
-    popularity: 3,
-    successRate: 55,
-    notificationEnabled: true,
-    tags: ['first-half', 'goals'],
-    conditions: {
-      goals: {
-        min: 1,
-        team: 'total',
-      },
-      match_time: {
-        min: 40,
-        max: 45,
-      },
-    },
-  },
+  // REMOVED: first-half-1-goal-45min (55% success rate - below 60% threshold)
 
   // ============================================
   // FULL MATCH FILTERS (40-90 minutes)

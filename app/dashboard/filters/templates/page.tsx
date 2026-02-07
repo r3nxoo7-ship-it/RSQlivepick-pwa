@@ -132,16 +132,19 @@ export default function FilterTemplatesPage() {
       }
       
       console.log('✅ Template imported:', data);
-      
+
       // Success message with experimental warning
       if (template.experimental) {
         alert(`✅ Experimental filter "${template.name}" imported!\n\n🧪 This is a test version — monitor results and adjust your strategy.`);
       } else {
-        alert(`✅ Filter "${template.name}" successfully imported!`);
+        alert(`✅ Filter "${template.name}" successfully imported!\n\nGo to "My Filters" tab to view and activate it.`);
       }
-      
-      // Reload templates page to show updated list
-      router.refresh();
+
+      // Reload with delay to ensure DB commit and UI update
+      setTimeout(() => {
+        router.refresh();
+        router.push('/dashboard/filters');
+      }, 500);
       
     } catch (err) {
       console.error('❌ Import error:', err);
