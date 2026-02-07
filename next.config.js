@@ -3,6 +3,12 @@ const withPWA = require('@ducanh2912/next-pwa').default({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  workboxOptions: {
+    // This allows us to add custom event handlers to the service worker
+    additionalManifestEntries: [],
+    // Import our custom notification handlers
+    importScripts: ['/sw-custom.js'],
+  },
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,
