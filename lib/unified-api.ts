@@ -14,7 +14,7 @@ export type { LiveMatch, MatchStatistics } from './football-data';
 // CONFIG
 // ============================================
 
-const PRIMARY_API = 'football-data'; // sau 'api-football'
+const PRIMARY_API = 'api-football'; // sau 'api-football'
 const ENABLE_FALLBACK = true;
 
 // ============================================
