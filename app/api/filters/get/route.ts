@@ -29,13 +29,13 @@ export async function GET(request: NextRequest) {
 
     console.log('📖 API /filters/get: Reading filters for user:', userId);
 
-    // Select specific fields to avoid wildcard cache
-    // Wildcard (*) triggers aggressive caching, explicit fields bypass it
+    // Use wildcard with .limit() to bust cache (same approach as diagnostic endpoint)
     const { data, error } = await supabaseAdmin
       .from('filters')
-      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at, color, template_id, forked_from_id, forked_from_user, version, is_editable')
+      .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(1000); // Reasonable limit + forces cache bypass
 
     if (error) {
       console.error('❌ Error reading filters:', error);
