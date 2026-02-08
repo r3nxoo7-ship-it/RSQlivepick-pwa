@@ -24,40 +24,21 @@ export async function DELETE(request: NextRequest) {
 
     console.log('🗑️ API /filters/delete: Deleting filter:', filterId);
 
-    // Perform the delete directly - let Supabase handle existence check
-    const { data: deletedData, error: deleteError, count } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('filters')
       .delete()
-      .eq('id', filterId)
-      .select();
+      .eq('id', filterId);
 
-    console.log('📊 Delete response:', {
-      deletedData,
-      deleteError,
-      count,
-      deletedCount: deletedData?.length || 0
-    });
-
-    if (deleteError) {
-      console.error('❌ Error deleting filter:', deleteError);
+    if (error) {
+      console.error('❌ Error deleting filter:', error);
       return NextResponse.json(
-        { error: deleteError.message || 'Error deleting filter' },
+        { error: error.message || 'Error deleting filter' },
         { status: 400 }
       );
     }
 
-    if (!deletedData || deletedData.length === 0) {
-      console.error('⚠️ Delete query succeeded but no rows were deleted - filter may not exist');
-      console.error('⚠️ Filter ID attempted:', filterId);
-      return NextResponse.json(
-        { error: 'Filter not found or already deleted' },
-        { status: 404 }
-      );
-    }
-
-    console.log('✅ Filter deleted successfully:', deletedData[0]);
-    console.log('🗑️ Deleted filter ID:', deletedData[0].id, 'Name:', deletedData[0].name);
-    return NextResponse.json({ error: null, deleted: deletedData[0] });
+    console.log('✅ Filter deleted successfully');
+    return NextResponse.json({ error: null });
   } catch (err) {
     console.error('❌ Error in /filters/delete:', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
