@@ -50,9 +50,15 @@ export default function FiltersPage() {
         return;
       }
       console.log('🔍 Loading filters for user:', currentUser.id);
+
+      // Add cache-busting timestamp to ensure fresh data
+      const timestamp = Date.now();
       const userFilters = await dbHelpers.getUserFilters(currentUser.id);
+
+      console.log(`✅ Loaded ${userFilters.length} filters at ${timestamp}`);
+      console.log('📋 Filter IDs in UI:', userFilters.map(f => `${f.id.substring(0, 8)}... (${f.name})`));
+
       setFilters(userFilters);
-      console.log(`✅ Loaded ${userFilters.length} filters`);
     } catch (err) {
       console.error('❌ Error loading filters:', err);
       setError('Error loading filters');
@@ -147,6 +153,7 @@ export default function FiltersPage() {
     }
 
     console.log('🗑️ Deleting filter:', filterId, filterName);
+    console.log('📊 Total filters before delete:', filters.length);
 
     try {
       // Optimistic update: remove from UI immediately
@@ -157,13 +164,22 @@ export default function FiltersPage() {
 
       if (error) {
         console.error('❌ Delete error:', error);
+
+        // Check if filter doesn't exist in database
+        if (error.includes('not found') || error.includes('404')) {
+          alert(`⚠️ Filter "${filterName}" was not found in the database.\n\nThis may be stale data. Refreshing your filter list...`);
+          // Don't restore - it doesn't exist anyway, just refresh
+          await loadFilters();
+          return;
+        }
+
         alert(`Error deleting filter: ${error}`);
         // Reload to restore the filter if delete failed
         await loadFilters();
         return;
       }
 
-      console.log('✅ Filter deleted successfully');
+      console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
       // Reload to ensure sync with database

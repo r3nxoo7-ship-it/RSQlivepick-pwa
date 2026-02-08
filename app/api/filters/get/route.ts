@@ -44,7 +44,23 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Filters read successfully:', data?.length || 0);
-    return NextResponse.json({ data: data || [], error: null });
+
+    // Log filter IDs for debugging
+    if (data && data.length > 0) {
+      console.log('📋 Filter IDs:', data.map(f => `${f.id.substring(0, 8)}... (${f.name})`).join(', '));
+    }
+
+    // Return with no-cache headers to prevent stale data
+    return NextResponse.json(
+      { data: data || [], error: null },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (err) {
     console.error('❌ Error in /filters/get:', err);
     return NextResponse.json(
