@@ -42,7 +42,7 @@ export default function MatchesAnalyticsPage() {
       console.log('✅ Matches page: Data loaded successfully');
     } catch (err) {
       console.error('❌ Matches page: Error loading data:', err);
-      setLastUpdate(`Error at ${new Date().toLocaleTimeString()}`);
+      setLastUpdate('Error loading data');
       setLoading(false);
     }
   }, [user]);
