@@ -382,10 +382,16 @@ export const dbHelpers = {
       }
 
       // Call server-side API route that uses service role key
-      const url = `/api/filters/get?user_id=${encodeURIComponent(userId)}`;
+      // Add cache-busting timestamp to force fresh data
+      const url = `/api/filters/get?user_id=${encodeURIComponent(userId)}&_t=${Date.now()}`;
       console.log('📡 Fetching from:', url);
-      
-      const response = await fetch(url);
+
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       console.log('📡 Response status:', response.status);
       
       const result = await response.json();
