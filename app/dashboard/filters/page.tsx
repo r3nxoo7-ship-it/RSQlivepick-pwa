@@ -182,16 +182,40 @@ export default function FiltersPage() {
       console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
-      // Extended delay for database replication and cache propagation
-      // Supabase read replicas may take 2-3 seconds to sync
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Smart polling: verify delete took effect by checking count
+      const expectedCount = filters.length - 1;
+      let attempts = 0;
+      const maxAttempts = 10; // Max 10 seconds
+      let currentCount = filters.length;
 
-      // Force reload from database (not cache)
+      console.log('🔄 Polling for deletion confirmation. Expected count:', expectedCount);
+
+      while (currentCount !== expectedCount && attempts < maxAttempts) {
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Reload and check count
+        const currentUser = authHelpers.getCurrentUser();
+        if (currentUser) {
+          const freshFilters = await dbHelpers.getUserFilters(currentUser.id);
+          currentCount = freshFilters.length;
+          console.log(`🔄 Attempt ${attempts}: Count is ${currentCount}, expected ${expectedCount}`);
+
+          if (currentCount === expectedCount) {
+            console.log('✅ Delete confirmed! Count matches.');
+            setFilters(freshFilters);
+            router.refresh();
+            return;
+          }
+        }
+      }
+
+      if (currentCount !== expectedCount) {
+        console.warn('⚠️ Delete succeeded but replica still out of sync after 10s');
+      }
+
+      // Final refresh
       router.refresh();
-
-      // Additional small delay after router refresh
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       await loadFilters();
 
     } catch (err) {
