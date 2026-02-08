@@ -15,10 +15,14 @@ export async function DELETE(request: NextRequest) {
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
+    db: {
+      schema: 'public',
+    },
     global: {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
+        'Prefer': 'return=representation',
       },
     },
   });
