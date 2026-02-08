@@ -31,6 +31,7 @@ export async function PATCH(request: NextRequest) {
       .from('filters')
       .select('*')
       .eq('id', filterId)
+      .limit(1) // Cache-busting: force query re-evaluation
       .single();
 
     if (fetchError || !filter) {
@@ -61,6 +62,7 @@ export async function PATCH(request: NextRequest) {
       })
       .eq('id', filterId)
       .select()
+      .limit(1) // Cache-busting: force query re-evaluation
       .single();
 
     if (error) {
