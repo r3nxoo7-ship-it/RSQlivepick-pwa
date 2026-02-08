@@ -27,11 +27,11 @@ export async function PATCH(request: NextRequest) {
     // ============================================
     // CHECK IF FILTER IS EDITABLE
     // ============================================
+    // Use explicit fields instead of * to bust cache (compatible with .single())
     const { data: filter, error: fetchError } = await supabaseAdmin
       .from('filters')
-      .select('*')
+      .select('id, is_editable, user_id')
       .eq('id', filterId)
-      .limit(1) // Cache-busting: force query re-evaluation
       .single();
 
     if (fetchError || !filter) {
@@ -62,7 +62,6 @@ export async function PATCH(request: NextRequest) {
       })
       .eq('id', filterId)
       .select()
-      .limit(1) // Cache-busting: force query re-evaluation
       .single();
 
     if (error) {
