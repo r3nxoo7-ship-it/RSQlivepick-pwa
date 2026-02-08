@@ -24,6 +24,23 @@ export async function DELETE(request: NextRequest) {
 
     console.log('🗑️ API /filters/delete: Deleting filter:', filterId);
 
+    // First, check if filter exists and log details
+    const { data: existingFilter } = await supabaseAdmin
+      .from('filters')
+      .select('id, name, user_id')
+      .eq('id', filterId)
+      .maybeSingle();
+
+    console.log('🔍 Filter lookup before delete:', existingFilter);
+
+    if (!existingFilter) {
+      console.error('❌ Filter does not exist in database:', filterId);
+      return NextResponse.json(
+        { error: 'Filter not found - may have been deleted already' },
+        { status: 404 }
+      );
+    }
+
     // Use count to verify deletion actually happened
     const { error, count } = await supabaseAdmin
       .from('filters')
