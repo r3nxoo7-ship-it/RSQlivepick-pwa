@@ -29,6 +29,14 @@ export async function GET(request: NextRequest) {
 
     console.log('📖 API /filters/get: Reading filters for user:', userId);
 
+    // First, count ALL filters for this user (including any with different states)
+    const { count: totalCount } = await supabaseAdmin
+      .from('filters')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    console.log('📊 Total filters in DB for this user:', totalCount);
+
     const { data, error } = await supabaseAdmin
       .from('filters')
       .select('*')
@@ -44,10 +52,15 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Filters read successfully:', data?.length || 0);
+    console.log('🔍 Discrepancy check: totalCount=%d, data.length=%d', totalCount, data?.length || 0);
 
-    // Log filter IDs for debugging
+    // Log filter IDs and is_active status for debugging
     if (data && data.length > 0) {
-      console.log('📋 Filter IDs:', data.map(f => `${f.id.substring(0, 8)}... (${f.name})`).join(', '));
+      console.log('📋 Filter IDs:', data.map(f => `${f.id.substring(0, 8)}... (${f.name}) [active=${f.is_active}]`).join(', '));
+
+      const activeCount = data.filter(f => f.is_active).length;
+      const inactiveCount = data.filter(f => !f.is_active).length;
+      console.log('📊 Active: %d, Inactive: %d', activeCount, inactiveCount);
     }
 
     // Return with no-cache headers to prevent stale data
