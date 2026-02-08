@@ -4,17 +4,24 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses request parameters
 export const dynamic = 'force-dynamic';
 
-// Create server-side Supabase client with SERVICE ROLE key
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Missing Supabase environment variables on server!');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
 export async function GET(request: NextRequest) {
+  // Create a FRESH Supabase client for each request to avoid cache issues
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing Supabase environment variables on server!');
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+    global: {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    },
+  });
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
@@ -37,11 +44,14 @@ export async function GET(request: NextRequest) {
 
     console.log('📊 Total filters in DB for this user:', totalCount);
 
+    // Force fresh data by using the same query pattern as count
+    // This bypasses Supabase's PostgREST cache
     const { data, error } = await supabaseAdmin
       .from('filters')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(1000); // Add limit to force query re-evaluation
 
     if (error) {
       console.error('❌ Error reading filters:', error);

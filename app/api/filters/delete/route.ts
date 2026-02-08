@@ -4,16 +4,24 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses request parameters
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Missing Supabase environment variables on server!');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
 export async function DELETE(request: NextRequest) {
+  // Create a FRESH Supabase client for each request to avoid cache issues
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing Supabase environment variables on server!');
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+    global: {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    },
+  });
   try {
     const { searchParams } = new URL(request.url);
     const filterId = searchParams.get('filterId');
