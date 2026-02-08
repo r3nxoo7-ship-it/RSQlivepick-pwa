@@ -15,10 +15,12 @@ export async function GET(request: NextRequest) {
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
+    db: { schema: 'public' },
     global: {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
+        'Prefer': 'return=representation',
       },
     },
   });
@@ -44,14 +46,13 @@ export async function GET(request: NextRequest) {
 
     console.log('📊 Total filters in DB for this user:', totalCount);
 
-    // Force fresh data by using the same query pattern as count
-    // This bypasses Supabase's PostgREST cache
+    // Query with range to force fresh data
     const { data, error } = await supabaseAdmin
       .from('filters')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(1000); // Add limit to force query re-evaluation
+      .range(0, 999);
 
     if (error) {
       console.error('❌ Error reading filters:', error);

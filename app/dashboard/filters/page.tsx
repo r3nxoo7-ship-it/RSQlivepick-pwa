@@ -182,11 +182,16 @@ export default function FiltersPage() {
       console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
-      // Longer delay for Vercel edge network propagation
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Extended delay for database replication and cache propagation
+      // Supabase read replicas may take 2-3 seconds to sync
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       // Force reload from database (not cache)
       router.refresh();
+
+      // Additional small delay after router refresh
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       await loadFilters();
 
     } catch (err) {
