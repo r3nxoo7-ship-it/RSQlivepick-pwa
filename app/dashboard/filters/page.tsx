@@ -136,7 +136,7 @@ export default function FiltersPage() {
   };
   
   /**
-   * Delete filter - FIXED WITH BETTER ERROR HANDLING
+   * Delete filter - FIXED: Remove from state immediately + reload
    */
   const handleDelete = async (filterId: string, filterName: string) => {
     // Confirmare
@@ -149,24 +149,31 @@ export default function FiltersPage() {
     console.log('🗑️ Deleting filter:', filterId, filterName);
 
     try {
-      // Apelăm funcția din supabase.ts
+      // Optimistic update: remove from UI immediately
+      setFilters(prevFilters => prevFilters.filter(f => f.id !== filterId));
+
+      // Call API to delete from database
       const { error } = await dbHelpers.deleteFilter(filterId);
 
       if (error) {
         console.error('❌ Delete error:', error);
         alert(`Error deleting filter: ${error}`);
+        // Reload to restore the filter if delete failed
+        await loadFilters();
         return;
       }
 
       console.log('✅ Filter deleted successfully');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
-      // Reload filters with delay to ensure DB commit
-      setTimeout(() => loadFilters(), 300);
+      // Reload to ensure sync with database
+      await loadFilters();
 
     } catch (err) {
       console.error('❌ Exception in handleDelete:', err);
       alert(`Error deleting filter: ${err}`);
+      // Reload to restore correct state
+      await loadFilters();
     }
   };
   

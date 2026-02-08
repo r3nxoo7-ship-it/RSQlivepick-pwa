@@ -90,7 +90,7 @@ export default function MatchesAnalyticsPage() {
             </button>
           </div>
           <p className="text-text-secondary mt-1">
-            Real-time match stats • Filter predictions • Dynamic diagnostics • Updated: {lastUpdate}
+            Real-time match stats • Filter predictions • Dynamic diagnostics{lastUpdate && ` • Updated: ${lastUpdate}`}
           </p>
         </div>
       </motion.div>
