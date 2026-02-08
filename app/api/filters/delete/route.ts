@@ -24,25 +24,8 @@ export async function DELETE(request: NextRequest) {
 
     console.log('🗑️ API /filters/delete: Deleting filter:', filterId);
 
-    // First, verify the filter exists
-    const { data: existingFilter, error: fetchError } = await supabaseAdmin
-      .from('filters')
-      .select('id, name, user_id')
-      .eq('id', filterId)
-      .single();
-
-    if (fetchError) {
-      console.error('❌ Filter not found or error fetching:', fetchError);
-      return NextResponse.json(
-        { error: 'Filter not found' },
-        { status: 404 }
-      );
-    }
-
-    console.log('📋 Found filter to delete:', existingFilter);
-
-    // Perform the delete
-    const { data: deletedData, error: deleteError, status, statusText } = await supabaseAdmin
+    // Perform the delete directly - let Supabase handle existence check
+    const { data: deletedData, error: deleteError, count } = await supabaseAdmin
       .from('filters')
       .delete()
       .eq('id', filterId)
@@ -51,8 +34,7 @@ export async function DELETE(request: NextRequest) {
     console.log('📊 Delete response:', {
       deletedData,
       deleteError,
-      status,
-      statusText,
+      count,
       deletedCount: deletedData?.length || 0
     });
 
@@ -65,14 +47,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (!deletedData || deletedData.length === 0) {
-      console.error('⚠️ Delete returned success but no rows affected');
+      console.error('⚠️ Delete query succeeded but no rows were deleted - filter may not exist');
+      console.error('⚠️ Filter ID attempted:', filterId);
       return NextResponse.json(
-        { error: 'Delete failed - no rows affected' },
-        { status: 500 }
+        { error: 'Filter not found or already deleted' },
+        { status: 404 }
       );
     }
 
     console.log('✅ Filter deleted successfully:', deletedData[0]);
+    console.log('🗑️ Deleted filter ID:', deletedData[0].id, 'Name:', deletedData[0].name);
     return NextResponse.json({ error: null, deleted: deletedData[0] });
   } catch (err) {
     console.error('❌ Error in /filters/delete:', err);
