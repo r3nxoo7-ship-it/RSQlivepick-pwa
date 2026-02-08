@@ -182,6 +182,9 @@ export default function FiltersPage() {
       console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
+      // Small delay to ensure database commit propagates (especially on Vercel serverless)
+      await new Promise(resolve => setTimeout(resolve, 800));
+
       // Reload to ensure sync with database
       await loadFilters();
 
