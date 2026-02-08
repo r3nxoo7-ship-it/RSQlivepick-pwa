@@ -182,7 +182,9 @@ export default function FiltersPage() {
       console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
-      // Simple refresh after brief delay (REVERT to original approach)
+      // Wait 2s for database sync before reload
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       router.refresh();
       await loadFilters();
 
