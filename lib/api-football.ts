@@ -164,7 +164,14 @@ async function makeRequest<T>(
     
     // 4. Extragem datele JSON din răspuns
     const data: ApiResponse<T> = await response.json();
-    
+
+    // 4.5. Log rate limit info from headers
+    const rateLimit = response.headers.get('x-ratelimit-remaining');
+    const rateLimitReset = response.headers.get('x-ratelimit-reset');
+    if (rateLimit !== null) {
+      console.log(`📊 API Rate Limit: ${rateLimit} requests remaining (resets: ${rateLimitReset})`);
+    }
+
     // 5. Verificăm dacă sunt erori în răspuns
     if (data.errors && data.errors.length > 0) {
       console.error('❌ API Errors:', data.errors);
@@ -173,6 +180,16 @@ async function makeRequest<T>(
     
     // 6. Log pentru a vedea ce am primit
     console.log(`✅ API Success: ${data.results} results`);
+
+    // Log dacă primim 0 rezultate dar ne așteptam la meciuri live
+    if (data.results === 0 && url.includes('live=all')) {
+      console.warn('⚠️ API returned 0 live matches - check if there are actually games or if API limit reached');
+      console.warn('📊 API Response:', {
+        results: data.results,
+        errors: data.errors,
+        rateLimit: data.paging
+      });
+    }
     
     // 7. Returnăm datele
     return data.response;
