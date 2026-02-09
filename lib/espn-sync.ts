@@ -244,15 +244,22 @@ export async function syncAllTeams(): Promise<{ count: number; duration: number 
 /**
  * Get live matches from Supabase (not ESPN!)
  * Users read from this, not directly from ESPN API
+ * Shows: currently live matches + upcoming matches for next 3 hours
  */
 export async function getLiveMatchesFromDB(limit = 100) {
   try {
+    // Calculate time range: now to now + 3 hours (for upcoming matches)
+    const now = new Date();
+    const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+
     const { data, error } = await supabase
       .from('espn_matches')
       .select('*')
       .eq('sport', 'soccer') // Only soccer matches
-      .in('status', ['in_progress', 'live']) // Only truly live matches
       .neq('league', 'multi') // Filter out multi-sport matches
+      .or(`status.eq.in_progress,status.eq.live,status.eq.scheduled`) // Live or scheduled
+      .gte('date', now.toISOString()) // Matches from now onwards
+      .lte('date', threeHoursLater.toISOString()) // Up to 3 hours from now
       .order('date', { ascending: true })
       .limit(limit);
 

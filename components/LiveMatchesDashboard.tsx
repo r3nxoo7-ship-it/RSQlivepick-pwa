@@ -70,7 +70,7 @@ export default function LiveMatchesDashboard({
         <div>
           <h2 className="text-3xl font-bold text-white flex items-center gap-2">
             <Activity className="w-8 h-8 text-accent-cyan" />
-            Live Soccer Matches
+            Live & Upcoming Matches (Next 3 Hours)
           </h2>
           <p className="text-text-secondary mt-1">
             {matchesWithPredictions.length} matches • Click any match for detailed analytics

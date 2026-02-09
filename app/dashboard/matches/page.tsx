@@ -75,7 +75,7 @@ export default function MatchesAnalyticsPage() {
             <div className="flex items-center gap-3">
               <Activity className="w-8 h-8 text-accent-cyan" />
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent">
-                Live Matches Analytics
+                Live & Upcoming Matches
               </h1>
             </div>
             <button
@@ -90,7 +90,7 @@ export default function MatchesAnalyticsPage() {
             </button>
           </div>
           <p className="text-text-secondary mt-1">
-            Real-time match stats • Filter predictions • Dynamic diagnostics{lastUpdate && ` • Updated: ${lastUpdate}`}
+            Real-time match stats • Filter predictions • Next 3 hours{lastUpdate && ` • Updated: ${lastUpdate}`}
           </p>
         </div>
       </motion.div>
