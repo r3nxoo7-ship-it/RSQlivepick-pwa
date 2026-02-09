@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     // NOTE: some deployments may not have the optional `color` column; exclude it here to avoid 42703 errors
     const { data, error } = await supabaseAdmin
       .from('filters')
-      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at, template_id, forked_from_id, forked_from_user, version, is_editable')
+      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at, forked_from_id, forked_from_user, version, is_editable')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
