@@ -5,7 +5,7 @@
  */
 
 import { Filter, FilterConditions } from '@/lib/supabase';
-import { LiveMatch } from '@/lib/api-football';
+import { LiveMatch } from '@/lib/unified-api';
 
 export interface FilterMatchDetails {
   filter: Filter;
