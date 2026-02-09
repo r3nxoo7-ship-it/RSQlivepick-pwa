@@ -163,7 +163,7 @@ export async function getLeagueTeams(
     }
 
     return data.teams.map((team: any) => ({
-      id: team.id,
+      id: String(team.id),
       name: team.name,
       displayName: team.displayName,
       abbreviation: team.abbreviation,
@@ -190,7 +190,7 @@ function parseESPNMatch(event: any): ESPNMatch {
     id: event.id,
     eventId: event.id,
     date: event.date,
-    status: normalizeStatus(event.status?.type),
+    status: normalizeStatus(event.status),
     homeTeam: {
       id: homeCompetitor.team?.id || 'unknown',
       name: homeCompetitor.team?.name || 'Unknown',
@@ -230,12 +230,33 @@ function parseESPNMatch(event: any): ESPNMatch {
     odds: parseOdds(competition.odds),
   };
 }
-
-function normalizeStatus(status?: string): 'scheduled' | 'in_progress' | 'completed' {
+function normalizeStatus(status?: any): 'scheduled' | 'in_progress' | 'completed' {
   if (!status) return 'scheduled';
-  if (status.includes('pre')) return 'scheduled';
-  if (status.includes('live') || status.includes('in')) return 'in_progress';
-  if (status.includes('post') || status.includes('final')) return 'completed';
+
+  let s = '';
+  if (typeof status === 'string') {
+    s = status;
+  } else if (typeof status === 'object') {
+    // ESPN sometimes returns an object like { type: { name: 'STATUS', state: 'in' } }
+    if (status.type) {
+      if (typeof status.type === 'string') s = status.type;
+      else if (status.type.name) s = status.type.name;
+      else if (status.type.state) s = status.type.state;
+    } else if (status.name) {
+      s = status.name;
+    } else if (status.state) {
+      s = status.state;
+    } else {
+      s = JSON.stringify(status);
+    }
+  } else {
+    s = String(status);
+  }
+
+  s = s.toLowerCase();
+  if (s.includes('pre') || s.includes('scheduled')) return 'scheduled';
+  if (s.includes('live') || s.includes('in')) return 'in_progress';
+  if (s.includes('post') || s.includes('final') || s.includes('completed')) return 'completed';
   return 'scheduled';
 }
 
