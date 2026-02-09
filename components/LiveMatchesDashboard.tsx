@@ -167,7 +167,7 @@ function LiveMatchCard({ match, idx, onSelect, isSelected }: { match: MatchWithP
         {/* Match Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
-            <p className="text-xs text-text-muted">{match.league?.name || 'Match'}</p>
+            <p className="text-xs text-text-muted">{match.league?.name || 'Soccer'}</p>
             <p className="text-sm font-semibold text-white mt-1">{match.fixture?.status?.elapsed || 0}&apos;</p>
           </div>
           <div className="text-right">
@@ -182,7 +182,7 @@ function LiveMatchCard({ match, idx, onSelect, isSelected }: { match: MatchWithP
           {/* Home Team */}
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="font-semibold text-white">{match.teams?.home?.name}</p>
+              <p className="font-semibold text-white">{match.teams?.home?.name || 'Unknown'}</p>
             </div>
             <div className="text-2xl font-bold text-accent-cyan">{match.goals?.home || 0}</div>
           </div>
@@ -190,7 +190,7 @@ function LiveMatchCard({ match, idx, onSelect, isSelected }: { match: MatchWithP
           {/* Away Team */}
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="font-semibold text-white">{match.teams?.away?.name}</p>
+              <p className="font-semibold text-white">{match.teams?.away?.name || 'Unknown'}</p>
             </div>
             <div className="text-2xl font-bold text-accent-cyan">{match.goals?.away || 0}</div>
           </div>
@@ -269,6 +269,33 @@ function LiveMatchDetail({ match, onClose }: { match: MatchWithPredictions; onCl
           </div>
         </div>
       </div>
+
+      {/* Odds - if available */}
+      {(match as any).odds && (
+        <div className="mb-6 p-4 rounded-lg bg-accent-blue/10 border border-accent-blue/30">
+          <p className="font-semibold text-accent-blue mb-3">📊 Betting Odds</p>
+          <div className="grid grid-cols-3 gap-2">
+            {(match as any).odds.homeWin && (
+              <div className="p-2 rounded bg-glass-light text-center">
+                <div className="text-xs text-text-muted mb-1">{match.teams?.home?.name || 'Home'} Win</div>
+                <div className="font-bold text-accent-cyan">{(match as any).odds.homeWin.toFixed(2)}</div>
+              </div>
+            )}
+            {(match as any).odds.draw && (
+              <div className="p-2 rounded bg-glass-light text-center">
+                <div className="text-xs text-text-muted mb-1">Draw</div>
+                <div className="font-bold text-accent-cyan">{(match as any).odds.draw.toFixed(2)}</div>
+              </div>
+            )}
+            {(match as any).odds.awayWin && (
+              <div className="p-2 rounded bg-glass-light text-center">
+                <div className="text-xs text-text-muted mb-1">{match.teams?.away?.name || 'Away'} Win</div>
+                <div className="font-bold text-accent-cyan">{(match as any).odds.awayWin.toFixed(2)}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
