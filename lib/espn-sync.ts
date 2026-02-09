@@ -251,7 +251,7 @@ export async function getLiveMatchesFromDB(limit = 100) {
       .from('espn_matches')
       .select('*')
       .eq('sport', 'soccer') // Only soccer matches
-      .neq('status', 'completed')
+      .in('status', ['in_progress', 'live']) // Only truly live matches
       .neq('league', 'multi') // Filter out multi-sport matches
       .order('date', { ascending: true })
       .limit(limit);
