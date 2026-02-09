@@ -386,24 +386,49 @@ export const dbHelpers = {
       const url = `/api/filters/get?user_id=${encodeURIComponent(userId)}&_t=${Date.now()}`;
       console.log('📡 Fetching from:', url);
 
-      const response = await fetch(url, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
-      console.log('📡 Response status:', response.status);
-      
-      const result = await response.json();
-      console.log('📡 Response data:', result);
+      // Try fetch with one retry for eventual consistency issues
+      let attempt = 0;
+      let lastResult: any = null;
+      while (attempt < 2) {
+        const response = await fetch(url, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
 
-      if (!response.ok || result.error) {
-        console.error('❌ Error fetching filters:', result.error, 'Status:', response.status);
-        return [];
+        console.log('📡 Response status:', response.status, 'attempt', attempt + 1);
+        const result = await response.json();
+        console.log('📡 Response data:', result);
+
+        // Expose diagnostic info on window for UI debugging
+        try {
+          if (typeof window !== 'undefined') (window as any).__lastFiltersApi = { status: response.status, result };
+        } catch (e) {
+          /* ignore */
+        }
+
+        lastResult = { response, result };
+
+        if (response.ok && !result.error && Array.isArray(result.data) && result.data.length > 0) {
+          console.log('✅ Filters fetched successfully:', result.data.length);
+          return result.data as Filter[];
+        }
+
+        // If we got an OK response but empty data, wait briefly and retry once
+        if (response.ok && Array.isArray(result.data) && result.data.length === 0 && attempt === 0) {
+          console.warn('⚠️ Empty filter list received, retrying once...');
+          await new Promise(r => setTimeout(r, 300));
+          attempt += 1;
+          continue;
+        }
+
+        // If non-ok or error, break and return empty
+        break;
       }
 
-      console.log('✅ Filters fetched successfully:', result.data?.length || 0);
-      return (result.data as Filter[]) || [];
+      console.error('❌ Error fetching filters or no filters found. Last result:', lastResult?.result || lastResult?.response?.status);
+      return [];
     } catch (err) {
       console.error('❌ Error in getUserFilters:', err);
       return [];

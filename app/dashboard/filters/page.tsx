@@ -36,6 +36,7 @@ export default function FiltersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingNotifications, setUpdatingNotifications] = useState<string[]>([]);
+  const [lastApiDebug, setLastApiDebug] = useState<any>(null);
   
   // ============================================
   // LOAD FILTERS
@@ -60,6 +61,12 @@ export default function FiltersPage() {
       console.log('📋 Filter IDs in UI:', userFilters.map(f => `${f.id.substring(0, 8)}... (${f.name})`));
 
       setFilters(userFilters);
+      // pick up any diagnostic info written to window by dbHelpers
+      if (typeof window !== 'undefined' && (window as any).__lastFiltersApi) {
+        setLastApiDebug((window as any).__lastFiltersApi);
+      } else {
+        setLastApiDebug(null);
+      }
     } catch (err) {
       console.error('❌ Error loading filters:', err);
       setError('Error loading filters');
@@ -534,6 +541,13 @@ export default function FiltersPage() {
                 <p>Active filters: {filters.filter(f => f.is_active).length}</p>
                 <p>Filters with notifications: {filters.filter(f => f.notification_enabled).length}</p>
                 <p className="text-accent-cyan mt-2">✅ DELETE and TOGGLE are fully implemented!</p>
+                {lastApiDebug && (
+                  <div className="mt-2 text-left text-[11px] text-text-muted">
+                    <div className="font-semibold">API debug:</div>
+                    <div>Status: {lastApiDebug.status}</div>
+                    <div>Result: <pre className="whitespace-pre-wrap">{JSON.stringify(lastApiDebug.result, null, 2)}</pre></div>
+                  </div>
+                )}
               </div>
             </details>
           </div>
