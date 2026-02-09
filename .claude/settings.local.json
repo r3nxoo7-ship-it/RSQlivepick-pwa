@@ -11,7 +11,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Add detailed logging and handle stale filter data gracefully\n\n- Enhanced GET API with filter ID logging and no-cache headers\n- Added cache-busting timestamp and detailed filter ID logging to loadFilters\n- Improved delete handler to detect and handle \"filter not found\" errors\n- Show helpful message when trying to delete filters that don''t exist in DB\n- Prevent stale data from causing confusing error messages\n\nThis fixes the issue where UI shows filters that don''t exist in database,\nlikely caused by failed imports or browser cache.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
       "Bash(curl:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:site.api.espn.com)"
     ]
   }
 }

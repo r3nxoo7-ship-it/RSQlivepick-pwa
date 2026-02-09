@@ -30,12 +30,18 @@ export interface ESPNMatch {
   awayCorners?: number;
   homeShotsOnTarget?: number;
   awayShotsOnTarget?: number;
+  homeTotalShots?: number;
+  awayTotalShots?: number;
   homePossession?: number;
   awayPossession?: number;
   homeYellowCards?: number;
   awayYellowCards?: number;
   homeRedCards?: number;
   awayRedCards?: number;
+  homeFouls?: number;
+  awayFouls?: number;
+  homeOffsides?: number;
+  awayOffsides?: number;
   period?: string;
   minute?: number;
   venue?: {
@@ -45,6 +51,8 @@ export interface ESPNMatch {
   };
   broadcast?: string;
   odds?: Record<string, any>;
+  // League info attached during sync
+  __league_config?: { sport: string; league: string; name: string };
 }
 
 // ============================================
@@ -178,14 +186,96 @@ export async function getLeagueTeams(
   }
 }
 
+/**
+ * Get detailed match summary (statistics, form, H2H)
+ * The summary endpoint returns rich stats not available from scoreboard:
+ * possession, shots, corners, cards, fouls, offsides, tackles, passes etc.
+ */
+export async function getMatchSummary(
+  sport: string,
+  league: string,
+  eventId: string
+): Promise<Record<string, any> | null> {
+  try {
+    const url = `${BASE_URL}/${sport}/${league}/summary?event=${eventId}`;
+    const data = await fetchWithRetry(url);
+    return data;
+  } catch (error) {
+    // Summary might not be available for all matches (e.g. scheduled ones)
+    return null;
+  }
+}
+
+/**
+ * Extract team statistics from ESPN summary response
+ * Returns stats for home/away team from boxscore.teams[].statistics[]
+ */
+export function parseSummaryStats(
+  summary: Record<string, any>,
+  homeTeamId: string,
+  awayTeamId: string
+): { home: Record<string, number>; away: Record<string, number> } {
+  const result = { home: {} as Record<string, number>, away: {} as Record<string, number> };
+  const teams = summary?.boxscore?.teams || [];
+
+  for (const teamData of teams) {
+    const teamId = teamData.team?.id;
+    const isHome = String(teamId) === String(homeTeamId);
+    const isAway = String(teamId) === String(awayTeamId);
+    const target = isHome ? result.home : isAway ? result.away : null;
+    if (!target) continue;
+
+    for (const stat of teamData.statistics || []) {
+      const val = parseFloat(stat.displayValue || stat.value) || 0;
+      target[stat.name] = val;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Enrich an ESPNMatch with detailed stats from summary
+ */
+export function enrichMatchWithSummary(
+  match: ESPNMatch,
+  summary: Record<string, any>
+): ESPNMatch {
+  const stats = parseSummaryStats(summary, match.homeTeam.id, match.awayTeam.id);
+
+  return {
+    ...match,
+    homeCorners: stats.home['wonCorners'] || match.homeCorners || 0,
+    awayCorners: stats.away['wonCorners'] || match.awayCorners || 0,
+    homeShotsOnTarget: stats.home['shotsOnTarget'] || match.homeShotsOnTarget || 0,
+    awayShotsOnTarget: stats.away['shotsOnTarget'] || match.awayShotsOnTarget || 0,
+    homeTotalShots: stats.home['totalShots'] || match.homeTotalShots || 0,
+    awayTotalShots: stats.away['totalShots'] || match.awayTotalShots || 0,
+    homePossession: stats.home['possessionPct'] || match.homePossession || 0,
+    awayPossession: stats.away['possessionPct'] || match.awayPossession || 0,
+    homeYellowCards: stats.home['yellowCards'] || match.homeYellowCards || 0,
+    awayYellowCards: stats.away['yellowCards'] || match.awayYellowCards || 0,
+    homeRedCards: stats.home['redCards'] || match.homeRedCards || 0,
+    awayRedCards: stats.away['redCards'] || match.awayRedCards || 0,
+    homeFouls: stats.home['foulsCommitted'] || match.homeFouls || 0,
+    awayFouls: stats.away['foulsCommitted'] || match.awayFouls || 0,
+    homeOffsides: stats.home['offsides'] || match.homeOffsides || 0,
+    awayOffsides: stats.away['offsides'] || match.awayOffsides || 0,
+  };
+}
+
 // ============================================
 // INTERNAL PARSERS
 // ============================================
 
 function parseESPNMatch(event: any): ESPNMatch {
   const competition = event.competitions?.[0] || {};
-  const [homeCompetitor, awayCompetitor] = competition.competitors || [{}, {}];
-  
+  const competitors = competition.competitors || [];
+
+  // Use homeAway field to correctly identify home/away (ESPN doesn't guarantee array order)
+  const homeCompetitor = competitors.find((c: any) => c.homeAway === 'home') || competitors[0] || {};
+  const awayCompetitor = competitors.find((c: any) => c.homeAway === 'away') || competitors[1] || {};
+
   return {
     id: event.id,
     eventId: event.id,
@@ -207,18 +297,25 @@ function parseESPNMatch(event: any): ESPNMatch {
     },
     homeScore: parseInt(homeCompetitor.score) || 0,
     awayScore: parseInt(awayCompetitor.score) || 0,
-    homeGoals: parseInt(homeCompetitor.statistics?.find((s: any) => s.name === 'goals')?.displayValue) || 0,
-    awayGoals: parseInt(awayCompetitor.statistics?.find((s: any) => s.name === 'goals')?.displayValue) || 0,
-    homeCorners: parseInt(homeCompetitor.statistics?.find((s: any) => s.name === 'corners')?.displayValue) || 0,
-    awayCorners: parseInt(awayCompetitor.statistics?.find((s: any) => s.name === 'corners')?.displayValue) || 0,
-    homeShotsOnTarget: parseInt(homeCompetitor.statistics?.find((s: any) => s.name === 'shotsOnTarget')?.displayValue) || 0,
-    awayShotsOnTarget: parseInt(awayCompetitor.statistics?.find((s: any) => s.name === 'shotsOnTarget')?.displayValue) || 0,
-    homePossession: parseFloat(homeCompetitor.statistics?.find((s: any) => s.name === 'possession')?.displayValue) || 0,
-    awayPossession: parseFloat(awayCompetitor.statistics?.find((s: any) => s.name === 'possession')?.displayValue) || 0,
-    homeYellowCards: parseInt(homeCompetitor.statistics?.find((s: any) => s.name === 'yellowCards')?.displayValue) || 0,
-    awayYellowCards: parseInt(awayCompetitor.statistics?.find((s: any) => s.name === 'yellowCards')?.displayValue) || 0,
-    homeRedCards: parseInt(homeCompetitor.statistics?.find((s: any) => s.name === 'redCards')?.displayValue) || 0,
-    awayRedCards: parseInt(awayCompetitor.statistics?.find((s: any) => s.name === 'redCards')?.displayValue) || 0,
+    // Scoreboard doesn't return stats - these will be enriched from summary endpoint
+    homeGoals: parseInt(homeCompetitor.score) || 0,
+    awayGoals: parseInt(awayCompetitor.score) || 0,
+    homeCorners: 0,
+    awayCorners: 0,
+    homeShotsOnTarget: 0,
+    awayShotsOnTarget: 0,
+    homeTotalShots: 0,
+    awayTotalShots: 0,
+    homePossession: 0,
+    awayPossession: 0,
+    homeYellowCards: 0,
+    awayYellowCards: 0,
+    homeRedCards: 0,
+    awayRedCards: 0,
+    homeFouls: 0,
+    awayFouls: 0,
+    homeOffsides: 0,
+    awayOffsides: 0,
     period: competition.status?.period?.toString(),
     minute: competition.status?.displayClock ? parseInt(competition.status.displayClock) : undefined,
     venue: competition.venue ? {

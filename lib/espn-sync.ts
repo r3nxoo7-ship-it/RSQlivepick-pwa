@@ -66,6 +66,27 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
       return { count: 0, duration: Date.now() - startTime };
     }
 
+    // Enrich live/completed matches with detailed stats from ESPN summary endpoint
+    const matchesToEnrich = allMatches.filter(m => m.status === 'in_progress' || m.status === 'completed');
+    if (matchesToEnrich.length > 0) {
+      console.log(`📊 [ESPN Sync] Enriching ${matchesToEnrich.length} live/completed matches with summary stats...`);
+      for (const match of matchesToEnrich) {
+        try {
+          const config = (match as any).__league_config;
+          if (!config) continue;
+          const summary = await ESPNAPI.getMatchSummary(config.sport, config.league, match.id);
+          if (summary) {
+            const enriched = ESPNAPI.enrichMatchWithSummary(match, summary);
+            // Copy enriched stats back to the match object
+            Object.assign(match, enriched);
+          }
+        } catch (err) {
+          // Non-critical: continue without stats for this match
+          console.warn(`⚠️ [ESPN Sync] Summary fetch failed for match ${match.id}:`, err);
+        }
+      }
+    }
+
     const rows = allMatches.map(match => {
       const leagueConfig = (match as any).__league_config || {};
       return {
@@ -254,7 +275,7 @@ export async function getLiveMatchesFromDB(limit = 100) {
 
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
+      .select('*')
       .eq('sport', 'soccer') // Only soccer matches
       .neq('league', 'multi') // Filter out multi-sport matches
       .or(`status.eq.in_progress,status.eq.live,status.eq.scheduled`) // Live or scheduled
@@ -282,7 +303,7 @@ export async function getLiveMatchesOnly() {
   try {
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
+      .select('*')
       .eq('sport', 'soccer')
       .neq('league', 'multi')
       .or(`status.eq.in_progress,status.eq.live`) // Only live
@@ -310,7 +331,7 @@ export async function getUpcomingMatches() {
 
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
+      .select('*')
       .eq('sport', 'soccer')
       .neq('league', 'multi')
       .eq('status', 'scheduled')
@@ -334,12 +355,11 @@ export async function getUpcomingMatches() {
  * Get recent completed matches for a team (last 5)
  */
 export async function getTeamRecentMatches(teamId: string, limit = 5) {
-  // Normalize teamId to string for consistent comparison
   const normalizedId = String(teamId);
   try {
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name')
+      .select('*')
       .eq('sport', 'soccer')
       .neq('league', 'multi')
       .eq('status', 'completed')
@@ -430,7 +450,7 @@ export async function getMatchStats(matchId: string) {
   try {
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
+      .select('*')
       .eq('id', matchId)
       .single();
 
@@ -464,6 +484,64 @@ function detectLeague(match: ESPNAPI.ESPNMatch): string {
 
 export function getLastSyncTime(): number {
   return lastSyncTime;
+}
+
+/**
+ * Build statistics array from DB row columns + raw_data (enriched from ESPN summary)
+ * raw_data stores the full ESPNMatch object including homeTotalShots, homeFouls, homeOffsides
+ */
+function buildStatisticsArray(row: any): any[] {
+  const raw = row.raw_data || {};
+  // Read from DB columns first, fall back to raw_data for extra stats
+  const homePoss = row.home_possession || raw.homePossession || 0;
+  const awayPoss = row.away_possession || raw.awayPossession || 0;
+  const homeSoT = row.home_shots_on_target || raw.homeShotsOnTarget || 0;
+  const awaySoT = row.away_shots_on_target || raw.awayShotsOnTarget || 0;
+  const homeTotalShots = raw.homeTotalShots || 0;
+  const awayTotalShots = raw.awayTotalShots || 0;
+  const homeCorners = row.home_corners || raw.homeCorners || 0;
+  const awayCorners = row.away_corners || raw.awayCorners || 0;
+  const homeYellow = row.home_yellow_cards || raw.homeYellowCards || 0;
+  const awayYellow = row.away_yellow_cards || raw.awayYellowCards || 0;
+  const homeRed = row.home_red_cards || raw.homeRedCards || 0;
+  const awayRed = row.away_red_cards || raw.awayRedCards || 0;
+  const homeFouls = raw.homeFouls || 0;
+  const awayFouls = raw.awayFouls || 0;
+  const homeOffsides = raw.homeOffsides || 0;
+  const awayOffsides = raw.awayOffsides || 0;
+
+  // Only return stats if at least some data exists
+  const hasAnyStats = homePoss || awayPoss || homeSoT || awaySoT || homeCorners || awayCorners;
+  if (!hasAnyStats) return [];
+
+  return [
+    {
+      team: { id: row.home_team_id, name: row.home_team_name || 'Unknown' },
+      statistics: [
+        { type: 'Ball Possession', value: homePoss ? `${homePoss}%` : '0%' },
+        { type: 'Shots on Goal', value: homeSoT },
+        { type: 'Total Shots', value: homeTotalShots },
+        { type: 'Corners', value: homeCorners },
+        { type: 'Yellow Cards', value: homeYellow },
+        { type: 'Red Cards', value: homeRed },
+        { type: 'Fouls', value: homeFouls },
+        { type: 'Offsides', value: homeOffsides },
+      ],
+    },
+    {
+      team: { id: row.away_team_id, name: row.away_team_name || 'Unknown' },
+      statistics: [
+        { type: 'Ball Possession', value: awayPoss ? `${awayPoss}%` : '0%' },
+        { type: 'Shots on Goal', value: awaySoT },
+        { type: 'Total Shots', value: awayTotalShots },
+        { type: 'Corners', value: awayCorners },
+        { type: 'Yellow Cards', value: awayYellow },
+        { type: 'Red Cards', value: awayRed },
+        { type: 'Fouls', value: awayFouls },
+        { type: 'Offsides', value: awayOffsides },
+      ],
+    },
+  ];
 }
 
 /**
@@ -531,7 +609,7 @@ export function convertESPNMatchToLiveMatch(row: any): any {
     },
     score: {
       halftime: {
-        home: null, // ESPN data doesn't always separate halftime
+        home: null,
         away: null,
       },
       fulltime: {
@@ -539,7 +617,8 @@ export function convertESPNMatchToLiveMatch(row: any): any {
         away: row.away_score || null,
       },
     },
-    statistics: row.statistics ? JSON.parse(row.statistics) : [],
-    odds: row.odds ? JSON.parse(row.odds) : null,
+    // Build statistics array from DB columns + raw_data (enriched by ESPN summary)
+    statistics: buildStatisticsArray(row),
+    odds: row.odds ? (typeof row.odds === 'string' ? JSON.parse(row.odds) : row.odds) : null,
   };
 }
