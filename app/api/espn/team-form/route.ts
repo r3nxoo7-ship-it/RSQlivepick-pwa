@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const recentMatches = await getTeamRecentMatches(teamId, limit);
-    const form = calculateTeamForm(recentMatches, teamId);
+    console.log(`[Team Form API] Fetching form for teamId=${teamId}, limit=${limit}`);
+    const recentMatches = await getTeamRecentMatches(String(teamId), limit);
+    console.log(`[Team Form API] teamId=${teamId}: ${recentMatches.length} matches found`);
+    const form = calculateTeamForm(recentMatches, String(teamId));
 
     return NextResponse.json({
       teamId,

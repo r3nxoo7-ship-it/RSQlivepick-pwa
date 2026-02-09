@@ -254,7 +254,7 @@ export async function getLiveMatchesFromDB(limit = 100) {
 
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('*')
+      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
       .eq('sport', 'soccer') // Only soccer matches
       .neq('league', 'multi') // Filter out multi-sport matches
       .or(`status.eq.in_progress,status.eq.live,status.eq.scheduled`) // Live or scheduled
@@ -282,7 +282,7 @@ export async function getLiveMatchesOnly() {
   try {
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('*')
+      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
       .eq('sport', 'soccer')
       .neq('league', 'multi')
       .or(`status.eq.in_progress,status.eq.live`) // Only live
@@ -310,7 +310,7 @@ export async function getUpcomingMatches() {
 
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('*')
+      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
       .eq('sport', 'soccer')
       .neq('league', 'multi')
       .eq('status', 'scheduled')
@@ -334,22 +334,25 @@ export async function getUpcomingMatches() {
  * Get recent completed matches for a team (last 5)
  */
 export async function getTeamRecentMatches(teamId: string, limit = 5) {
+  // Normalize teamId to string for consistent comparison
+  const normalizedId = String(teamId);
   try {
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('*')
+      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name')
       .eq('sport', 'soccer')
       .neq('league', 'multi')
       .eq('status', 'completed')
-      .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+      .or(`home_team_id.eq.${normalizedId},away_team_id.eq.${normalizedId}`)
       .order('date', { ascending: false })
       .limit(limit);
 
     if (error) {
-      console.error(`Error fetching recent matches for team ${teamId}:`, error);
+      console.error(`Error fetching recent matches for team ${normalizedId}:`, error);
       return [];
     }
-    
+
+    console.log(`[Team Form] teamId=${normalizedId}, found ${data?.length || 0} completed matches`);
     return data || [];
   } catch (error) {
     console.error('Error reading from Supabase:', error);
@@ -427,7 +430,7 @@ export async function getMatchStats(matchId: string) {
   try {
     const { data, error } = await supabase
       .from('espn_matches')
-      .select('*')
+      .select('id, event_id, sport, league, date, status, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, home_goals, away_goals, home_corners, away_corners, home_shots_on_target, away_shots_on_target, home_possession, away_possession, home_yellow_cards, away_yellow_cards, home_red_cards, away_red_cards, period, minute, venue_name, statistics, odds')
       .eq('id', matchId)
       .single();
 
