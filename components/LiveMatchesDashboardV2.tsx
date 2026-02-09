@@ -53,7 +53,7 @@ export default function LiveMatchesDashboardV2({
       enhanceMatches(currentLive, setLiveWithPredictions);
       enhanceMatches(currentUpcoming, setUpcomingWithPredictions);
     }
-  }, [matches, liveMatches, upcomingMatches, userFilters]);
+  }, [liveMatches, upcomingMatches, matches, userFilters]);
 
   const enhanceMatches = (
     matchList: LiveMatch[],
@@ -208,6 +208,23 @@ function MatchCard({
   const homeForm = teamForm?.[homeTeamId] || null;
   const awayForm = teamForm?.[awayTeamId] || null;
 
+  // Helper to extract stat value from MatchStatistics array
+  const getStatValue = (stats: any[] | undefined, statType: string): string => {
+    if (!stats || stats.length === 0) return '—';
+    
+    // Try to find in home team stats (first element)
+    const homeStats = stats[0];
+    if (homeStats?.statistics) {
+      const found = homeStats.statistics.find((s: any) => 
+        s.type?.toLowerCase().includes(statType.toLowerCase())
+      );
+      if (found?.value !== null && found?.value !== undefined) {
+        return String(found.value);
+      }
+    }
+    return '—';
+  };
+
   // Format next match time
   const matchTime = match.fixture?.date ? new Date(match.fixture.date) : null;
   const now = new Date();
@@ -299,15 +316,18 @@ function MatchCard({
           <div className="grid grid-cols-3 gap-2 mb-4 text-xs">
             <StatBox 
               label="Possession" 
-              value={match.statistics[0]?.possession ? `${match.statistics[0].possession}%` : '—'}
+              value={(() => {
+                const val = getStatValue(match.statistics, 'possession');
+                return val === '—' ? val : `${val}%`;
+              })()}
             />
             <StatBox 
               label="Shots" 
-              value={match.statistics[0]?.shotsOnGoal ? `${match.statistics[0].shotsOnGoal}` : '—'}
+              value={getStatValue(match.statistics, 'shots')}
             />
             <StatBox 
               label="Corners" 
-              value={match.statistics[0]?.corners ? `${match.statistics[0].corners}` : '—'}
+              value={getStatValue(match.statistics, 'corner')}
             />
           </div>
         )}
