@@ -40,11 +40,14 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    console.log('✅ Filter exists, proceeding with delete:', filterId);
+
     // Delete the filter
-    const { error } = await supabaseAdmin
+    const { error, count } = await supabaseAdmin
       .from('filters')
       .delete()
-      .eq('id', filterId);
+      .eq('id', filterId)
+      .select();
 
     if (error) {
       console.error('❌ Error deleting filter:', error);
@@ -54,11 +57,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.log('✅ Filter deleted successfully:', filterId);
+    console.log('✅ Filter deleted successfully:', filterId, 'Rows affected:', count);
     
-    // Add a small delay before returning to ensure the delete is fully committed
-    // and propagated to any read replicas
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Add a longer delay before returning to ensure the delete is fully committed
+    // and propagated to any read replicas (increased from 100ms to 300ms)
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     return NextResponse.json({ error: null });
   } catch (err) {

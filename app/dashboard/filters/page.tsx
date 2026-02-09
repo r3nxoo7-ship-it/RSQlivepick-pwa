@@ -59,6 +59,11 @@ export default function FiltersPage() {
 
       console.log(`✅ Loaded ${userFilters.length} filters at ${timestamp}`);
       console.log('📋 Filter IDs in UI:', userFilters.map(f => `${f.id.substring(0, 8)}... (${f.name})`));
+      
+      // Log if count decreased
+      if (filters.length > userFilters.length) {
+        console.log(`✅ Filter count decreased from ${filters.length} to ${userFilters.length}`);
+      };
 
       setFilters(userFilters);
       // pick up any diagnostic info written to window by dbHelpers
@@ -199,10 +204,16 @@ export default function FiltersPage() {
       console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
-      // Wait longer to ensure DB write is fully propagated, then reload
-      // This is important to avoid stale data from read replicas
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait longer to ensure DB write is fully propagated
+      // Increased from 500ms to 1000ms (1 second) to handle replication delays
+      console.log('⏳ Waiting for database propagation...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
+      // Hard refresh to bust any caches and reload filters
+      console.log('🔄 Refreshing page to reload filters...');
+      router.refresh();
+      
+      // Also reload filters explicitly
       await loadFilters();
 
     } catch (err) {
