@@ -145,7 +145,7 @@ export default function LiveMatchesDashboard({
 
       {/* Matches Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {matchesWithPredictions.map((match, idx) => (
+        {matchesWithPredictions.filter(match => match?.fixture?.id).map((match, idx) => (
           <LiveMatchCard key={match.fixture.id} match={match} idx={idx} onSelect={setSelectedMatch} isSelected={selectedMatch?.fixture?.id === match.fixture?.id} />
         ))}
       </div>

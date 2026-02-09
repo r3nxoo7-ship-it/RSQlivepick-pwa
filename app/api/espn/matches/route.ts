@@ -18,7 +18,10 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    const matches = await espnSync.getLiveMatchesFromDB();
+    const rawMatches = await espnSync.getLiveMatchesFromDB();
+    
+    // Convert raw database rows to LiveMatch format
+    const matches = rawMatches.map(row => espnSync.convertESPNMatchToLiveMatch(row));
     
     return NextResponse.json({
       success: true,

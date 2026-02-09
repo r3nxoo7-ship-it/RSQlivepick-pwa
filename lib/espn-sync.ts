@@ -261,3 +261,80 @@ function detectLeague(match: ESPNAPI.ESPNMatch): string {
 export function getLastSyncTime(): number {
   return lastSyncTime;
 }
+
+/**
+ * Convert raw Supabase ESPN match row to LiveMatch format
+ * Transforms database structure to API response format
+ */
+export function convertESPNMatchToLiveMatch(row: any): any {
+  // Extract date and calculate timestamp
+  const dateStr = row.date || new Date().toISOString();
+  const date = new Date(dateStr);
+  const timestamp = Math.floor(date.getTime() / 1000);
+
+  // Parse status
+  let statusLong = 'Not Started';
+  let statusShort = 'NS';
+  let elapsed: number | null = null;
+
+  if (row.status === 'in_progress' || row.status === 'live') {
+    statusLong = 'Match in Progress';
+    statusShort = 'LIVE';
+    elapsed = row.minute || null;
+  } else if (row.status === 'completed' || row.status === 'finished') {
+    statusLong = 'Match Finished';
+    statusShort = 'FT';
+    elapsed = row.minute || null;
+  } else if (row.status === 'paused') {
+    statusLong = 'Match Paused';
+    statusShort = 'PAUSED';
+    elapsed = row.minute || null;
+  }
+
+  return {
+    fixture: {
+      id: row.id,
+      date: dateStr,
+      timestamp,
+      status: {
+        long: statusLong,
+        short: statusShort,
+        elapsed,
+      },
+    },
+    league: {
+      id: 0, // ESPN data doesn't have league ID, use 0 as placeholder
+      name: row.league || 'Multi League',
+      country: '', // Not available from ESPN sync
+      logo: '', // Not available from ESPN sync
+      flag: '', // Not available from ESPN sync
+    },
+    teams: {
+      home: {
+        id: row.home_team_id,
+        name: row.home_team_name,
+        logo: '', // Could be stored in teams table if needed
+      },
+      away: {
+        id: row.away_team_id,
+        name: row.away_team_name,
+        logo: '', // Could be stored in teams table if needed
+      },
+    },
+    goals: {
+      home: row.home_goals || null,
+      away: row.away_goals || null,
+    },
+    score: {
+      halftime: {
+        home: null, // ESPN data doesn't always separate halftime
+        away: null,
+      },
+      fulltime: {
+        home: row.home_score || null,
+        away: row.away_score || null,
+      },
+    },
+    statistics: [], // Detailed statistics would need to be fetched separately
+  };
+}
