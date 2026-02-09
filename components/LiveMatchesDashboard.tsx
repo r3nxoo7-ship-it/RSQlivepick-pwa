@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Clock, AlertCircle } from 'lucide-react';
-import { LiveMatch } from '@/lib/api-football';
+import { LiveMatch } from '@/lib/unified-api';
 import { Filter } from '@/lib/supabase';
 import { getMatchingFiltersForMatch, calculateMatchPredictability, FilterMatchDetails } from '@/lib/live-filter-matcher';
 
