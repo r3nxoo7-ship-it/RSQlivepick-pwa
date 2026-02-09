@@ -37,7 +37,12 @@ export async function getLiveMatches() {
     const res = await fetch('/api/espn/matches');
     if (res.ok) {
       const body = await res.json();
-      if (body?.matches && body.matches.length > 0) {
+      // Support both old format (body.matches) and new format (body.live.matches + body.upcoming.matches)
+      if (body?.live?.matches && body?.upcoming?.matches) {
+        const allMatches = [...(body.live.matches || []), ...(body.upcoming.matches || [])];
+        console.log(`✅ /api/espn/matches SUCCESS: ${allMatches.length} matches (${body.live.count} live, ${body.upcoming.count} upcoming)`);
+        return allMatches;
+      } else if (body?.matches && body.matches.length > 0) {
         console.log(`✅ /api/espn/matches SUCCESS: ${body.matches.length} matches`);
         return body.matches;
       }
@@ -71,6 +76,31 @@ export async function getLiveMatches() {
   } else {
     throw new Error('Supabase unavailable and fallback disabled.');
   }
+}
+
+/**
+ * Get separated live and upcoming matches
+ */
+export async function getLiveAndUpcomingMatches() {
+  try {
+    console.log('📡 Fetching live and upcoming matches...');
+    const res = await fetch('/api/espn/matches');
+    if (res.ok) {
+      const body = await res.json();
+      if (body?.live && body?.upcoming) {
+        console.log(`✅ Got ${body.live.count} live and ${body.upcoming.count} upcoming matches`);
+        return {
+          live: body.live.matches || [],
+          upcoming: body.upcoming.matches || [],
+          teamForm: body.teamForm || {},
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching separated matches:', err);
+  }
+
+  return { live: [], upcoming: [], teamForm: {} };
 }
 
 /**

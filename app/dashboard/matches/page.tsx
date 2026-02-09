@@ -3,13 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, TrendingUp, Activity } from 'lucide-react';
-import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
-import LiveMatchesDashboard from '@/components/LiveMatchesDashboard';
+import { getLiveMatches, getLiveAndUpcomingMatches, LiveMatch } from '@/lib/unified-api';
+import LiveMatchesDashboardV2 from '@/components/LiveMatchesDashboardV2';
 import { dbHelpers, authHelpers } from '@/lib/supabase';
 import type { Filter } from '@/lib/supabase';
 
 export default function MatchesAnalyticsPage() {
   const [matches, setMatches] = useState<LiveMatch[]>([]);
+  const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
+  const [upcomingMatches, setUpcomingMatches] = useState<LiveMatch[]>([]);
+  const [teamForm, setTeamForm] = useState<Record<string, any>>({});
   const [userFilters, setUserFilters] = useState<Filter[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,14 +30,26 @@ export default function MatchesAnalyticsPage() {
 
       console.log('🔄 Matches page: Loading data...');
 
-      // Load live matches
-      const liveMatches = await getLiveMatches();
-      console.log(`📊 Matches page: Got ${liveMatches?.length || 0} live matches`);
-      setMatches(liveMatches || []);
+      // Try to get separated live and upcoming matches first
+      const separated = await getLiveAndUpcomingMatches();
+      if (separated.live.length > 0 || separated.upcoming.length > 0) {
+        console.log(`📊 Got ${separated.live.length} live and ${separated.upcoming.length} upcoming matches`);
+        setLiveMatches(separated.live);
+        setUpcomingMatches(separated.upcoming);
+        setTeamForm(separated.teamForm || {});
+        setMatches([...separated.live, ...separated.upcoming]);
+      } else {
+        // Fallback to old format
+        const allMatches = await getLiveMatches();
+        console.log(`📊 Got ${allMatches?.length || 0} total matches (fallback)`);
+        setMatches(allMatches || []);
+        setLiveMatches([]);
+        setUpcomingMatches([]);
+      }
 
       // Load user filters
       const filters = await dbHelpers.getUserFilters(user.id);
-      console.log(`🔍 Matches page: Got ${filters.length} user filters`);
+      console.log(`🔍 Got ${filters.length} user filters`);
       setUserFilters(filters);
 
       setLastUpdate(new Date().toLocaleTimeString());
@@ -97,7 +112,14 @@ export default function MatchesAnalyticsPage() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
-        <LiveMatchesDashboard matches={matches} userFilters={userFilters} loading={loading} />
+        <LiveMatchesDashboardV2
+          matches={matches}
+          liveMatches={liveMatches}
+          upcomingMatches={upcomingMatches}
+          teamForm={teamForm}
+          userFilters={userFilters}
+          loading={loading}
+        />
       </div>
     </div>
   );

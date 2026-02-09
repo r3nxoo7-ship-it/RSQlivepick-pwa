@@ -276,6 +276,151 @@ export async function getLiveMatchesFromDB(limit = 100) {
 }
 
 /**
+ * Get only currently live matches (in_progress status)
+ */
+export async function getLiveMatchesOnly() {
+  try {
+    const { data, error } = await supabase
+      .from('espn_matches')
+      .select('*')
+      .eq('sport', 'soccer')
+      .neq('league', 'multi')
+      .or(`status.eq.in_progress,status.eq.live`) // Only live
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching live-only matches:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error reading from Supabase:', error);
+    return [];
+  }
+}
+
+/**
+ * Get upcoming matches (scheduled for next 3 hours)
+ */
+export async function getUpcomingMatches() {
+  try {
+    const now = new Date();
+    const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from('espn_matches')
+      .select('*')
+      .eq('sport', 'soccer')
+      .neq('league', 'multi')
+      .eq('status', 'scheduled')
+      .gte('date', now.toISOString())
+      .lte('date', threeHoursLater.toISOString())
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching upcoming matches:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error reading from Supabase:', error);
+    return [];
+  }
+}
+
+/**
+ * Get recent completed matches for a team (last 5)
+ */
+export async function getTeamRecentMatches(teamId: string, limit = 5) {
+  try {
+    const { data, error } = await supabase
+      .from('espn_matches')
+      .select('*')
+      .eq('sport', 'soccer')
+      .neq('league', 'multi')
+      .eq('status', 'completed')
+      .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error(`Error fetching recent matches for team ${teamId}:`, error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error reading from Supabase:', error);
+    return [];
+  }
+}
+
+/**
+ * Calculate team form statistics from recent matches
+ */
+export function calculateTeamForm(
+  matches: any[],
+  teamId: string
+): {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  winRate: number;
+} {
+  let played = 0;
+  let wins = 0;
+  let draws = 0;
+  let losses = 0;
+  let goalsFor = 0;
+  let goalsAgainst = 0;
+
+  for (const match of matches) {
+    const isHome = match.home_team_id === teamId;
+    const isAway = match.away_team_id === teamId;
+
+    if (!isHome && !isAway) continue;
+
+    played++;
+    const homeScore = match.home_score || 0;
+    const awayScore = match.away_score || 0;
+
+    if (isHome) {
+      goalsFor += homeScore;
+      goalsAgainst += awayScore;
+      if (homeScore > awayScore) wins++;
+      else if (homeScore === awayScore) draws++;
+      else losses++;
+    } else {
+      goalsFor += awayScore;
+      goalsAgainst += homeScore;
+      if (awayScore > homeScore) wins++;
+      else if (awayScore === homeScore) draws++;
+      else losses++;
+    }
+  }
+
+  const goalDifference = goalsFor - goalsAgainst;
+  const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+
+  return {
+    played,
+    wins,
+    draws,
+    losses,
+    goalsFor,
+    goalsAgainst,
+    goalDifference,
+    winRate,
+  };
+}
+
+/**
  * Get match statistics from Supabase
  */
 export async function getMatchStats(matchId: string) {
