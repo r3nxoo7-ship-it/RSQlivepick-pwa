@@ -166,7 +166,7 @@ class BackgroundScannerService {
         awayTeam: match.teams?.away?.name || 'Away',
         league: match.league?.name || 'Unknown',
         minute: match.fixture?.status?.elapsed || 0,
-        matchId: match.fixture?.id || null,
+        matchId: match.fixture!.id,
       };
 
       // Log to database first to get triggered match ID
