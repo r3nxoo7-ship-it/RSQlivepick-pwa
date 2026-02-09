@@ -25,6 +25,7 @@ export interface LiveMatch {
       elapsed: number | null;
     };
   };
+  statistics?: MatchStatistics[];
   league: {
     id: number;
     name: string;
