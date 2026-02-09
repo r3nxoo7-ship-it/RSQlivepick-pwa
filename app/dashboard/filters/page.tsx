@@ -199,8 +199,10 @@ export default function FiltersPage() {
       console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
-      // Brief delay for DB commit, then reload from API (use loadFilters to keep state in sync)
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Wait longer to ensure DB write is fully propagated, then reload
+      // This is important to avoid stale data from read replicas
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       await loadFilters();
 
     } catch (err) {

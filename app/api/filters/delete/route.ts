@@ -55,6 +55,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     console.log('✅ Filter deleted successfully:', filterId);
+    
+    // Add a small delay before returning to ensure the delete is fully committed
+    // and propagated to any read replicas
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     return NextResponse.json({ error: null });
   } catch (err) {
     console.error('❌ Error in /filters/delete:', err);

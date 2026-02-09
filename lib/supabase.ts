@@ -382,8 +382,10 @@ export const dbHelpers = {
       }
 
       // Call server-side API route that uses service role key
-      // Add cache-busting timestamp to force fresh data
-      const url = `/api/filters/get?user_id=${encodeURIComponent(userId)}&_t=${Date.now()}`;
+      // Add multiple cache-busting parameters: timestamp + random to force fresh data
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      const url = `/api/filters/get?user_id=${encodeURIComponent(userId)}&_t=${timestamp}&_r=${random}`;
       console.log('📡 Fetching from:', url);
 
       // Try fetch with one retry for eventual consistency issues
