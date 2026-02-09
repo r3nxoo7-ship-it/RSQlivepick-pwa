@@ -197,7 +197,7 @@ export default function FilterEditPage() {
       conditions: {
         ...formData.conditions,
         [category]: {
-          ...formData.conditions[category],
+          ...((formData.conditions as Record<string, any>)[category] || {}),
           [field]: numValue,
         },
       },
