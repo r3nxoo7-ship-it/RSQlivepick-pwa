@@ -235,35 +235,40 @@ export default function LiveMatchesPage() {
   
   let filteredMatches = selectedLeague === 'all' 
     ? matches 
-    : matches.filter(m => m.league.name === selectedLeague);
+    : matches.filter(m => m.league?.name === selectedLeague);
   
   if (showOnlyFiltered === true) {
-    filteredMatches = filteredMatches.filter(m => filterResults.has(m.fixture.id));
+    filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has(m.fixture.id));
   }
   
-  const leagues = Array.from(new Set(matches.map(m => m.league.name)));
+  const leagues = Array.from(new Set(matches.map(m => m.league?.name || 'Unknown')));
   
   // ============================================
   // HANDLERS
   // ============================================
   
   const handleMatchClick = (match: LiveMatch) => {
-    const matchedFilters = filterResults.get(match.fixture.id);
-    
+    const fixtureId = match.fixture?.id;
+    const matchedFilters = fixtureId ? filterResults.get(fixtureId) : null;
+
+    const homeName = match.teams?.home?.name || 'Home';
+    const awayName = match.teams?.away?.name || 'Away';
+    const leagueName = match.league?.name || 'Unknown';
+
     if (matchedFilters && matchedFilters.length > 0) {
       const filterNames = matchedFilters.map(r => r.filter.name).join(', ');
       const conditions = matchedFilters[0].matchedConditions.join('\n');
-      
+
       alert(
-        `⚽ ${match.teams.home.name} vs ${match.teams.away.name}\n\n` +
+        `⚽ ${homeName} vs ${awayName}\n\n` +
         `✅ Matched Filters (${matchedFilters.length}):\n${filterNames}\n\n` +
         `📊 Conditions:\n${conditions}`
       );
     } else {
       alert(
-        `⚽ ${match.teams.home.name} vs ${match.teams.away.name}\n\n` +
-        `Match ID: ${match.fixture.id}\n` +
-        `Liga: ${match.league.name}\n\n` +
+        `⚽ ${homeName} vs ${awayName}\n\n` +
+        `Match ID: ${fixtureId || match.id || 'unknown'}\n` +
+        `Liga: ${leagueName}\n\n` +
         `❌ No filters matched`
       );
     }
@@ -501,7 +506,7 @@ export default function LiveMatchesPage() {
             >
               {filteredMatches.map((match, index) => (
                 <motion.div
-                  key={match.fixture.id}
+                  key={match.fixture?.id || match.id || index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
@@ -510,7 +515,7 @@ export default function LiveMatchesPage() {
                     match={match}
                     onClick={() => setSelectedMatch(match)}
                     showStatistics={true}
-                    filterResults={filterResults.get(match.fixture.id)}
+                    filterResults={filterResults.get(match.fixture?.id)}
                   />
                 </motion.div>
               ))}
