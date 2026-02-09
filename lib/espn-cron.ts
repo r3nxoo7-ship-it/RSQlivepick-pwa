@@ -1,18 +1,16 @@
 // ============================================
 // ESPN CRON JOB SERVICE
 // ============================================
-// Runs every 1 minute automatically
-// Fetches from ESPN, saves to Supabase
+// Runs every 1 minute automatically via API endpoint
 // Prevents 100 users from fetching ESPN 100 times
-
-import * as espnSync from './espn-sync';
+// Safe for client-side (calls API, doesn't use server secrets)
 
 let cronInterval: NodeJS.Timeout | null = null;
 let isInitialized = false;
 
 /**
  * Start the 1-minute ESPN sync cron job
- * Call this on app startup/initialization
+ * Calls /api/espn/sync endpoint (server-side)
  */
 export function startESPNCron() {
   if (isInitialized) {
@@ -60,9 +58,23 @@ async function syncAndLog() {
   console.log(`⏱️ [ESPN Cron] Executing sync at ${timestamp}`);
 
   try {
-    const result = await espnSync.syncAllMatches();
-    console.log(`✅ [ESPN Cron] Sync complete - ${result.count} matches in ${result.duration}ms`);
+    // Call the API endpoint (server-side handles Supabase)
+    const response = await fetch('/api/espn/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SYNC_KEY || ''}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(`✅ [ESPN Cron] Sync complete - ${result.matches?.synced || 0} matches synced`);
   } catch (error) {
-    console.error(`❌ [ESPN Cron] Sync failed:`, error instanceof Error ? error.message : String(error));
+    console.warn(`⚠️ [ESPN Cron] Sync request failed (this is optional):`, error instanceof Error ? error.message : String(error));
+    // Don't throw - cron should keep running even if sync fails
   }
 }

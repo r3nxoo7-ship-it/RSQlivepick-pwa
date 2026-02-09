@@ -8,7 +8,9 @@
 
 import * as FootballData from './football-data';
 import * as APIFootball from './api-football';
-import * as espnSync from './espn-sync';
+// Note: Do NOT import server-only modules (espn-sync) here — this file
+// is used by client components. We'll fetch synced data via the server API
+// endpoint `/api/espn/matches` to avoid bundling server secrets.
 
 export type { LiveMatch, MatchStatistics } from './football-data';
 
@@ -28,17 +30,22 @@ const ENABLE_FALLBACK = true;
  */
 export async function getLiveMatches() {
   console.log('🔍 Fetching live matches (with fallback)...');
-  
-  // Try Supabase first (ESPN data synced every 1 minute)
+
+  // Try server-synced Supabase data first via API endpoint
   try {
-    console.log('📡 Trying Supabase (ESPN synced data)...');
-    const matches = await espnSync.getLiveMatchesFromDB();
-    if (matches.length > 0) {
-      console.log(`✅ Supabase SUCCESS: ${matches.length} matches (synced from ESPN)`);
-      return matches;
+    console.log('📡 Trying server /api/espn/matches (synced data)...');
+    const res = await fetch('/api/espn/matches');
+    if (res.ok) {
+      const body = await res.json();
+      if (body?.matches && body.matches.length > 0) {
+        console.log(`✅ /api/espn/matches SUCCESS: ${body.matches.length} matches`);
+        return body.matches;
+      }
+    } else {
+      console.warn('⚠️ /api/espn/matches returned', res.status);
     }
-  } catch (dbError) {
-    console.warn('⚠️ Supabase lookup failed, trying fallback...', dbError);
+  } catch (err) {
+    console.warn('⚠️ Server-synced lookup failed, trying fallback...', err);
   }
 
   // Fallback to API-Football or Football-Data

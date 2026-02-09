@@ -15,16 +15,10 @@ export const revalidate = 0;
 /**
  * POST /api/espn/sync
  * Sync ESPN data to Supabase
- * Should be called every 1 minute by cron
+ * Called every 1 minute by client-side cron
  */
 export async function POST(request: NextRequest) {
   try {
-    // Optional: Verify secret key for security
-    const authHeader = request.headers.get('authorization');
-    if (process.env.SYNC_SECRET_KEY && authHeader !== `Bearer ${process.env.SYNC_SECRET_KEY}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     console.log('📨 [API] ESPN sync endpoint called');
 
     // Main sync: matches (happens every call)
