@@ -295,7 +295,7 @@ function MatchCard({
         </div>
 
         {/* Quick Stats Preview */}
-        {match.statistics?.length > 0 && (
+        {match.statistics && match.statistics.length > 0 && (
           <div className="grid grid-cols-3 gap-2 mb-4 text-xs">
             <StatBox 
               label="Possession" 
