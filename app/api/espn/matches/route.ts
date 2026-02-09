@@ -20,11 +20,14 @@ export async function GET(request: NextRequest) {
   try {
     const rawMatches = await espnSync.getLiveMatchesFromDB();
     
-    // Filter for soccer only, and ensure we have valid team data
+    // Filter for soccer only, exclude multi-sport, ensure valid team data
     const soccerMatches = rawMatches.filter(row => 
-      (row.sport === 'soccer' || !row.sport) && 
+      row.sport === 'soccer' && 
+      row.league !== 'multi' &&
       row.home_team_name && 
+      row.home_team_name !== 'Unknown' &&
       row.away_team_name &&
+      row.away_team_name !== 'Unknown' &&
       row.id
     );
     

@@ -250,7 +250,9 @@ export async function getLiveMatchesFromDB(limit = 100) {
     const { data, error } = await supabase
       .from('espn_matches')
       .select('*')
+      .eq('sport', 'soccer') // Only soccer matches
       .neq('status', 'completed')
+      .neq('league', 'multi') // Filter out multi-sport matches
       .order('date', { ascending: true })
       .limit(limit);
 
