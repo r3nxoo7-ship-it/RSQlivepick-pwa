@@ -10,6 +10,14 @@ const withPWA = require('@ducanh2912/next-pwa').default({
     importScripts: ['/sw-custom.js'],
   },
   runtimeCaching: [
+    // Do not cache Supabase origins (responses may include Vary: *)
+    {
+      urlPattern: /^https:\/\/.*supabase\.co\/.*$/i,
+      handler: 'NetworkOnly',
+      options: {
+        cacheName: 'supabase-network-only'
+      }
+    },
     {
       urlPattern: /^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,
       handler: 'CacheFirst',

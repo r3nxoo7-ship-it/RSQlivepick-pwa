@@ -113,11 +113,21 @@ class BackgroundScannerService {
 
       let notificationsSentThisScan = 0;
 
-      // Scan each match
+      // Scan each match (guard against incomplete match objects)
       for (const match of matches) {
+        if (!match || !match.fixture || !match.fixture.id) {
+          console.warn('⚠️ Scanner: Skipping invalid match (missing fixture.id)', match);
+          continue;
+        }
+
+        if (!match.teams || !match.teams.home || !match.teams.away) {
+          console.warn('⚠️ Scanner: Skipping match with missing team data', match.fixture.id);
+          continue;
+        }
+
         const matchResults = await applyFiltersToMatch(match, activeFilters);
 
-        if (matchResults.length > 0) {
+        if (matchResults && matchResults.length > 0) {
           console.log(`✅ Match ${match.fixture.id} triggered ${matchResults.length} filter(s)`);
 
           // Send notifications for each matched filter
@@ -152,11 +162,11 @@ class BackgroundScannerService {
   private async sendNotifications(match: LiveMatch, filter: Filter) {
     try {
       const matchData = {
-        homeTeam: match.teams.home.name,
-        awayTeam: match.teams.away.name,
-        league: match.league.name,
-        minute: match.fixture.status.elapsed || 0,
-        matchId: match.fixture.id,
+        homeTeam: match.teams?.home?.name || 'Home',
+        awayTeam: match.teams?.away?.name || 'Away',
+        league: match.league?.name || 'Unknown',
+        minute: match.fixture?.status?.elapsed || 0,
+        matchId: match.fixture?.id || null,
       };
 
       // Log to database first to get triggered match ID
@@ -166,17 +176,17 @@ class BackgroundScannerService {
         // Log triggered match for history/analytics
         const result = await dbHelpers.logTriggeredMatch({
           user_id: currentUser.id,
-          match_id: match.fixture.id.toString(),
+          match_id: (match.fixture?.id || '').toString(),
           filter_id: filter.id,
           filter_name: filter.name,
-          home_team: match.teams.home.name,
-          away_team: match.teams.away.name,
-          league_name: match.league.name,
+          home_team: match.teams?.home?.name || '',
+          away_team: match.teams?.away?.name || '',
+          league_name: match.league?.name || '',
           triggered_at: new Date().toISOString(),
           match_time: match.fixture.status.elapsed || null,
-          score_home: match.goals.home || null,
-          score_away: match.goals.away || null,
-          match_status: match.fixture.status.short || 'ongoing',
+          score_home: match.goals?.home || null,
+          score_away: match.goals?.away || null,
+          match_status: match.fixture?.status?.short || 'ongoing',
         });
         triggeredMatchId = result.id;
 

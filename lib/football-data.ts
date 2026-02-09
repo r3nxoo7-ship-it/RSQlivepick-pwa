@@ -14,6 +14,7 @@ const PROXY_URL = '/api/football-data'; // Next.js API route (server-side)
 // ============================================
 
 export interface LiveMatch {
+  id?: number;
   fixture: {
     id: number;
     date: string;

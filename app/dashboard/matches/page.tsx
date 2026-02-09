@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, TrendingUp, Activity } from 'lucide-react';
-import { getLiveMatches, LiveMatch } from '@/lib/api-football';
+import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
 import LiveMatchesDashboard from '@/components/LiveMatchesDashboard';
 import { dbHelpers, authHelpers } from '@/lib/supabase';
 import type { Filter } from '@/lib/supabase';

@@ -59,7 +59,6 @@ export async function GET(request: NextRequest) {
           'Pragma': 'no-cache',
           'Expires': '0',
           'CDN-Cache-Control': 'no-cache',
-          'Vary': '*',
           'X-Content-Type-Options': 'nosniff',
           'X-timestamp': new Date().toISOString(),
           // Tell Vercel to not cache this at all

@@ -267,7 +267,7 @@ export default function LiveMatchesPage() {
     } else {
       alert(
         `⚽ ${homeName} vs ${awayName}\n\n` +
-        `Match ID: ${fixtureId || match.id || 'unknown'}\n` +
+        `Match ID: ${fixtureId || 'unknown'}\n` +
         `Liga: ${leagueName}\n\n` +
         `❌ No filters matched`
       );
@@ -506,7 +506,7 @@ export default function LiveMatchesPage() {
             >
               {filteredMatches.map((match, index) => (
                 <motion.div
-                  key={match.fixture?.id || match.id || index}
+                  key={match.fixture?.id || index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}

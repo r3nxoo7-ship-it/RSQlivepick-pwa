@@ -316,6 +316,12 @@ export async function applyFiltersToMatch(
     return results;
   }
   
+  // Guard: ensure match has fixture id
+  if (!match || !match.fixture || !match.fixture.id) {
+    console.warn('⚠️ filter-engine: Skipping match without fixture.id', match);
+    return results;
+  }
+
   // Obținem statisticile o singură dată (pentru performance)
   let stats = null;
   try {
@@ -356,8 +362,13 @@ export async function applyFiltersToMatches(
   
   // Pentru fiecare meci, aplicăm toate filtrele
   for (const match of matches) {
+    if (!match || !match.fixture || !match.fixture.id) {
+      console.warn('⚠️ filter-engine: Skipping invalid match in batch', match);
+      continue;
+    }
+
     const matchResults = await applyFiltersToMatch(match, filters);
-    
+
     if (matchResults.length > 0) {
       resultsMap.set(match.fixture.id, matchResults);
     }
