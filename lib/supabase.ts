@@ -72,38 +72,226 @@ export interface Filter {
 }
 
 export interface FilterConditions {
-  corners?: {
+  // ============ LIVE STATS ============
+  // Goals (total, by team, by half, by time)
+  goals?: {
     min?: number;
     max?: number;
     team?: 'home' | 'away' | 'total';
   };
+  goals_first_half?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  goals_second_half?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  goals_last_5min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  goals_last_10min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  goals_last_15min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  goals_last_20min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  goals_last_25min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  
+  // Shots
   shots_on_target?: {
     min?: number;
     max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean; // If true, min/max is percentage compared
   };
   shots_off_target?: {
     min?: number;
     max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
   };
   total_shots?: {
     min?: number;
     max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
+  };
+  
+  // Attacks
+  attacks?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
   };
   dangerous_attacks?: {
     min?: number;
     max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
   };
+  attacks_and_dangerous?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
+  };
+
+  // Corners
+  corners?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
+  };
+
+  // Possession
+  possession?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away';
+  };
+
+  // Cards
   yellow_cards?: {
     min?: number;
     max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
   };
   red_cards?: {
     min?: number;
     max?: number;
+    team?: 'home' | 'away' | 'total';
+    compare_to_opponent?: boolean;
   };
-  possession?: {
+
+  // Advanced stats
+  xg?: {
     min?: number;
     max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  penalties?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+
+  // ============ LIVE ODDS ============
+  match_goals?: {
+    type: 'over' | 'under';
+    value: 0.5 | 1.5 | 2.5 | 3.5 | 4.5 | 5.5 | 6.5 | 7.5 | 8.5 | 9.5;
+    from_current_score?: boolean;
+  };
+  first_half_goals?: {
+    type: 'over' | 'under';
+    value: 0.5 | 1.5 | 2.5 | 3.5 | 4.5 | 5.5;
+    from_current_score?: boolean;
+  };
+  goal_line?: {
+    type: 'over' | 'under';
+    value: number; // 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10
+  };
+  first_half_goal_line?: {
+    type: 'over' | 'under';
+    value: number;
+  };
+  match_corners?: {
+    type: 'over' | 'under';
+    value: number; // 1-25
+    from_current_corners?: boolean;
+  };
+  asian_corners?: {
+    type: 'over' | 'under';
+    value: number; // 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, etc.
+    from_current_corners?: boolean;
+  };
+  first_half_asian_corners?: {
+    type: 'over' | 'under';
+    value: number;
+    from_current_corners?: boolean;
+  };
+
+  // Match Result Odds
+  fulltime_result?: 'home' | 'draw' | 'away';
+  draw_no_bet?: 'home' | 'away';
+  double_chance?: 'home_draw' | 'draw_away' | 'home_away';
+  halftime_result?: 'home' | 'draw' | 'away';
+  
+  // Goal Odds
+  goals_odd_or_even?: 'odd' | 'even';
+  next_goal_scorer?: 'home' | 'away' | 'nobody';
+
+  // Both Teams to Score
+  both_teams_score?: boolean;
+  both_teams_score_first_half?: boolean;
+  both_teams_score_second_half?: boolean;
+  home_team_score_first_half?: boolean;
+  away_team_score_first_half?: boolean;
+  home_team_score_second_half?: boolean;
+  away_team_score_second_half?: boolean;
+  home_team_score_both_halves?: boolean;
+  away_team_score_both_halves?: boolean;
+
+  // Clean Sheets
+  home_clean_sheet?: boolean;
+  away_clean_sheet?: boolean;
+
+  // Asian Handicap (with current score)
+  asian_handicap?: {
+    value: number;
+    team?: 'home' | 'away';
+    from_current_score?: boolean;
+  };
+
+  // ============ MOMENTUM ============
+  momentum_last_5min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away';
+  };
+  momentum_last_10min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away';
+  };
+  momentum_last_15min?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away';
+  };
+  custom_momentum?: {
+    shot_on_target_points?: number;
+    shot_off_target_points?: number;
+    dangerous_attack_points?: number;
+    attack_points?: number;
+    corner_points?: number;
+  };
+
+  // ============ LEGACY / COMMON ============
+  score?: {
+    home?: number;
+    away?: number;
+    type?: 'exact' | 'range';
   };
   match_time?: {
     min?: number;
@@ -112,16 +300,6 @@ export interface FilterConditions {
   odds?: {
     min?: number;
     max?: number;
-  };
-  goals?: {
-    min?: number;
-    max?: number;
-    team?: 'home' | 'away' | 'total';
-  };
-  score?: {
-    home?: number;
-    away?: number;
-    type?: 'exact' | 'range';
   };
 }
 
