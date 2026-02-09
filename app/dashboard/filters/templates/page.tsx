@@ -140,10 +140,14 @@ export default function FilterTemplatesPage() {
         alert(`✅ Filter "${template.name}" successfully imported!\n\nGo to "My Filters" tab to view and activate it.`);
       }
 
-      // Reload with delay to ensure DB commit and UI update
+      // Navigate to My Filters, then refresh after a short delay
+      await router.push('/dashboard/filters');
       setTimeout(() => {
-        router.refresh();
-        router.push('/dashboard/filters');
+        try {
+          router.refresh();
+        } catch (e) {
+          console.warn('Could not refresh after import:', e);
+        }
       }, 500);
       
     } catch (err) {

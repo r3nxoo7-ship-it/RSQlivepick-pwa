@@ -557,8 +557,8 @@ export const dbHelpers = {
       const result = await response.json();
 
       if (!response.ok || result.error) {
-        console.error('Error deleting filter via API:', result.error);
-        return { error: 'Error deleting filter' };
+        console.error('Error deleting filter via API:', result.error || result);
+        return { error: (result && result.error) ? result.error : `Error deleting filter (status ${response.status})` };
       }
 
       console.log('✅ Filter deleted:', filterId);

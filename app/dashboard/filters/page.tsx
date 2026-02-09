@@ -35,6 +35,7 @@ export default function FiltersPage() {
   const [filters, setFilters] = useState<Filter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingNotifications, setUpdatingNotifications] = useState<string[]>([]);
   
   // ============================================
   // LOAD FILTERS
@@ -79,38 +80,47 @@ export default function FiltersPage() {
    * Toggle filter notifications
    */
   const handleToggleNotifications = async (filterId: string, currentStatus: boolean) => {
-    console.log('🔔 Toggling notifications:', filterId, 'from', currentStatus, 'to', !currentStatus);
-    
-    try {
-      const currentUser = authHelpers.getCurrentUser();
-      if (!currentUser) {
-        alert('Please log in');
-        return;
-      }
+    console.log('🔔 Toggling notifications (optimistic):', filterId, 'from', currentStatus, 'to', !currentStatus);
 
+    const currentUser = authHelpers.getCurrentUser();
+    if (!currentUser) {
+      alert('Please log in');
+      return;
+    }
+
+    // Optimistic UI update
+    setUpdatingNotifications(prev => [...prev, filterId]);
+    setFilters(prev => prev.map(f => f.id === filterId ? { ...f, notification_enabled: !currentStatus } : f));
+
+    try {
       const response = await fetch('/api/filters/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: currentUser.id,
           filterId: filterId,
-          updates: {
-            notification_enabled: !currentStatus,
-          },
+          updates: { notification_enabled: !currentStatus },
         }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        console.error('❌ Toggle notifications failed:', data.error || response.statusText);
+        // Revert optimistic update
+        setFilters(prev => prev.map(f => f.id === filterId ? { ...f, notification_enabled: currentStatus } : f));
         alert(`Error: ${data.error || 'Failed to update notifications'}`);
         return;
       }
 
-      console.log('✅ Notifications toggled successfully');
+      // Ensure fresh data
       await loadFilters();
     } catch (err) {
       console.error('❌ Exception in handleToggleNotifications:', err);
+      // Revert optimistic update
+      setFilters(prev => prev.map(f => f.id === filterId ? { ...f, notification_enabled: currentStatus } : f));
       alert('Error updating notifications');
+    } finally {
+      setUpdatingNotifications(prev => prev.filter(id => id !== filterId));
     }
   };
 
@@ -182,10 +192,8 @@ export default function FiltersPage() {
       console.log('✅ Filter deleted successfully from database');
       alert(`✅ Filter "${filterName}" deleted successfully!`);
 
-      // Brief delay for UI smoothness, then reload with cache-busting
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      router.refresh();
+      // Brief delay for DB commit, then reload from API (use loadFilters to keep state in sync)
+      await new Promise(resolve => setTimeout(resolve, 300));
       await loadFilters();
 
     } catch (err) {
@@ -418,8 +426,13 @@ export default function FiltersPage() {
                         onClick={() => handleToggleNotifications(filter.id, filter.notification_enabled)}
                         className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
                         title={filter.notification_enabled ? 'Disable notifications' : 'Enable notifications'}
+                        disabled={updatingNotifications.includes(filter.id)}
                       >
-                        <Bell className={`w-5 h-5 ${filter.notification_enabled ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                        {updatingNotifications.includes(filter.id) ? (
+                          <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                        ) : (
+                          <Bell className={`w-5 h-5 ${filter.notification_enabled ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                        )}
                       </button>
 
                       {/* Toggle Active */}
