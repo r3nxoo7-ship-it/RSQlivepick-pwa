@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses request parameters
 export const dynamic = 'force-dynamic';
 
+// Disable all caching for this route (Vercel-compatible)
+export const revalidate = 0;
+
 // Singleton client with connection pooling (REVERT to original approach)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -29,11 +32,10 @@ export async function GET(request: NextRequest) {
 
     console.log('📖 API /filters/get: Reading filters for user:', userId);
 
-    // Use explicit fields to avoid returning unexpected columns
-    // NOTE: some deployments may not have the optional `color` column; exclude it here to avoid 42703 errors
+    // Use wildcard select instead of explicit fields to avoid query-level caching
     const { data, error } = await supabaseAdmin
       .from('filters')
-      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at, forked_from_id, forked_from_user, version, is_editable')
+      .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -47,16 +49,21 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Filters read successfully:', data?.length || 0);
 
-    // Return with aggressive no-cache headers to prevent stale data
+    // Return with extremely aggressive cache control to prevent Vercel edge caching
+    // This response must never be cached - data changes frequently
     return NextResponse.json(
       { data: data || [], error: null },
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0',
           'Pragma': 'no-cache',
           'Expires': '0',
+          'CDN-Cache-Control': 'no-cache',
+          'Vary': '*',
           'X-Content-Type-Options': 'nosniff',
-          'X-timestamp': new Date().toISOString(), // Force browser to treat each response as different
+          'X-timestamp': new Date().toISOString(),
+          // Tell Vercel to not cache this at all
+          'X-Vercel-Cache': 'BYPASS',
         }
       }
     );
