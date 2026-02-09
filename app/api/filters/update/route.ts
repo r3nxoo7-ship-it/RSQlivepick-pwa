@@ -27,20 +27,23 @@ export async function PATCH(request: NextRequest) {
     // ============================================
     // CHECK IF FILTER IS EDITABLE
     // ============================================
-    // Use explicit fields instead of * to bust cache (compatible with .single())
-    const { data: filter, error: fetchError } = await supabaseAdmin
+    // Use explicit fields instead of * to bust cache
+    // Use .limit(1) instead of .single() to avoid PGRST116 when filter doesn't exist
+    const { data: filters, error: fetchError } = await supabaseAdmin
       .from('filters')
       .select('id, is_editable, user_id')
       .eq('id', filterId)
-      .single();
+      .limit(1);
 
-    if (fetchError || !filter) {
-      console.error('❌ Filter not found:', fetchError);
+    if (fetchError || !filters || filters.length === 0) {
+      console.error('❌ Filter not found:', fetchError || 'empty result');
       return NextResponse.json(
         { error: 'Filter not found' },
         { status: 404 }
       );
     }
+
+    const filter = filters[0];
 
     // Check if filter is editable (forked filters can't edit original)
     if (filter.is_editable === false) {

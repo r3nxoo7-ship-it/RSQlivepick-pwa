@@ -47,14 +47,16 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Filters read successfully:', data?.length || 0);
 
-    // Return with no-cache headers to prevent stale data
+    // Return with aggressive no-cache headers to prevent stale data
     return NextResponse.json(
       { data: data || [], error: null },
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
           'Pragma': 'no-cache',
           'Expires': '0',
+          'X-Content-Type-Options': 'nosniff',
+          'X-timestamp': new Date().toISOString(), // Force browser to treat each response as different
         }
       }
     );

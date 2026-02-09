@@ -25,7 +25,22 @@ export async function DELETE(request: NextRequest) {
 
     console.log('🗑️ API /filters/delete: Deleting filter:', filterId);
 
-    // Simple direct delete (REVERT to original approach)
+    // First verify the filter exists before deleting
+    const { data: existingFilter, error: checkError } = await supabaseAdmin
+      .from('filters')
+      .select('id')
+      .eq('id', filterId)
+      .limit(1);
+
+    if (checkError || !existingFilter || existingFilter.length === 0) {
+      console.warn('⚠️ Filter not found (already deleted):', filterId);
+      return NextResponse.json(
+        { error: 'Filter not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete the filter
     const { error } = await supabaseAdmin
       .from('filters')
       .delete()
@@ -39,7 +54,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.log('✅ Filter deleted successfully');
+    console.log('✅ Filter deleted successfully:', filterId);
     return NextResponse.json({ error: null });
   } catch (err) {
     console.error('❌ Error in /filters/delete:', err);
