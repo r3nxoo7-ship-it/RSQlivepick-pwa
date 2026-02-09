@@ -3,6 +3,7 @@ import { Outfit, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ScannerInitializer } from "@/components/ScannerInitializer";
 import { NotificationClickHandler } from "@/components/NotificationClickHandler";
+import ESPNSyncScheduler from "@/components/ESPNSyncScheduler";
 
 // ============================================
 // FONTS
@@ -66,6 +67,7 @@ export default function RootLayout({
       <body className="font-body antialiased bg-primary text-text-primary">
         <NotificationClickHandler />
         <ScannerInitializer />
+        <ESPNSyncScheduler />
         {children}
       </body>
     </html>
