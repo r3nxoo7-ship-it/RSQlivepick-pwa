@@ -24,84 +24,130 @@ let lastSyncTime = 0;
 /**
  * Sync all live matches to Supabase (deduplicated)
  * Fetches from ESPN once, saves to DB, all users read from Supabase
+ * Fetches soccer leagues ONLY to avoid duplicates and multi-sport confusion
  */
 export async function syncAllMatches(): Promise<{ count: number; duration: number }> {
   const startTime = Date.now();
   
   try {
-    console.log('🔄 [ESPN Sync] Starting match sync...');
-    const matches = await ESPNAPI.getAllLiveMatches();
+    console.log('⚽ [ESPN Sync] Starting soccer match sync (FIFA leagues only)...');
     
-    if (matches.length === 0) {
-      console.log('⚠️ [ESPN Sync] No matches to sync');
+    // Soccer leagues only - avoid NBA, NFL, etc.
+    const soccerLeagues = [
+      { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
+      { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
+      { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
+      { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
+      { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
+      { sport: 'soccer', league: 'usa.1', name: 'MLS' },
+      { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
+    ];
+
+    const allMatches: ESPNAPI.ESPNMatch[] = [];
+
+    for (const config of soccerLeagues) {
+      try {
+        const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league);
+        console.log(`  ⚽ ${config.name}: ${matches.length} matches`);
+        
+        // Add league info to each match for better tracking
+        matches.forEach(m => {
+          (m as any).__league_config = config;
+        });
+        
+        allMatches.push(...matches);
+      } catch (err) {
+        console.warn(`⚠️ [ESPN Sync] Failed to fetch ${config.name}:`, err);
+      }
+    }
+    
+    if (allMatches.length === 0) {
+      console.log('⚠️ [ESPN Sync] No soccer matches to sync');
       return { count: 0, duration: Date.now() - startTime };
     }
 
-    const rows = matches.map(match => ({
-      id: match.id,
-      event_id: match.eventId || match.id,
-      sport: detectSport(match),
-      league: detectLeague(match),
-      date: new Date(match.date),
-      status: match.status,
-      home_team_id: match.homeTeam.id,
-      away_team_id: match.awayTeam.id,
-      home_team_name: match.homeTeam.displayName,
-      away_team_name: match.awayTeam.displayName,
-      home_score: match.homeScore || 0,
-      away_score: match.awayScore || 0,
-      home_goals: match.homeGoals,
-      away_goals: match.awayGoals,
-      home_corners: match.homeCorners,
-      away_corners: match.awayCorners,
-      home_shots_on_target: match.homeShotsOnTarget,
-      away_shots_on_target: match.awayShotsOnTarget,
-      home_possession: match.homePossession,
-      away_possession: match.awayPossession,
-      home_yellow_cards: match.homeYellowCards,
-      away_yellow_cards: match.awayYellowCards,
-      home_red_cards: match.homeRedCards,
-      away_red_cards: match.awayRedCards,
-      period: match.period,
-      minute: match.minute,
-      venue_id: match.venue?.id,
-      venue_name: match.venue?.name,
-      broadcast: match.broadcast,
-      odds: match.odds,
-      raw_data: match,
-    }));
+    const rows = allMatches.map(match => {
+      const leagueConfig = (match as any).__league_config || {};
+      return {
+        id: match.id,
+        event_id: match.eventId || match.id,
+        sport: 'soccer', // Explicit soccer only
+        league: leagueConfig.name || 'Soccer',
+        date: new Date(match.date),
+        status: match.status,
+        home_team_id: match.homeTeam.id,
+        away_team_id: match.awayTeam.id,
+        home_team_name: match.homeTeam.displayName || match.homeTeam.name,
+        away_team_name: match.awayTeam.displayName || match.awayTeam.name,
+        home_score: match.homeScore || 0,
+        away_score: match.awayScore || 0,
+        home_goals: match.homeGoals,
+        away_goals: match.awayGoals,
+        home_corners: match.homeCorners,
+        away_corners: match.awayCorners,
+        home_shots_on_target: match.homeShotsOnTarget,
+        away_shots_on_target: match.awayShotsOnTarget,
+        home_possession: match.homePossession,
+        away_possession: match.awayPossession,
+        home_yellow_cards: match.homeYellowCards,
+        away_yellow_cards: match.awayYellowCards,
+        home_red_cards: match.homeRedCards,
+        away_red_cards: match.awayRedCards,
+        period: match.period,
+        minute: match.minute,
+        venue_id: match.venue?.id,
+        venue_name: match.venue?.name,
+        broadcast: match.broadcast,
+        odds: match.odds ? JSON.stringify(match.odds) : null,
+        raw_data: match,
+      };
+    });
 
-    // Ensure teams exist first to satisfy FK constraints
+    // Deduplicate by fixture ID before upserting
+    const uniqueMatches = new Map<string, typeof rows[0]>();
+    for (const row of rows) {
+      if (!uniqueMatches.has(row.id)) {
+        uniqueMatches.set(row.id, row);
+      }
+    }
+
+    // Upsert teams first
     try {
       const teamMap: Record<string, any> = {};
-      for (const m of matches) {
+      for (const m of allMatches) {
         if (m.homeTeam) {
-          teamMap[String(m.homeTeam.id)] = {
-            id: String(m.homeTeam.id),
-            name: m.homeTeam.name,
-            display_name: m.homeTeam.displayName,
-            abbreviation: m.homeTeam.abbreviation,
-            logo: m.homeTeam.logo,
-            color: m.homeTeam.color,
-            alternate_color: m.homeTeam.alternateColor,
-            venue_id: m.homeTeam.venueId,
-            sport: detectSport(m),
-            league: detectLeague(m),
-          };
+          const teamId = String(m.homeTeam.id);
+          if (!teamMap[teamId]) {
+            teamMap[teamId] = {
+              id: teamId,
+              name: m.homeTeam.name,
+              display_name: m.homeTeam.displayName,
+              abbreviation: m.homeTeam.abbreviation,
+              logo: m.homeTeam.logo,
+              color: m.homeTeam.color,
+              alternate_color: m.homeTeam.alternateColor,
+              venue_id: m.homeTeam.venueId,
+              sport: 'soccer',
+              league: (m as any).__league_config?.name || 'Soccer',
+            };
+          }
         }
         if (m.awayTeam) {
-          teamMap[String(m.awayTeam.id)] = {
-            id: String(m.awayTeam.id),
-            name: m.awayTeam.name,
-            display_name: m.awayTeam.displayName,
-            abbreviation: m.awayTeam.abbreviation,
-            logo: m.awayTeam.logo,
-            color: m.awayTeam.color,
-            alternate_color: m.awayTeam.alternateColor,
-            venue_id: m.awayTeam.venueId,
-            sport: detectSport(m),
-            league: detectLeague(m),
-          };
+          const teamId = String(m.awayTeam.id);
+          if (!teamMap[teamId]) {
+            teamMap[teamId] = {
+              id: teamId,
+              name: m.awayTeam.name,
+              display_name: m.awayTeam.displayName,
+              abbreviation: m.awayTeam.abbreviation,
+              logo: m.awayTeam.logo,
+              color: m.awayTeam.color,
+              alternate_color: m.awayTeam.alternateColor,
+              venue_id: m.awayTeam.venueId,
+              sport: 'soccer',
+              league: (m as any).__league_config?.name || 'Soccer',
+            };
+          }
         }
       }
 
@@ -120,10 +166,11 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
       console.warn('⚠️ [ESPN Sync] Team upsert threw error:', teamUpsertErr);
     }
 
-    // Batch upsert matches - single operation, all users benefit
+    // Batch upsert matches (deduplicated) - single operation, all users benefit
+    const uniqueRows = Array.from(uniqueMatches.values());
     const { error } = await supabase
       .from('espn_matches')
-      .upsert(rows, { onConflict: 'id' });
+      .upsert(uniqueRows, { onConflict: 'id' });
 
     if (error) {
       console.error('❌ [ESPN Sync] Upsert failed:', error);
@@ -131,10 +178,10 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
     }
     
     const duration = Date.now() - startTime;
-    console.log(`✅ [ESPN Sync] Synced ${rows.length} matches in ${duration}ms`);
+    console.log(`✅ [ESPN Sync] Synced ${uniqueRows.length} matches in ${duration}ms`);
     
     lastSyncTime = Date.now();
-    return { count: rows.length, duration };
+    return { count: uniqueRows.length, duration };
   } catch (error) {
     console.error('❌ [ESPN Sync] Sync failed:', error);
     throw error;
@@ -304,26 +351,26 @@ export function convertESPNMatchToLiveMatch(row: any): any {
     },
     league: {
       id: 0, // ESPN data doesn't have league ID, use 0 as placeholder
-      name: row.league || 'Multi League',
-      country: '', // Not available from ESPN sync
+      name: row.league || 'Soccer',
+      country: '', // Could be extracted from league name
       logo: '', // Not available from ESPN sync
       flag: '', // Not available from ESPN sync
     },
     teams: {
       home: {
         id: row.home_team_id,
-        name: row.home_team_name,
+        name: row.home_team_name || 'Unknown',
         logo: '', // Could be stored in teams table if needed
       },
       away: {
         id: row.away_team_id,
-        name: row.away_team_name,
+        name: row.away_team_name || 'Unknown',
         logo: '', // Could be stored in teams table if needed
       },
     },
     goals: {
-      home: row.home_goals || null,
-      away: row.away_goals || null,
+      home: row.home_goals || row.home_score || null,
+      away: row.away_goals || row.away_score || null,
     },
     score: {
       halftime: {
@@ -335,6 +382,7 @@ export function convertESPNMatchToLiveMatch(row: any): any {
         away: row.away_score || null,
       },
     },
-    statistics: [], // Detailed statistics would need to be fetched separately
+    statistics: row.statistics ? JSON.parse(row.statistics) : [],
+    odds: row.odds ? JSON.parse(row.odds) : null,
   };
 }
