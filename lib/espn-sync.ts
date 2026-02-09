@@ -71,7 +71,56 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
       raw_data: match,
     }));
 
-    // Batch upsert - single operation, all users benefit
+    // Ensure teams exist first to satisfy FK constraints
+    try {
+      const teamMap: Record<string, any> = {};
+      for (const m of matches) {
+        if (m.homeTeam) {
+          teamMap[String(m.homeTeam.id)] = {
+            id: String(m.homeTeam.id),
+            name: m.homeTeam.name,
+            display_name: m.homeTeam.displayName,
+            abbreviation: m.homeTeam.abbreviation,
+            logo: m.homeTeam.logo,
+            color: m.homeTeam.color,
+            alternate_color: m.homeTeam.alternateColor,
+            venue_id: m.homeTeam.venueId,
+            sport: detectSport(m),
+            league: detectLeague(m),
+          };
+        }
+        if (m.awayTeam) {
+          teamMap[String(m.awayTeam.id)] = {
+            id: String(m.awayTeam.id),
+            name: m.awayTeam.name,
+            display_name: m.awayTeam.displayName,
+            abbreviation: m.awayTeam.abbreviation,
+            logo: m.awayTeam.logo,
+            color: m.awayTeam.color,
+            alternate_color: m.awayTeam.alternateColor,
+            venue_id: m.awayTeam.venueId,
+            sport: detectSport(m),
+            league: detectLeague(m),
+          };
+        }
+      }
+
+      const teamRows = Object.values(teamMap);
+      if (teamRows.length > 0) {
+        const { error: teamError } = await supabase
+          .from('espn_teams')
+          .upsert(teamRows, { onConflict: 'id' });
+        if (teamError) {
+          console.warn('⚠️ [ESPN Sync] Upserting teams failed:', teamError);
+        } else {
+          console.log(`✅ [ESPN Sync] Upserted ${teamRows.length} teams`);
+        }
+      }
+    } catch (teamUpsertErr) {
+      console.warn('⚠️ [ESPN Sync] Team upsert threw error:', teamUpsertErr);
+    }
+
+    // Batch upsert matches - single operation, all users benefit
     const { error } = await supabase
       .from('espn_matches')
       .upsert(rows, { onConflict: 'id' });
