@@ -9,10 +9,18 @@
 import { useEffect } from 'react';
 import { getBackgroundScanner } from '@/lib/background-scanner';
 import { authHelpers } from '@/lib/supabase';
+import { startESPNCron } from '@/lib/espn-cron';
 
 export function ScannerInitializer() {
   useEffect(() => {
-    // Only initialize if user is logged in
+    // Start ESPN cron (1-minute sync) - runs once globally
+    try {
+      startESPNCron();
+    } catch (error) {
+      console.warn('ESPN cron startup warning:', error);
+    }
+
+    // Only initialize filter scanner if user is logged in
     const currentUser = authHelpers.getCurrentUser();
     if (!currentUser) {
       return;

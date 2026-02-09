@@ -1,12 +1,14 @@
 // ============================================
 // R$Q - UNIFIED FOOTBALL API
 // ============================================
-// Wrapper inteligent cu fallback automat între:
-// 1. Football-Data.org (PRIMARY - FREE 14,400/day)
-// 2. API-Football (FALLBACK - FREE 100/day)
+// Wrapper with automatic fallback:
+// 1. Supabase (ESPN data synced every 1 minute) - PRIMARY
+// 2. Football-Data.org (FREE 14,400/day) - FALLBACK
+// 3. API-Football (FREE 100/day) - FALLBACK
 
 import * as FootballData from './football-data';
 import * as APIFootball from './api-football';
+import * as espnSync from './espn-sync';
 
 export type { LiveMatch, MatchStatistics } from './football-data';
 
@@ -14,7 +16,7 @@ export type { LiveMatch, MatchStatistics } from './football-data';
 // CONFIG
 // ============================================
 
-const PRIMARY_API: 'api-football' | 'football-data' = 'api-football';
+const PRIMARY_API: 'supabase' | 'api-football' | 'football-data' = 'supabase';
 const ENABLE_FALLBACK = true;
 
 // ============================================
@@ -22,48 +24,45 @@ const ENABLE_FALLBACK = true;
 // ============================================
 
 /**
- * Get live matches - încearcă PRIMARY apoi FALLBACK
+ * Get live matches - tries Supabase (ESPN synced) first, then fallback APIs
  */
 export async function getLiveMatches() {
   console.log('🔍 Fetching live matches (with fallback)...');
   
-  // Încearcă PRIMARY API
+  // Try Supabase first (ESPN data synced every 1 minute)
   try {
-    if (PRIMARY_API === 'football-data') {
-      console.log('📡 Trying Football-Data.org (PRIMARY)...');
-      const matches = await FootballData.getLiveMatches();
-      console.log(`✅ Football-Data SUCCESS: ${matches.length} matches`);
+    console.log('📡 Trying Supabase (ESPN synced data)...');
+    const matches = await espnSync.getLiveMatchesFromDB();
+    if (matches.length > 0) {
+      console.log(`✅ Supabase SUCCESS: ${matches.length} matches (synced from ESPN)`);
       return matches;
-    } else {
-      console.log('📡 Trying API-Football (PRIMARY)...');
+    }
+  } catch (dbError) {
+    console.warn('⚠️ Supabase lookup failed, trying fallback...', dbError);
+  }
+
+  // Fallback to API-Football or Football-Data
+  if (ENABLE_FALLBACK) {
+    try {
+      console.log('📡 Trying API-Football (FALLBACK)...');
       const matches = await APIFootball.getLiveMatches();
-      console.log(`✅ API-Football SUCCESS: ${matches.length} matches`);
+      console.log(`✅ API-Football FALLBACK SUCCESS: ${matches.length} matches`);
       return matches;
-    }
-  } catch (primaryError) {
-    console.error('❌ PRIMARY API failed:', primaryError);
-    
-    // If fallback is enabled, try the second API
-    if (ENABLE_FALLBACK) {
+    } catch (apiError) {
+      console.error('❌ API-Football failed:', apiError);
+      
       try {
-        if (PRIMARY_API === 'football-data') {
-          console.log('🔄 Trying API-Football (FALLBACK)...');
-          const matches = await APIFootball.getLiveMatches();
-          console.log(`✅ API-Football FALLBACK SUCCESS: ${matches.length} matches`);
-          return matches;
-        } else {
-          console.log('🔄 Trying Football-Data.org (FALLBACK)...');
-          const matches = await FootballData.getLiveMatches();
-          console.log(`✅ Football-Data FALLBACK SUCCESS: ${matches.length} matches`);
-          return matches;
-        }
+        console.log('🔄 Trying Football-Data.org (FALLBACK)...');
+        const matches = await FootballData.getLiveMatches();
+        console.log(`✅ Football-Data FALLBACK SUCCESS: ${matches.length} matches`);
+        return matches;
       } catch (fallbackError) {
-        console.error('❌ FALLBACK API also failed:', fallbackError);
-        throw new Error('Both APIs failed. Check your API keys and limits.');
+        console.error('❌ FALLBACK APIs also failed:', fallbackError);
+        throw new Error('All APIs failed. Check your API keys and limits.');
       }
-    } else {
-      throw primaryError;
     }
+  } else {
+    throw new Error('Supabase unavailable and fallback disabled.');
   }
 }
 
