@@ -86,9 +86,63 @@ export interface ExtendedFilterConditions {
   
   match_time?: TimeCondition;
   
-  // ========== ODDS (pre-match) ==========
-  // Bookmaker pre-match odds (for example opening odds)
+  // ========== ODDS (legacy generic) ==========
   odds?: RangeCondition;
+
+  // ========== PRE-MATCH ODDS (market-specific) ==========
+  pre_match_odds?: {
+    // Result markets (1X2)
+    home_win?: RangeCondition;
+    draw?: RangeCondition;
+    away_win?: RangeCondition;
+    // Double chance
+    double_chance_1x?: RangeCondition;
+    double_chance_x2?: RangeCondition;
+    double_chance_12?: RangeCondition;
+    // Goals Over/Under
+    goals_over_0_5?: RangeCondition;
+    goals_under_0_5?: RangeCondition;
+    goals_over_1_5?: RangeCondition;
+    goals_under_1_5?: RangeCondition;
+    goals_over_2_5?: RangeCondition;
+    goals_under_2_5?: RangeCondition;
+    goals_over_3_5?: RangeCondition;
+    goals_under_3_5?: RangeCondition;
+    goals_over_4_5?: RangeCondition;
+    goals_under_4_5?: RangeCondition;
+    // First Half Goals Over/Under
+    first_half_over_0_5?: RangeCondition;
+    first_half_under_0_5?: RangeCondition;
+    first_half_over_1_5?: RangeCondition;
+    first_half_under_1_5?: RangeCondition;
+    first_half_over_2_5?: RangeCondition;
+    first_half_under_2_5?: RangeCondition;
+    // Corners Over/Under
+    corners_over_7_5?: RangeCondition;
+    corners_under_7_5?: RangeCondition;
+    corners_over_8_5?: RangeCondition;
+    corners_under_8_5?: RangeCondition;
+    corners_over_9_5?: RangeCondition;
+    corners_under_9_5?: RangeCondition;
+    corners_over_10_5?: RangeCondition;
+    corners_under_10_5?: RangeCondition;
+    corners_over_11_5?: RangeCondition;
+    corners_under_11_5?: RangeCondition;
+    // Cards Over/Under
+    cards_over_2_5?: RangeCondition;
+    cards_under_2_5?: RangeCondition;
+    cards_over_3_5?: RangeCondition;
+    cards_under_3_5?: RangeCondition;
+    cards_over_4_5?: RangeCondition;
+    cards_under_4_5?: RangeCondition;
+    cards_over_5_5?: RangeCondition;
+    cards_under_5_5?: RangeCondition;
+    // Both Teams To Score
+    btts_yes?: RangeCondition;
+    btts_no?: RangeCondition;
+    // Allow additional dynamic markets
+    [key: string]: RangeCondition | undefined;
+  };
   
   // ========== COMBINED CONDITIONS ==========
   
@@ -336,6 +390,32 @@ export function evaluateFilter(
     }
   }
   
+  // Pre-match odds (market-specific)
+  if (conditions.pre_match_odds) {
+    const matchOdds = matchData.odds || matchData.pre_match_odds;
+    if (!matchOdds) return false;
+
+    for (const [market, range] of Object.entries(conditions.pre_match_odds)) {
+      if (!range) continue;
+      const oddsValue = matchOdds[market];
+      if (oddsValue === undefined || oddsValue === null) continue;
+      if (!matchesRange(oddsValue, range)) {
+        return false;
+      }
+    }
+  }
+
+  // Legacy generic odds
+  if (conditions.odds) {
+    const matchOdds = matchData.odds;
+    if (matchOdds) {
+      const anyOdd = matchOdds.home_win || matchOdds.over_2_5 || 0;
+      if (!matchesRange(anyOdd, conditions.odds)) {
+        return false;
+      }
+    }
+  }
+
   // Combined conditions
   if (conditions.combined) {
     if (conditions.combined.all) {

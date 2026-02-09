@@ -19,17 +19,65 @@ export interface Odds {
   }>;
 }
 
+export interface ParsedBookmakerOdds {
+  // Result (1X2)
+  home_win?: number;
+  draw?: number;
+  away_win?: number;
+  // Double Chance
+  double_chance_1x?: number;
+  double_chance_x2?: number;
+  double_chance_12?: number;
+  // Goals Over/Under
+  goals_over_0_5?: number;
+  goals_under_0_5?: number;
+  goals_over_1_5?: number;
+  goals_under_1_5?: number;
+  goals_over_2_5?: number;
+  goals_under_2_5?: number;
+  goals_over_3_5?: number;
+  goals_under_3_5?: number;
+  goals_over_4_5?: number;
+  goals_under_4_5?: number;
+  // First Half Goals
+  first_half_over_0_5?: number;
+  first_half_under_0_5?: number;
+  first_half_over_1_5?: number;
+  first_half_under_1_5?: number;
+  first_half_over_2_5?: number;
+  first_half_under_2_5?: number;
+  // Corners Over/Under
+  corners_over_7_5?: number;
+  corners_under_7_5?: number;
+  corners_over_8_5?: number;
+  corners_under_8_5?: number;
+  corners_over_9_5?: number;
+  corners_under_9_5?: number;
+  corners_over_10_5?: number;
+  corners_under_10_5?: number;
+  corners_over_11_5?: number;
+  corners_under_11_5?: number;
+  // Cards Over/Under
+  cards_over_2_5?: number;
+  cards_under_2_5?: number;
+  cards_over_3_5?: number;
+  cards_under_3_5?: number;
+  cards_over_4_5?: number;
+  cards_under_4_5?: number;
+  cards_over_5_5?: number;
+  cards_under_5_5?: number;
+  // BTTS
+  btts_yes?: number;
+  btts_no?: number;
+  // Allow dynamic access
+  [key: string]: number | undefined;
+}
+
 export interface MatchOdds {
   fixture_id: number;
   odds: Odds[];
   timestamp: number;
-  bookmakers: {
-    home_win?: number;
-    draw?: number;
-    away_win?: number;
-    over_2_5?: number;
-    under_2_5?: number;
-  };
+  bookmakers: ParsedBookmakerOdds;
 }
 
 /**
@@ -79,41 +127,100 @@ export async function getOddsForMatch(fixtureId: number): Promise<MatchOdds | nu
 }
 
 /**
+ * Normalize an Over/Under value string to a key suffix (e.g. "Over 2.5" -> "2_5")
+ */
+function normalizeOUValue(val: string): string {
+  return val.replace('.', '_');
+}
+
+/**
  * Parse odds data from API response
- * Extract most common markets (1X2, Over/Under)
+ * Extract all available markets: 1X2, Goals O/U, Corners O/U, Cards O/U, BTTS, etc.
  */
 function parseOdds(oddsData: any): MatchOdds {
-  const bookmakers: any = {
-    home_win: undefined,
-    draw: undefined,
-    away_win: undefined,
-    over_2_5: undefined,
-    under_2_5: undefined,
-  };
+  const bookmakers: ParsedBookmakerOdds = {};
 
   // Get first bookmaker's odds (usually the best consensus)
   if (oddsData.bookmakers && oddsData.bookmakers.length > 0) {
     const bets = oddsData.bookmakers[0].bets || [];
 
-    // Find 1X2 odds
-    const matchWinner = bets.find((bet: any) => bet.name === 'Match Winner');
-    if (matchWinner) {
-      matchWinner.values.forEach((odd: any) => {
-        if (odd.value === 'Home') bookmakers.home_win = odd.odd;
-        if (odd.value === 'Draw') bookmakers.draw = odd.odd;
-        if (odd.value === 'Away') bookmakers.away_win = odd.odd;
-      });
-    }
+    for (const bet of bets) {
+      const name: string = bet.name || '';
+      const values: Array<{ value: string; odd: number }> = bet.values || [];
 
-    // Find Over/Under 2.5 goals
-    const goalsOverUnder = bets.find((bet: any) =>
-      bet.name.includes('Goals Over/Under') || bet.name.includes('Total Goals')
-    );
-    if (goalsOverUnder) {
-      goalsOverUnder.values.forEach((odd: any) => {
-        if (odd.value === 'Over 2.5') bookmakers.over_2_5 = odd.odd;
-        if (odd.value === 'Under 2.5') bookmakers.under_2_5 = odd.odd;
-      });
+      // 1X2 (Match Winner)
+      if (name === 'Match Winner') {
+        for (const v of values) {
+          if (v.value === 'Home') bookmakers.home_win = v.odd;
+          if (v.value === 'Draw') bookmakers.draw = v.odd;
+          if (v.value === 'Away') bookmakers.away_win = v.odd;
+        }
+      }
+
+      // Double Chance
+      if (name === 'Double Chance') {
+        for (const v of values) {
+          if (v.value === 'Home/Draw' || v.value === '1X') bookmakers.double_chance_1x = v.odd;
+          if (v.value === 'Draw/Away' || v.value === 'X2') bookmakers.double_chance_x2 = v.odd;
+          if (v.value === 'Home/Away' || v.value === '12') bookmakers.double_chance_12 = v.odd;
+        }
+      }
+
+      // Goals Over/Under (all lines)
+      if (name.includes('Goals Over/Under') || name === 'Over/Under' || name.includes('Total Goals')) {
+        for (const v of values) {
+          const match = v.value.match(/^(Over|Under)\s+([\d.]+)$/);
+          if (match) {
+            const type = match[1].toLowerCase();
+            const line = normalizeOUValue(match[2]);
+            bookmakers[`goals_${type}_${line}`] = v.odd;
+          }
+        }
+      }
+
+      // First Half Goals Over/Under
+      if (name.includes('First Half') && (name.includes('Over/Under') || name.includes('Goals'))) {
+        for (const v of values) {
+          const match = v.value.match(/^(Over|Under)\s+([\d.]+)$/);
+          if (match) {
+            const type = match[1].toLowerCase();
+            const line = normalizeOUValue(match[2]);
+            bookmakers[`first_half_${type}_${line}`] = v.odd;
+          }
+        }
+      }
+
+      // Corners Over/Under
+      if (name.includes('Corners') && (name.includes('Over/Under') || name.includes('Total'))) {
+        for (const v of values) {
+          const match = v.value.match(/^(Over|Under)\s+([\d.]+)$/);
+          if (match) {
+            const type = match[1].toLowerCase();
+            const line = normalizeOUValue(match[2]);
+            bookmakers[`corners_${type}_${line}`] = v.odd;
+          }
+        }
+      }
+
+      // Cards Over/Under
+      if ((name.includes('Cards') || name.includes('Booking')) && (name.includes('Over/Under') || name.includes('Total'))) {
+        for (const v of values) {
+          const match = v.value.match(/^(Over|Under)\s+([\d.]+)$/);
+          if (match) {
+            const type = match[1].toLowerCase();
+            const line = normalizeOUValue(match[2]);
+            bookmakers[`cards_${type}_${line}`] = v.odd;
+          }
+        }
+      }
+
+      // Both Teams To Score
+      if (name === 'Both Teams Score' || name === 'Both Teams to Score' || name === 'BTTS') {
+        for (const v of values) {
+          if (v.value === 'Yes') bookmakers.btts_yes = v.odd;
+          if (v.value === 'No') bookmakers.btts_no = v.odd;
+        }
+      }
     }
   }
 

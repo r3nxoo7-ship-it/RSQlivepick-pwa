@@ -201,6 +201,26 @@ export function validateFilterConditions(conditions: FilterConditions): Validati
   }
 
   // ============================================
+  // VALIDATION: PRE-MATCH ODDS (market-specific)
+  // ============================================
+  if ((conditions as any).pre_match_odds) {
+    const preMatchOdds = (conditions as any).pre_match_odds;
+    for (const [market, range] of Object.entries(preMatchOdds)) {
+      const r = range as { min?: number; max?: number } | undefined;
+      if (!r) continue;
+      if (r.min !== undefined && r.max !== undefined && r.min > r.max) {
+        errors.push(`Pre-match odds (${market}): min (${r.min}) cannot be greater than max (${r.max})`);
+      }
+      if (r.min !== undefined && r.min < 1.0) {
+        warnings.push(`Pre-match odds (${market}): min ${r.min} is below 1.0 (decimal odds are always >= 1.0)`);
+      }
+      if (r.max !== undefined && r.max > 50.0) {
+        warnings.push(`Pre-match odds (${market}): max ${r.max} is very high`);
+      }
+    }
+  }
+
+  // ============================================
   // VALIDATION: CONTRADICTORY CONDITIONS
   // ============================================
 
@@ -325,7 +345,12 @@ export function areConditionsComplete(conditions: FilterConditions | any): boole
     (conditions.match_time?.before !== undefined) ||
     (conditions.trends !== undefined);
 
-  return hasBasicValues || hasExtendedValues;
+  // Check for pre_match_odds
+  const hasPreMatchOdds =
+    (conditions as any).pre_match_odds !== undefined &&
+    Object.keys((conditions as any).pre_match_odds).length > 0;
+
+  return hasBasicValues || hasExtendedValues || hasPreMatchOdds;
 }
 
 /**

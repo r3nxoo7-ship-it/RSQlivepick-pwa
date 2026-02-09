@@ -231,6 +231,26 @@ export function evaluateFilterForMatch(
     conditionScore++;
   }
 
+  // Pre-match odds (market-specific)
+  if ((conditions as any).pre_match_odds) {
+    const preMatchOdds = (conditions as any).pre_match_odds;
+    const matchOdds = (match as any).odds;
+
+    for (const [market, range] of Object.entries(preMatchOdds)) {
+      if (!range) continue;
+      totalConditions++;
+      const r = range as { min?: number; max?: number };
+      const oddsValue = matchOdds?.[market];
+
+      if (oddsValue !== undefined && oddsValue !== null && isInRange(oddsValue, r.min, r.max)) {
+        matchedConditions.push(`${market} odds: ${oddsValue}`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`${market} odds: ${oddsValue ?? 'N/A'} not in ${r.min ?? '*'}-${r.max ?? '*'}`);
+      }
+    }
+  }
+
   // ========== END NEW CONDITIONS ==========
 
   // Calculate base confidence (condition matching)

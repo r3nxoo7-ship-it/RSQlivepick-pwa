@@ -41,6 +41,77 @@ interface TeamCondition {
   total_max?: number;
 }
 
+function OddsMarketRow({
+  marketKey,
+  label,
+  markets,
+  setMarkets,
+}: {
+  marketKey: string;
+  label: string;
+  markets: Record<string, { min?: number; max?: number }>;
+  setMarkets: (val: Record<string, { min?: number; max?: number }>) => void;
+}) {
+  const isEnabled = marketKey in markets;
+  const current = markets[marketKey] || {};
+
+  const toggleMarket = (checked: boolean) => {
+    if (checked) {
+      setMarkets({ ...markets, [marketKey]: {} });
+    } else {
+      const updated = { ...markets };
+      delete updated[marketKey];
+      setMarkets(updated);
+    }
+  };
+
+  const updateRange = (field: 'min' | 'max', value: string) => {
+    setMarkets({
+      ...markets,
+      [marketKey]: {
+        ...current,
+        [field]: value ? parseFloat(value) : undefined,
+      },
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={isEnabled}
+        onChange={(e) => toggleMarket(e.target.checked)}
+        className="w-4 h-4 rounded shrink-0"
+      />
+      <span className={`text-xs w-[140px] shrink-0 ${isEnabled ? 'text-white' : 'text-text-muted'}`}>
+        {label}
+      </span>
+      {isEnabled && (
+        <>
+          <input
+            type="number"
+            step="0.01"
+            min={1}
+            placeholder="Min"
+            value={current.min ?? ''}
+            onChange={(e) => updateRange('min', e.target.value)}
+            className="input-field text-xs py-1 px-2 w-20"
+          />
+          <input
+            type="number"
+            step="0.01"
+            min={1}
+            placeholder="Max"
+            value={current.max ?? ''}
+            onChange={(e) => updateRange('max', e.target.value)}
+            className="input-field text-xs py-1 px-2 w-20"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ============================================
 // COMPONENTA PRINCIPALĂ
 // ============================================
@@ -125,10 +196,14 @@ export default function CompleteFilterBuilder() {
   const [userFilters, setUserFilters] = useState<any[]>([]);
   const [showCombineMode, setShowCombineMode] = useState(false);
 
-  // Odds (pre-match) condition
+  // Odds (pre-match) - legacy generic
   const [oddsEnabled, setOddsEnabled] = useState(false);
   const [oddsMin, setOddsMin] = useState<number | undefined>(undefined);
   const [oddsMax, setOddsMax] = useState<number | undefined>(undefined);
+
+  // Pre-match odds (market-specific)
+  const [preMatchOddsEnabled, setPreMatchOddsEnabled] = useState(false);
+  const [preMatchMarkets, setPreMatchMarkets] = useState<Record<string, { min?: number; max?: number }>>({});
   
   // ============================================
   // LOAD DATA
@@ -189,7 +264,8 @@ export default function CompleteFilterBuilder() {
       const hasAnyCondition =
         timeEnabled || scoreEnabled || cornersEnabled || shotsEnabled ||
         shotsOnTargetEnabled || yellowCardsEnabled || redCardsEnabled ||
-        attacksEnabled || possessionEnabled || substitutionsEnabled || oddsEnabled;
+        attacksEnabled || possessionEnabled || substitutionsEnabled || oddsEnabled ||
+        preMatchOddsEnabled;
 
       if (!hasAnyCondition && combinedFilterIds.length === 0) {
         setError('Define at least one condition or select filters to combine');
@@ -452,12 +528,25 @@ export default function CompleteFilterBuilder() {
         };
       }
 
-      // Odds (pre-match)
+      // Odds (legacy generic pre-match)
       if (oddsEnabled) {
         conditions.odds = {
           min: oddsMin,
           max: oddsMax,
         } as any;
+      }
+
+      // Pre-match odds (market-specific)
+      if (preMatchOddsEnabled && Object.keys(preMatchMarkets).length > 0) {
+        const preMatchOdds: Record<string, { min?: number; max?: number }> = {};
+        for (const [market, range] of Object.entries(preMatchMarkets)) {
+          if (range.min !== undefined || range.max !== undefined) {
+            preMatchOdds[market] = { min: range.min, max: range.max };
+          }
+        }
+        if (Object.keys(preMatchOdds).length > 0) {
+          (conditions as any).pre_match_odds = preMatchOdds;
+        }
       }
       
       // Create filter
@@ -741,52 +830,189 @@ export default function CompleteFilterBuilder() {
 
           {!showCombineMode && (
           <>
-          {/* PRE-MATCH ODDS */}
+          {/* PRE-MATCH ODDS (Market-Specific) */}
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 text-accent-amber" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/></svg>
-                <h3 className="text-lg font-semibold">Pre-match Odds Filter</h3>
+                <h3 className="text-lg font-semibold">Pre-Match Odds Filter</h3>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={oddsEnabled}
-                  onChange={(e) => setOddsEnabled(e.target.checked)}
+                  checked={preMatchOddsEnabled}
+                  onChange={(e) => setPreMatchOddsEnabled(e.target.checked)}
                   className="w-5 h-5 rounded"
                 />
                 <span className="text-sm">Enable</span>
               </label>
             </div>
 
-            {oddsEnabled && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm mb-2">Min Odds</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={oddsMin ?? ''}
-                    onChange={(e) => setOddsMin(e.target.value ? parseFloat(e.target.value) : undefined)}
-                    placeholder="e.g. 1.5"
-                    className="input-field"
-                  />
+            {preMatchOddsEnabled && (
+              <div className="space-y-4">
+                <div className="text-xs text-text-muted mb-2">
+                  Select markets and set odds ranges. The filter will match when pre-match odds for selected markets fall within your specified range.
                 </div>
+
+                {/* Result Markets */}
                 <div>
-                  <label className="block text-sm mb-2">Max Odds</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={oddsMax ?? ''}
-                    onChange={(e) => setOddsMax(e.target.value ? parseFloat(e.target.value) : undefined)}
-                    placeholder="e.g. 3.0"
-                    className="input-field"
-                  />
+                  <div className="text-sm font-semibold text-accent-cyan mb-2">Result (1X2)</div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'home_win', label: 'Home Win' },
+                      { key: 'draw', label: 'Draw' },
+                      { key: 'away_win', label: 'Away Win' },
+                    ].map(m => (
+                      <OddsMarketRow
+                        key={m.key}
+                        marketKey={m.key}
+                        label={m.label}
+                        markets={preMatchMarkets}
+                        setMarkets={setPreMatchMarkets}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="col-span-2 text-xs text-text-muted">
-                  Example: For +3 goals strategies set Max Odds &lt;= 1.8 to only consider matches that opened below 1.8. For red-card-only signals set Min Odds &gt;= 6 to focus on long-shot events.
+
+                {/* Goals Over/Under */}
+                <div>
+                  <div className="text-sm font-semibold text-accent-green mb-2">Goals Over/Under</div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'goals_over_0_5', label: 'Over 0.5 Goals' },
+                      { key: 'goals_under_0_5', label: 'Under 0.5 Goals' },
+                      { key: 'goals_over_1_5', label: 'Over 1.5 Goals' },
+                      { key: 'goals_under_1_5', label: 'Under 1.5 Goals' },
+                      { key: 'goals_over_2_5', label: 'Over 2.5 Goals' },
+                      { key: 'goals_under_2_5', label: 'Under 2.5 Goals' },
+                      { key: 'goals_over_3_5', label: 'Over 3.5 Goals' },
+                      { key: 'goals_under_3_5', label: 'Under 3.5 Goals' },
+                      { key: 'goals_over_4_5', label: 'Over 4.5 Goals' },
+                      { key: 'goals_under_4_5', label: 'Under 4.5 Goals' },
+                    ].map(m => (
+                      <OddsMarketRow
+                        key={m.key}
+                        marketKey={m.key}
+                        label={m.label}
+                        markets={preMatchMarkets}
+                        setMarkets={setPreMatchMarkets}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* First Half Goals */}
+                <div>
+                  <div className="text-sm font-semibold text-accent-purple mb-2">First Half Goals</div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'first_half_over_0_5', label: 'FH Over 0.5 Goals' },
+                      { key: 'first_half_under_0_5', label: 'FH Under 0.5 Goals' },
+                      { key: 'first_half_over_1_5', label: 'FH Over 1.5 Goals' },
+                      { key: 'first_half_under_1_5', label: 'FH Under 1.5 Goals' },
+                      { key: 'first_half_over_2_5', label: 'FH Over 2.5 Goals' },
+                      { key: 'first_half_under_2_5', label: 'FH Under 2.5 Goals' },
+                    ].map(m => (
+                      <OddsMarketRow
+                        key={m.key}
+                        marketKey={m.key}
+                        label={m.label}
+                        markets={preMatchMarkets}
+                        setMarkets={setPreMatchMarkets}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Corners Over/Under */}
+                <div>
+                  <div className="text-sm font-semibold text-accent-amber mb-2">Corners Over/Under</div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'corners_over_7_5', label: 'Over 7.5 Corners' },
+                      { key: 'corners_under_7_5', label: 'Under 7.5 Corners' },
+                      { key: 'corners_over_8_5', label: 'Over 8.5 Corners' },
+                      { key: 'corners_under_8_5', label: 'Under 8.5 Corners' },
+                      { key: 'corners_over_9_5', label: 'Over 9.5 Corners' },
+                      { key: 'corners_under_9_5', label: 'Under 9.5 Corners' },
+                      { key: 'corners_over_10_5', label: 'Over 10.5 Corners' },
+                      { key: 'corners_under_10_5', label: 'Under 10.5 Corners' },
+                      { key: 'corners_over_11_5', label: 'Over 11.5 Corners' },
+                      { key: 'corners_under_11_5', label: 'Under 11.5 Corners' },
+                    ].map(m => (
+                      <OddsMarketRow
+                        key={m.key}
+                        marketKey={m.key}
+                        label={m.label}
+                        markets={preMatchMarkets}
+                        setMarkets={setPreMatchMarkets}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cards Over/Under */}
+                <div>
+                  <div className="text-sm font-semibold text-yellow-400 mb-2">Cards Over/Under</div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'cards_over_2_5', label: 'Over 2.5 Cards' },
+                      { key: 'cards_under_2_5', label: 'Under 2.5 Cards' },
+                      { key: 'cards_over_3_5', label: 'Over 3.5 Cards' },
+                      { key: 'cards_under_3_5', label: 'Under 3.5 Cards' },
+                      { key: 'cards_over_4_5', label: 'Over 4.5 Cards' },
+                      { key: 'cards_under_4_5', label: 'Under 4.5 Cards' },
+                      { key: 'cards_over_5_5', label: 'Over 5.5 Cards' },
+                      { key: 'cards_under_5_5', label: 'Under 5.5 Cards' },
+                    ].map(m => (
+                      <OddsMarketRow
+                        key={m.key}
+                        marketKey={m.key}
+                        label={m.label}
+                        markets={preMatchMarkets}
+                        setMarkets={setPreMatchMarkets}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* BTTS */}
+                <div>
+                  <div className="text-sm font-semibold text-accent-blue mb-2">Both Teams To Score</div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'btts_yes', label: 'BTTS Yes' },
+                      { key: 'btts_no', label: 'BTTS No' },
+                    ].map(m => (
+                      <OddsMarketRow
+                        key={m.key}
+                        marketKey={m.key}
+                        label={m.label}
+                        markets={preMatchMarkets}
+                        setMarkets={setPreMatchMarkets}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Double Chance */}
+                <div>
+                  <div className="text-sm font-semibold text-text-secondary mb-2">Double Chance</div>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'double_chance_1x', label: 'Home or Draw (1X)' },
+                      { key: 'double_chance_x2', label: 'Draw or Away (X2)' },
+                      { key: 'double_chance_12', label: 'Home or Away (12)' },
+                    ].map(m => (
+                      <OddsMarketRow
+                        key={m.key}
+                        marketKey={m.key}
+                        label={m.label}
+                        markets={preMatchMarkets}
+                        setMarkets={setPreMatchMarkets}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

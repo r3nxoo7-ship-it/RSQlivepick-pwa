@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, TrendingUp, BarChart3, Clock } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
@@ -7,6 +8,44 @@ import { LiveMatch } from '@/lib/unified-api';
 interface AdvancedMatchDetailProps {
   match: LiveMatch;
   onClose: () => void;
+}
+
+interface RecentMatchData {
+  date: string;
+  league: string;
+  home_team_id: string;
+  away_team_id: string;
+  home_team_name: string;
+  away_team_name: string;
+  home_score: number;
+  away_score: number;
+  home_corners: number | null;
+  away_corners: number | null;
+  home_shots_on_target: number | null;
+  away_shots_on_target: number | null;
+  home_possession: number | null;
+  away_possession: number | null;
+  home_yellow_cards: number | null;
+  away_yellow_cards: number | null;
+  home_red_cards: number | null;
+  away_red_cards: number | null;
+}
+
+interface TeamFormData {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  winRate: number;
+}
+
+interface TeamRecentFormResult {
+  teamId: string;
+  matches: RecentMatchData[];
+  form: TeamFormData;
 }
 
 /**
@@ -18,17 +57,17 @@ function getStatValue(
   statType: string
 ): number {
   if (!stats || !teamName) return 0;
-  
+
   const teamStats = stats.find(s => s.team?.name === teamName);
   if (!teamStats) return 0;
-  
-  const stat = teamStats.statistics.find((s: any) => 
+
+  const stat = teamStats.statistics.find((s: any) =>
     s.type.toLowerCase() === statType.toLowerCase() ||
     s.type.toLowerCase().includes(statType.toLowerCase())
   );
-  
+
   if (!stat) return 0;
-  
+
   // Handle percentage strings (e.g., "58%") and numeric values
   if (typeof stat.value === 'string') {
     return parseInt(stat.value.replace('%', '')) || 0;
@@ -53,6 +92,33 @@ function getSecondHalfGoals(match: LiveMatch, team: 'home' | 'away'): number {
 }
 
 export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDetailProps) {
+  const [homeForm, setHomeForm] = useState<TeamRecentFormResult | null>(null);
+  const [awayForm, setAwayForm] = useState<TeamRecentFormResult | null>(null);
+  const [formLoading, setFormLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchForm() {
+      setFormLoading(true);
+      try {
+        const homeId = match.teams?.home?.id;
+        const awayId = match.teams?.away?.id;
+
+        const [homeRes, awayRes] = await Promise.all([
+          homeId ? fetch(`/api/espn/team-form?teamId=${homeId}`).then(r => r.ok ? r.json() : null) : null,
+          awayId ? fetch(`/api/espn/team-form?teamId=${awayId}`).then(r => r.ok ? r.json() : null) : null,
+        ]);
+
+        setHomeForm(homeRes);
+        setAwayForm(awayRes);
+      } catch (err) {
+        console.error('Error fetching team form:', err);
+      } finally {
+        setFormLoading(false);
+      }
+    }
+    fetchForm();
+  }, [match.teams?.home?.id, match.teams?.away?.id]);
+
   // Extract statistics from match.statistics array if available
   const homeStats = {
     goals: match.goals?.home || 0,
@@ -82,11 +148,6 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
     fouls: getStatValue(match.statistics, match.teams?.away?.name, 'fouls'),
     firstHalf: getFirstHalfGoals(match, 'away'),
     secondHalf: getSecondHalfGoals(match, 'away'),
-  };
-
-  const calculatePercent = (home: number, away: number) => {
-    const total = home + away;
-    return total === 0 ? 50 : Math.round((home / total) * 100);
   };
 
   return (
@@ -250,22 +311,31 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
           {/* Momentum Chart */}
           <div className="space-y-4">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              📈 Match Momentum (Timeline)
+              Match Momentum (Timeline)
             </h3>
             <div className="bg-glass-light/50 rounded-lg p-4 h-32 flex items-end justify-between">
-              {/* Placeholder for momentum graph - would be filled with actual data */}
               <div className="text-center text-text-secondary text-sm w-full">
                 Momentum data coming from live match feed
               </div>
             </div>
           </div>
 
-          {/* Match History vs Team */}
+          {/* Recent Form (Last 5 Matches) */}
           <div className="space-y-4">
             <h3 className="text-lg font-bold text-white">Recent Form (Last 5 Matches)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TeamFormBox team={match.teams?.home?.name || 'Home'} />
-              <TeamFormBox team={match.teams?.away?.name || 'Away'} />
+              <TeamFormBox
+                team={match.teams?.home?.name || 'Home'}
+                teamId={String(match.teams?.home?.id || '')}
+                recentData={homeForm}
+                loading={formLoading}
+              />
+              <TeamFormBox
+                team={match.teams?.away?.name || 'Away'}
+                teamId={String(match.teams?.away?.id || '')}
+                recentData={awayForm}
+                loading={formLoading}
+              />
             </div>
           </div>
         </div>
@@ -358,35 +428,192 @@ function TimeWindowStat({ label, home, away, disabled = false }: { label: string
   );
 }
 
-function TeamFormBox({ team }: { team: string }) {
+/**
+ * Determine match result relative to the team
+ */
+function getMatchResult(match: RecentMatchData, teamId: string): 'W' | 'D' | 'L' {
+  const isHome = match.home_team_id === teamId;
+  const teamScore = isHome ? match.home_score : match.away_score;
+  const opponentScore = isHome ? match.away_score : match.home_score;
+  if (teamScore > opponentScore) return 'W';
+  if (teamScore === opponentScore) return 'D';
+  return 'L';
+}
+
+/**
+ * Get opponent name for a match
+ */
+function getOpponent(match: RecentMatchData, teamId: string): string {
+  const isHome = match.home_team_id === teamId;
+  const opponent = isHome ? match.away_team_name : match.home_team_name;
+  // Abbreviate long names
+  if (opponent.length > 14) {
+    return opponent.substring(0, 12) + '..';
+  }
+  return opponent;
+}
+
+/**
+ * Get team's stats from a match
+ */
+function getTeamMatchStats(match: RecentMatchData, teamId: string) {
+  const isHome = match.home_team_id === teamId;
+  return {
+    goalsFor: isHome ? match.home_score : match.away_score,
+    goalsAgainst: isHome ? match.away_score : match.home_score,
+    corners: isHome ? (match.home_corners ?? null) : (match.away_corners ?? null),
+    shotsOnTarget: isHome ? (match.home_shots_on_target ?? null) : (match.away_shots_on_target ?? null),
+    possession: isHome ? (match.home_possession ?? null) : (match.away_possession ?? null),
+    yellowCards: isHome ? (match.home_yellow_cards ?? null) : (match.away_yellow_cards ?? null),
+    redCards: isHome ? (match.home_red_cards ?? null) : (match.away_red_cards ?? null),
+    venue: isHome ? 'H' : 'A',
+  };
+}
+
+function formatDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  } catch {
+    return '—';
+  }
+}
+
+function TeamFormBox({
+  team,
+  teamId,
+  recentData,
+  loading,
+}: {
+  team: string;
+  teamId: string;
+  recentData: TeamRecentFormResult | null;
+  loading: boolean;
+}) {
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-glass-light/50 rounded-lg p-4 animate-pulse">
+        <div className="font-semibold text-white mb-3">{team}</div>
+        <div className="space-y-2">
+          <div className="h-8 bg-glass-light rounded" />
+          <div className="h-6 bg-glass-light rounded w-3/4" />
+          <div className="h-6 bg-glass-light rounded w-1/2" />
+        </div>
+      </div>
+    );
+  }
+
+  // No data
+  if (!recentData || !recentData.matches || recentData.matches.length === 0) {
+    return (
+      <div className="bg-glass-light/50 rounded-lg p-4">
+        <div className="font-semibold text-white mb-3">{team}</div>
+        <div className="text-xs text-text-muted">No recent match data available</div>
+      </div>
+    );
+  }
+
+  const { matches, form } = recentData;
+  const avgGoalsFor = form.played > 0 ? (form.goalsFor / form.played).toFixed(1) : '0';
+  const avgGoalsAgainst = form.played > 0 ? (form.goalsAgainst / form.played).toFixed(1) : '0';
+
   return (
     <div className="bg-glass-light/50 rounded-lg p-4">
-      <div className="font-semibold text-white mb-3">{team}</div>
-      <div className="flex gap-2 justify-between">
-        {[
-          { result: 'W', score: '2:1' },
-          { result: 'W', score: '3:0' },
-          { result: 'D', score: '1:1' },
-          { result: 'W', score: '2:0' },
-          { result: 'L', score: '0:2' },
-        ].map((match, i) => (
-          <div
-            key={i}
-            className={`w-10 h-10 rounded flex items-center justify-center font-bold text-xs ${
-              match.result === 'W'
-                ? 'bg-accent-green/30 text-accent-green'
-                : match.result === 'D'
-                  ? 'bg-accent-yellow/30 text-accent-yellow'
-                  : 'bg-accent-red/30 text-accent-red'
-            }`}
-            title={match.score}
-          >
-            {match.result}
-          </div>
-        ))}
+      {/* Team name + form summary badge */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-semibold text-white">{team}</div>
+        <div className="flex items-center gap-1.5">
+          {matches.slice(0, 5).map((m, i) => {
+            const result = getMatchResult(m, teamId);
+            return (
+              <div
+                key={i}
+                className={`w-7 h-7 rounded flex items-center justify-center font-bold text-[10px] ${
+                  result === 'W'
+                    ? 'bg-accent-green/30 text-accent-green'
+                    : result === 'D'
+                      ? 'bg-accent-yellow/30 text-accent-yellow'
+                      : 'bg-accent-red/30 text-accent-red'
+                }`}
+                title={`${m.home_team_name} ${m.home_score}:${m.away_score} ${m.away_team_name}`}
+              >
+                {result}
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="text-xs text-text-muted mt-3">
-        Goals: 12 • Avg: 2.4 • Avg Against: 1.2
+
+      {/* Per-match detail rows */}
+      <div className="space-y-1.5 mb-3">
+        {matches.slice(0, 5).map((m, i) => {
+          const result = getMatchResult(m, teamId);
+          const stats = getTeamMatchStats(m, teamId);
+          const opponent = getOpponent(m, teamId);
+
+          return (
+            <div key={i} className="flex items-center gap-2 text-[11px] py-1 border-b border-white/5 last:border-0">
+              {/* Date */}
+              <span className="text-text-muted w-[52px] shrink-0">{formatDate(m.date)}</span>
+
+              {/* Venue badge */}
+              <span className={`w-4 text-center font-bold shrink-0 ${
+                stats.venue === 'H' ? 'text-accent-green' : 'text-accent-cyan'
+              }`}>
+                {stats.venue}
+              </span>
+
+              {/* Opponent */}
+              <span className="text-text-secondary truncate flex-1 min-w-0" title={m.home_team_id === teamId ? m.away_team_name : m.home_team_name}>
+                {opponent}
+              </span>
+
+              {/* Score */}
+              <span className={`font-bold shrink-0 ${
+                result === 'W' ? 'text-accent-green' : result === 'D' ? 'text-accent-yellow' : 'text-accent-red'
+              }`}>
+                {stats.goalsFor}:{stats.goalsAgainst}
+              </span>
+
+              {/* Mini stats */}
+              <div className="flex items-center gap-1.5 text-text-muted shrink-0">
+                {stats.corners !== null && (
+                  <span title="Corners">C:{stats.corners}</span>
+                )}
+                {stats.shotsOnTarget !== null && (
+                  <span title="Shots on Target">S:{stats.shotsOnTarget}</span>
+                )}
+                {stats.yellowCards !== null && stats.yellowCards > 0 && (
+                  <span title="Yellow Cards" className="text-accent-yellow">Y:{stats.yellowCards}</span>
+                )}
+                {stats.possession !== null && (
+                  <span title="Possession">{stats.possession}%</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Aggregate stats footer */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] pt-2 border-t border-white/10">
+        <span className="text-text-secondary">
+          <span className="text-accent-green font-bold">W{form.wins}</span>{' '}
+          <span className="text-accent-yellow font-bold">D{form.draws}</span>{' '}
+          <span className="text-accent-red font-bold">L{form.losses}</span>
+        </span>
+        <span className="text-text-muted">
+          GF:{form.goalsFor} GA:{form.goalsAgainst} GD:{form.goalDifference >= 0 ? '+' : ''}{form.goalDifference}
+        </span>
+        <span className="text-text-muted">
+          Avg: {avgGoalsFor} / {avgGoalsAgainst}
+        </span>
+        <span className={`font-bold ${
+          form.winRate >= 60 ? 'text-accent-green' : form.winRate >= 40 ? 'text-accent-yellow' : 'text-accent-red'
+        }`}>
+          {form.winRate}% WR
+        </span>
       </div>
     </div>
   );
