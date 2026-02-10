@@ -148,49 +148,64 @@ export async function getLeagueMatches(
 }
 
 /**
- * Get a team's schedule/results (completed matches with scores)
- * Uses ESPN /teams/{teamId}/schedule endpoint - returns 12-15 completed matches
- * This is the primary source for team form/history data
+ * Get a team's schedule/results across ALL competitions
+ * Fetches in parallel from all leagues, merges and sorts by date
  */
 export async function getTeamSchedule(
   teamId: string,
   league?: string,
 ): Promise<ESPNMatch[]> {
-  // Try all soccer leagues if no specific league given
+  // Always try the specified league first, then all others in parallel
+  const allLeagues = Object.values(LEAGUE_NAME_TO_CODE);
   const leaguesToTry = league
-    ? [league]
-    : Object.values(LEAGUE_NAME_TO_CODE);
+    ? [league, ...allLeagues.filter(l => l !== league)]
+    : allLeagues;
 
-  for (const leagueCode of leaguesToTry) {
-    try {
+  // Fetch from ALL leagues in parallel
+  const results = await Promise.allSettled(
+    leaguesToTry.map(async (leagueCode) => {
       const url = `${BASE_URL}/soccer/${leagueCode}/teams/${teamId}/schedule`;
       const data = await fetchWithRetry(url);
-
-      if (!data?.events || data.events.length === 0) continue;
-
-      // Filter to completed matches only, parse them
-      const completed = data.events
+      if (!data?.events?.length) return [];
+      return data.events
         .filter((e: any) => e.competitions?.[0]?.status?.type?.completed === true)
         .map((e: any) => {
           try {
-            return parseESPNMatch(e);
-          } catch {
-            return null;
-          }
+            const match = parseESPNMatch(e);
+            // Tag with league info for display
+            (match as any).__league_config = { sport: 'soccer', league: leagueCode, name: getLeagueName(leagueCode) };
+            return match;
+          } catch { return null; }
         })
         .filter(Boolean) as ESPNMatch[];
+    })
+  );
 
-      if (completed.length > 0) {
-        console.log(`[ESPN] Team ${teamId} schedule from ${leagueCode}: ${completed.length} completed matches`);
-        return completed;
+  // Merge all matches, deduplicate by id, sort by date descending
+  const allMatches: ESPNMatch[] = [];
+  const seen = new Set<string>();
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      for (const m of r.value) {
+        if (!seen.has(m.id)) {
+          seen.add(m.id);
+          allMatches.push(m);
+        }
       }
-    } catch {
-      // Try next league
     }
   }
 
-  console.log(`[ESPN] No schedule found for team ${teamId} across all leagues`);
-  return [];
+  allMatches.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  console.log(`[ESPN] Team ${teamId} schedule: ${allMatches.length} completed matches across all competitions`);
+  return allMatches;
+}
+
+function getLeagueName(code: string): string {
+  const names: Record<string, string> = {
+    'eng.1': 'Premier League', 'esp.1': 'La Liga', 'ita.1': 'Serie A',
+    'ger.1': 'Bundesliga', 'fra.1': 'Ligue 1', 'usa.1': 'MLS', 'uefa.champions': 'Champions League',
+  };
+  return names[code] || code;
 }
 
 /**
@@ -277,10 +292,11 @@ export function parseSummaryStats(
   const result = { home: {} as Record<string, number>, away: {} as Record<string, number> };
   const teams = summary?.boxscore?.teams || [];
 
-  for (const teamData of teams) {
+  for (const [idx, teamData] of teams.entries()) {
     const teamId = teamData.team?.id;
-    const isHome = String(teamId) === String(homeTeamId);
-    const isAway = String(teamId) === String(awayTeamId);
+    const homeAway = teamData.homeAway; // ESPN sometimes has this field
+    const isHome = homeTeamId ? String(teamId) === String(homeTeamId) : (homeAway === 'home' || idx === 0);
+    const isAway = awayTeamId ? String(teamId) === String(awayTeamId) : (homeAway === 'away' || idx === 1);
     const target = isHome ? result.home : isAway ? result.away : null;
     if (!target) continue;
 

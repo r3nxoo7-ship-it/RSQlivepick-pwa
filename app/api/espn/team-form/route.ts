@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       away_yellow_cards: m.awayYellowCards || null,
       home_red_cards: m.homeRedCards || null,
       away_red_cards: m.awayRedCards || null,
-      raw_data: null,
+      raw_data: { leagueCode: (m as any).__league_config?.league || null },
     }));
 
     // Sort by date descending (most recent first)
