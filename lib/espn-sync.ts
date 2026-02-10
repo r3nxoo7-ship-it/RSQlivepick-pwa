@@ -500,12 +500,13 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
 /**
  * Sync recent past days of matches from ESPN scoreboard
  * Fetches matches from the past N days so team form has historical data
+ * Uses parallel requests to stay within Vercel serverless timeout
  */
-export async function syncRecentDays(days: number = 14): Promise<{ count: number; duration: number }> {
+export async function syncRecentDays(days: number = 7): Promise<{ count: number; duration: number }> {
   const startTime = Date.now();
 
   try {
-    console.log(`📅 [ESPN Sync] Syncing past ${days} days of matches...`);
+    console.log(`📅 [ESPN Sync] Syncing past ${days} days of matches (parallel)...`);
 
     const soccerLeagues = [
       { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
@@ -517,25 +518,34 @@ export async function syncRecentDays(days: number = 14): Promise<{ count: number
       { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
     ];
 
-    const allMatches: ESPNAPI.ESPNMatch[] = [];
-
+    // Build all fetch tasks upfront
+    const fetchTasks: Array<{ config: typeof soccerLeagues[0]; dateStr: string }> = [];
     for (let d = 1; d <= days; d++) {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - d);
-      const dateStr = pastDate.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
-
+      const dateStr = pastDate.toISOString().slice(0, 10).replace(/-/g, '');
       for (const config of soccerLeagues) {
-        try {
-          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
-          matches.forEach(m => {
-            (m as any).__league_config = config;
-          });
-          allMatches.push(...matches);
-        } catch (err) {
-          // Non-critical - continue with other leagues/dates
-        }
+        fetchTasks.push({ config, dateStr });
       }
     }
+
+    // Execute ALL fetches in parallel (ESPN has no rate limit)
+    const allMatches: ESPNAPI.ESPNMatch[] = [];
+    const results = await Promise.allSettled(
+      fetchTasks.map(async ({ config, dateStr }) => {
+        const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
+        matches.forEach(m => { (m as any).__league_config = config; });
+        return matches;
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allMatches.push(...result.value);
+      }
+    }
+
+    console.log(`📅 [ESPN Sync] Fetched ${allMatches.length} past matches from ${fetchTasks.length} parallel requests`);
 
     if (allMatches.length === 0) {
       console.log('📅 [ESPN Sync] No past matches found');

@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
     if (recentMatches.length === 0) {
       const completedCount = await getCompletedMatchCount();
       if (completedCount < 10) {
-        console.log(`[Team Form API] No matches for team ${teamId}, DB has ${completedCount} completed. Syncing past 14 days...`);
+        console.log(`[Team Form API] No matches for team ${teamId}, DB has ${completedCount} completed. Syncing past 7 days...`);
         try {
-          await syncRecentDays(14);
+          await syncRecentDays(7);
           recentMatches = await getTeamRecentMatches(String(teamId), limit);
           console.log(`[Team Form API] After sync: ${recentMatches.length} matches for team ${teamId}`);
         } catch (syncErr) {

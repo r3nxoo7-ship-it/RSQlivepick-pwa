@@ -361,12 +361,47 @@ function normalizeStatus(status?: any): 'scheduled' | 'in_progress' | 'completed
 
 function parseOdds(odds?: any[]): Record<string, any> | undefined {
   if (!odds?.[0]) return undefined;
-  
+
   const oddsList = odds[0];
+
+  // Extract full moneyline 1X2
+  const ml = oddsList.moneyline || {};
+  const homeML = ml.home?.close?.odds || oddsList.homeTeamOdds?.moneyLine;
+  const awayML = ml.away?.close?.odds || oddsList.awayTeamOdds?.moneyLine;
+  const drawML = ml.draw?.close?.odds || oddsList.drawOdds?.moneyLine;
+
+  // Extract over/under
+  const total = oddsList.total || {};
+  const overOdds = total.over?.close?.odds;
+  const underOdds = total.under?.close?.odds;
+  const overUnderLine = oddsList.overUnder;
+
+  // Extract spread/handicap
+  const spread = oddsList.pointSpread || {};
+  const homeSpreadLine = spread.home?.close?.line;
+  const homeSpreadOdds = spread.home?.close?.odds;
+  const awaySpreadLine = spread.away?.close?.line;
+  const awaySpreadOdds = spread.away?.close?.odds;
+
+  // Provider
+  const provider = oddsList.provider?.name || 'Unknown';
+
   return {
-    homeWin: oddsList.homeTeamOdds?.moneyLine,
-    draw: oddsList.drawOdds?.moneyLine,
-    awayWin: oddsList.awayTeamOdds?.moneyLine,
-    overUnder: oddsList.overUnder,
+    provider,
+    // 1X2 Moneyline (American format string or number)
+    homeWin: homeML,
+    draw: drawML,
+    awayWin: awayML,
+    // Over/Under
+    overUnderLine,
+    overOdds,
+    underOdds,
+    // Spread/Handicap
+    homeSpreadLine,
+    homeSpreadOdds,
+    awaySpreadLine,
+    awaySpreadOdds,
+    // Legacy
+    overUnder: overUnderLine,
   };
 }

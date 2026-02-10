@@ -276,24 +276,11 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
 
           {/* Odds Section */}
           {(match as any).odds && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="w-5 h-5 text-accent-blue" />
-                <h3 className="text-lg font-bold text-white">Betting Odds</h3>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <OddBox
-                  label={`${match.teams?.home?.name || 'Home'} Win`}
-                  odd={(match as any).odds.homeWin?.toFixed(2) || 'N/A'}
-                />
-                <OddBox label="Draw" odd={(match as any).odds.draw?.toFixed(2) || 'N/A'} />
-                <OddBox
-                  label={`${match.teams?.away?.name || 'Away'} Win`}
-                  odd={(match as any).odds.awayWin?.toFixed(2) || 'N/A'}
-                />
-              </div>
-            </div>
+            <BettingOddsSection
+              odds={(match as any).odds}
+              homeName={match.teams?.home?.name || 'Home'}
+              awayName={match.teams?.away?.name || 'Away'}
+            />
           )}
 
           {/* Recent Form - History (moved up for visibility) */}
@@ -404,11 +391,120 @@ function StatRow({
   );
 }
 
-function OddBox({ label, odd }: { label: string; odd: string }) {
+/**
+ * Convert American moneyline to decimal odds
+ * +330 → 4.30, -180 → 1.56
+ */
+function mlToDecimal(ml: any): string {
+  const num = typeof ml === 'string' ? parseFloat(ml) : ml;
+  if (!num || isNaN(num)) return '—';
+  if (num > 0) return ((num / 100) + 1).toFixed(2);
+  return ((100 / Math.abs(num)) + 1).toFixed(2);
+}
+
+function formatML(ml: any): string {
+  const num = typeof ml === 'string' ? parseFloat(ml) : ml;
+  if (!num || isNaN(num)) return '—';
+  return num > 0 ? `+${num}` : String(num);
+}
+
+function BettingOddsSection({
+  odds,
+  homeName,
+  awayName,
+}: {
+  odds: Record<string, any>;
+  homeName: string;
+  awayName: string;
+}) {
+  const [showAmerican, setShowAmerican] = useState(false);
+  const fmt = showAmerican ? formatML : mlToDecimal;
+
+  const hasMoneyline = odds.homeWin || odds.draw || odds.awayWin;
+  const hasOverUnder = odds.overUnderLine != null;
+  const hasSpread = odds.homeSpreadLine != null;
+
   return (
-    <div className="bg-glass-light rounded-lg p-4 text-center">
-      <div className="text-xs text-text-muted mb-2">{label}</div>
-      <div className="text-2xl font-bold text-accent-cyan">{odd}</div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-accent-blue" />
+          <h3 className="text-lg font-bold text-white">Betting Odds</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {odds.provider && (
+            <span className="text-[10px] text-text-muted">{odds.provider}</span>
+          )}
+          <button
+            onClick={() => setShowAmerican(!showAmerican)}
+            className="text-[10px] px-2 py-0.5 rounded bg-glass-light text-text-muted hover:text-white transition"
+          >
+            {showAmerican ? 'American' : 'Decimal'}
+          </button>
+        </div>
+      </div>
+
+      {/* 1X2 Match Result */}
+      {hasMoneyline && (
+        <div>
+          <div className="text-xs text-text-muted mb-2 font-semibold">Match Result (1X2)</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-glass-light rounded-lg p-3 text-center">
+              <div className="text-[10px] text-text-muted mb-1">1</div>
+              <div className="text-xs text-text-secondary mb-0.5 truncate">{homeName}</div>
+              <div className="text-lg font-bold text-accent-cyan">{fmt(odds.homeWin)}</div>
+            </div>
+            <div className="bg-glass-light rounded-lg p-3 text-center">
+              <div className="text-[10px] text-text-muted mb-1">X</div>
+              <div className="text-xs text-text-secondary mb-0.5">Draw</div>
+              <div className="text-lg font-bold text-accent-yellow">{fmt(odds.draw)}</div>
+            </div>
+            <div className="bg-glass-light rounded-lg p-3 text-center">
+              <div className="text-[10px] text-text-muted mb-1">2</div>
+              <div className="text-xs text-text-secondary mb-0.5 truncate">{awayName}</div>
+              <div className="text-lg font-bold text-accent-cyan">{fmt(odds.awayWin)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Over/Under */}
+      {hasOverUnder && (
+        <div>
+          <div className="text-xs text-text-muted mb-2 font-semibold">Goals Over/Under {odds.overUnderLine}</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-glass-light rounded-lg p-3 text-center">
+              <div className="text-xs text-text-secondary mb-1">Over {odds.overUnderLine}</div>
+              <div className="text-lg font-bold text-accent-green">{odds.overOdds ? fmt(odds.overOdds) : '—'}</div>
+            </div>
+            <div className="bg-glass-light rounded-lg p-3 text-center">
+              <div className="text-xs text-text-secondary mb-1">Under {odds.overUnderLine}</div>
+              <div className="text-lg font-bold text-accent-red">{odds.underOdds ? fmt(odds.underOdds) : '—'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Spread/Handicap */}
+      {hasSpread && (
+        <div>
+          <div className="text-xs text-text-muted mb-2 font-semibold">Asian Handicap</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-glass-light rounded-lg p-3 text-center">
+              <div className="text-xs text-text-secondary mb-1 truncate">{homeName} ({odds.homeSpreadLine})</div>
+              <div className="text-lg font-bold text-accent-cyan">{odds.homeSpreadOdds ? fmt(odds.homeSpreadOdds) : '—'}</div>
+            </div>
+            <div className="bg-glass-light rounded-lg p-3 text-center">
+              <div className="text-xs text-text-secondary mb-1 truncate">{awayName} ({odds.awaySpreadLine})</div>
+              <div className="text-lg font-bold text-accent-cyan">{odds.awaySpreadOdds ? fmt(odds.awaySpreadOdds) : '—'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!hasMoneyline && !hasOverUnder && !hasSpread && (
+        <div className="text-xs text-text-muted text-center py-4">No odds available for this match</div>
+      )}
     </div>
   );
 }
