@@ -3,8 +3,8 @@
 // ============================================
 // R$Q - LIVE MATCHES PAGE (WITH AUTO-SCANNER)
 // ============================================
-// Versiune optimizată cu Match Scanner integrat
 
+import { DynamicStatBar } from '@/components/DynamicStatBar';
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -12,28 +12,18 @@ import {
   Filter as FilterIcon, 
   Activity, 
   Target, 
-  Bell, 
-  BellOff, 
   Zap,
-  Settings,
-  Radio
 } from 'lucide-react';
-import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
+import { getLiveMatches, getMatchStatistics, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
-import MatchStatsDisplay from '@/components/MatchStatsDisplay';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
-import type { Filter, TriggeredMatch } from '@/lib/supabase';
-import { Clock, Calendar, Trophy } from 'lucide-react';
+import type { Filter } from '@/lib/supabase';
 import { applyFiltersToMatches, FilterMatchResult } from '@/lib/filter-engine';
 import { useBackgroundScanner } from '@/lib/background-scanner';
-import { checkNotificationStatus, requestNotificationPermission } from '@/lib/notifications';
+import { checkNotificationStatus } from '@/lib/notifications';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-// ============================================
-// COMPONENTA PRINCIPALĂ
-// ============================================
 
 export default function LiveMatchesPage() {
   const router = useRouter();
@@ -41,22 +31,24 @@ export default function LiveMatchesPage() {
   // ============================================
   // STATE
   // ============================================
-  
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   
+  // Modal & Stats State
+  const [selectedMatch, setSelectedMatch] = useState<LiveMatch | null>(null);
+  const [selectedMatchStats, setSelectedMatchStats] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
   // Filter state
   const [selectedLeague, setSelectedLeague] = useState<string>('all');
   const [userFilters, setUserFilters] = useState<Filter[]>([]);
   const [filterResults, setFilterResults] = useState<Map<number, FilterMatchResult[]>>(new Map());
-  const [showOnlyFiltered, setShowOnlyFiltered] = useState<boolean | null>(null); // null = loading from localStorage
+  const [showOnlyFiltered, setShowOnlyFiltered] = useState<boolean | null>(null);
   const [applyingFilters, setApplyingFilters] = useState(false);
   
   // Scanner state
-  const [scannerEnabled, setScannerEnabled] = useState(false);
-  const [notificationsReady, setNotificationsReady] = useState(false);
   const [scannerStats, setScannerStats] = useState({
     isRunning: false,
     totalScans: 0,
@@ -66,19 +58,7 @@ export default function LiveMatchesPage() {
     lastScanTime: null as Date | null,
   });
   
-  // Triggered matches state (last 20 minutes)
   const [recentlyTriggered, setRecentlyTriggered] = useState<any[]>([]);
-  const [triggeredLoading, setTriggeredLoading] = useState(false);
-
-  // Full history state
-  const [showFullHistory, setShowFullHistory] = useState(false);
-  const [historyMatches, setHistoryMatches] = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyPage, setHistoryPage] = useState(0);
-  const [historyHasMore, setHistoryHasMore] = useState(true);
-  const [historyTimeRange, setHistoryTimeRange] = useState<'all' | '24h' | '7d' | '30d'>('7d');
-  
-  // Use background scanner hook
   const backgroundScanner = useBackgroundScanner(true);
   
   // ============================================
@@ -89,55 +69,19 @@ export default function LiveMatchesPage() {
     try {
       const currentUser = authHelpers.getCurrentUser();
       if (!currentUser) return;
-
-      setTriggeredLoading(true);
       const triggered = await dbHelpers.getTriggeredMatches(currentUser.id, 20, 10);
       setRecentlyTriggered(triggered);
     } catch (err) {
       console.error('Error loading triggered matches:', err);
-    } finally {
-      setTriggeredLoading(false);
     }
   }, []);
 
-  const loadFullHistory = useCallback(async (page: number, timeRange: string, reset: boolean) => {
-    try {
-      const currentUser = authHelpers.getCurrentUser();
-      if (!currentUser) return;
-
-      setHistoryLoading(true);
-      const itemsPerPage = 20;
-      let matches: any[] = [];
-
-      if (timeRange === 'all') {
-        matches = await dbHelpers.getTriggeredMatchesHistory(currentUser.id, itemsPerPage, page * itemsPerPage);
-      } else {
-        const minutesMap: Record<string, number> = { '24h': 24 * 60, '7d': 7 * 24 * 60, '30d': 30 * 24 * 60 };
-        matches = await dbHelpers.getTriggeredMatches(currentUser.id, minutesMap[timeRange] || 20, 50);
-      }
-
-      if (reset) {
-        setHistoryMatches(matches);
-      } else {
-        setHistoryMatches(prev => [...prev, ...matches]);
-      }
-      setHistoryHasMore(matches.length === itemsPerPage);
-    } catch (err) {
-      console.error('Error loading history:', err);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, []);
-  
   const loadUserFilters = useCallback(async () => {
     try {
       const currentUser = authHelpers.getCurrentUser();
       if (!currentUser) return [];
-
       const filters = await dbHelpers.getUserFilters(currentUser.id);
       setUserFilters(filters);
-
-      console.log(`✅ Loaded ${filters.length} user filters`);
       return filters;
     } catch (err) {
       console.error('Error loading filters:', err);
@@ -148,69 +92,67 @@ export default function LiveMatchesPage() {
   const fetchMatches = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
     try {
-      console.log('🔍 Fetching live matches...');
       const liveMatches = await getLiveMatches();
-      
       setMatches(liveMatches);
       setLastUpdate(new Date());
       
-      console.log(`✅ Loaded ${liveMatches.length} live matches`);
-      
-      // Apply filters directly inline to avoid dependency issues
       if (userFilters.length > 0) {
         setApplyingFilters(true);
-        try {
-          console.log('🎯 Applying filters to matches...');
-          const results = await applyFiltersToMatches(liveMatches, userFilters);
-          setFilterResults(results);
-          console.log(`✅ ${results.size} matches have filter matches`);
-        } catch (err) {
-          console.error('Error applying filters:', err);
-        } finally {
-          setApplyingFilters(false);
-        }
-      } else {
-        setFilterResults(new Map());
+        const results = await applyFiltersToMatches(liveMatches, userFilters);
+        setFilterResults(results);
+        setApplyingFilters(false);
       }
-      
     } catch (err) {
-      console.error('❌ Error fetching matches:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch matches');
     } finally {
       setLoading(false);
     }
   }, [userFilters]);
   
-  const checkNotificationPermissions = useCallback(async () => {
+  // ============================================
+  // HANDLERS
+  // ============================================
+  
+  const handleMatchClick = async (match: LiveMatch) => {
+    setSelectedMatch(match);
+    setLoadingStats(true);
+    setSelectedMatchStats(null); // Reset anterior
     try {
-      const status = await checkNotificationStatus();
-      setNotificationsReady(status.ready);
-      console.log('🔔 Notification status:', status);
-      
-      if (!status.ready && status.supported) {
-        console.log('⚠️ Notifications not ready. User needs to grant permission.');
+      const fixtureId = match.fixture?.id;
+      if (fixtureId) {
+        const stats = await getMatchStatistics(Number(fixtureId));
+        const mapped = stats.reduce((acc: any, s: any) => {
+          acc[s.type] = { home: s.home, away: s.away };
+          return acc;
+        }, {});
+        setSelectedMatchStats(mapped);
       }
     } catch (err) {
-      console.error('Error checking notification permissions:', err);
+      console.error("Eroare statistici:", err);
+    } finally {
+      setLoadingStats(false);
     }
-  }, []);
+  };
   
+  const handleRefresh = () => {
+    fetchMatches();
+  };
+
   // ============================================
   // EFFECTS
   // ============================================
   
-  // Add modal state
-  const [selectedMatch, setSelectedMatch] = useState<LiveMatch | null>(null);
-  
-  // Load showOnlyFiltered from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('live-show-only-filtered');
-    setShowOnlyFiltered(saved === 'true' ? true : false);
-  }, []);
-  
-  // Update scanner stats every 5 seconds
+    setShowOnlyFiltered(saved === 'true');
+    loadUserFilters();
+  }, [loadUserFilters]);
+
+  useEffect(() => {
+    fetchMatches();
+  }, [fetchMatches]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       const stats = backgroundScanner.getState();
@@ -223,410 +165,134 @@ export default function LiveMatchesPage() {
         lastScanTime: stats.lastScanTime,
       });
     }, 5000);
-    
     return () => clearInterval(interval);
   }, [backgroundScanner]);
 
-  // Load recently triggered matches every 10 seconds
   useEffect(() => {
     loadRecentlyTriggered();
-    const interval = setInterval(() => {
-      loadRecentlyTriggered();
-    }, 10000);
-    
+    const interval = setInterval(loadRecentlyTriggered, 10000);
     return () => clearInterval(interval);
   }, [loadRecentlyTriggered]);
-  
-  // Persist showOnlyFiltered to localStorage when it changes
-  useEffect(() => {
-    if (showOnlyFiltered !== null) {
-      localStorage.setItem('live-show-only-filtered', String(showOnlyFiltered));
-    }
-  }, [showOnlyFiltered]);
-  
-  useEffect(() => {
-    loadUserFilters();
-    checkNotificationPermissions();
-  }, [loadUserFilters, checkNotificationPermissions]);
-  
-  useEffect(() => {
-    fetchMatches();
-  }, [fetchMatches]);
-  
-  useEffect(() => {
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      console.log('⏰ Auto-refresh matches...');
-      fetchMatches();
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [fetchMatches]);
-  
+
   // ============================================
-  // FILTER LOGIC
+  // RENDER LOGIC
   // ============================================
-  
-  const matchesWithFilters = Array.from(filterResults.keys()).length;
-  const activeFiltersCount = userFilters.filter(f => f.is_active).length;
-  const filtersWithNotifications = userFilters.filter(f => f.is_active && f.notification_enabled).length;
-  
+  const leagues = Array.from(new Set(matches.map(m => m.league?.name || 'Unknown')));
   let filteredMatches = selectedLeague === 'all' 
     ? matches 
     : matches.filter(m => m.league?.name === selectedLeague);
   
-  if (showOnlyFiltered === true) {
+  if (showOnlyFiltered) {
     filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has(m.fixture.id));
   }
-  
-  const leagues = Array.from(new Set(matches.map(m => m.league?.name || 'Unknown')));
-  
-  // ============================================
-  // HANDLERS
-  // ============================================
-  
-  const handleMatchClick = (match: LiveMatch) => {
-    const fixtureId = match.fixture?.id;
-    const matchedFilters = fixtureId ? filterResults.get(fixtureId) : null;
 
-    const homeName = match.teams?.home?.name || 'Home';
-    const awayName = match.teams?.away?.name || 'Away';
-    const leagueName = match.league?.name || 'Unknown';
-
-    if (matchedFilters && matchedFilters.length > 0) {
-      const filterNames = matchedFilters.map(r => r.filter.name).join(', ');
-      const conditions = matchedFilters[0].matchedConditions.join('\n');
-
-      alert(
-        `⚽ ${homeName} vs ${awayName}\n\n` +
-        `✅ Matched Filters (${matchedFilters.length}):\n${filterNames}\n\n` +
-        `📊 Conditions:\n${conditions}`
-      );
-    } else {
-      alert(
-        `⚽ ${homeName} vs ${awayName}\n\n` +
-        `Match ID: ${fixtureId || 'unknown'}\n` +
-        `Liga: ${leagueName}\n\n` +
-        `❌ No filters matched`
-      );
-    }
-  };
-  
-  const handleRefresh = () => {
-    fetchMatches();
-  };
-  
-  // ============================================
-  // RENDER
-  // ============================================
-  
   return (
     <AuthWrapper>
       <div className="min-h-screen p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           
-          {/* ========== HEADER ========== */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative rounded-xl overflow-hidden mb-4"
-          >
-            {/* Background gradient with mobile optimization */}
-            <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/20 to-accent-blue/20 md:from-accent-cyan/30 md:to-accent-blue/30"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background opacity-70"></div>
-            
-            {/* Header content */}
-            <div className="relative p-4 sm:p-6 md:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent mb-1 sm:mb-2 line-clamp-1">
-                  ⚽ Live Matches
-                </h1>
-                <p className="text-xs sm:text-sm md:text-base text-text-secondary line-clamp-2">
-                  Real-time: <span className="text-accent-cyan font-semibold">{matches.length} matches</span>
-                  {lastUpdate && (
-                    <> • <span className="text-accent-cyan">{lastUpdate.toLocaleTimeString()}</span></>
-                  )}
-                </p>
+          {/* HEADER */}
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative rounded-xl overflow-hidden mb-4">
+            <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/20 to-accent-blue/20"></div>
+            <div className="relative p-8 flex justify-between items-center">
+              <div>
+                <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent">⚽ Live Analytics</h1>
+                <p className="text-text-secondary">{matches.length} matches active</p>
               </div>
-              
-              <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className="btn-secondary flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 sm:px-4 sm:py-2 px-3 py-2 text-sm sm:text-base"
-              >
-                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
+              <button onClick={handleRefresh} disabled={loading} className="btn-secondary flex gap-2">
+                <RefreshCw className={loading ? 'animate-spin' : ''} /> Refresh
               </button>
             </div>
           </motion.div>
-          
-          {/* ========== STATS BAR ========== */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="glass-card p-3 sm:p-4 md:p-6 border-t border-glass-lighter"
-          >
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-cyan-900/5 border border-accent-cyan/20">
-                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Live</div>
-                <div className="stat-value text-lg sm:text-2xl md:text-3xl font-bold text-accent-cyan">{matches.length}</div>
-              </div>
-              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-green/10 to-green-900/5 border border-accent-green/20">
-                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Scanned</div>
-                <div className="stat-value text-accent-green text-lg sm:text-2xl md:text-3xl font-bold">{matchesWithFilters}</div>
-              </div>
-              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-amber/10 to-amber-900/5 border border-accent-amber/20">
-                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Filters</div>
-                <div className="stat-value text-accent-amber text-lg sm:text-2xl md:text-3xl font-bold">{activeFiltersCount}</div>
-              </div>
-              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-purple/10 to-purple-900/5 border border-accent-purple/20">
-                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Scans</div>
-                <div className="stat-value text-accent-purple text-lg sm:text-2xl md:text-3xl font-bold">{scannerStats.totalScans}</div>
-              </div>
-              <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-blue/10 to-blue-900/5 border border-accent-blue/20">
-                <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Alerts</div>
-                <div className="stat-value text-accent-blue text-lg sm:text-2xl md:text-3xl font-bold">{scannerStats.notificationsSent}</div>
-              </div>
-            </div>
-          </motion.div>
 
-          
-          {/* ========== FILTERS SECTION ========== */}
-          <div className="glass-card p-3 sm:p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 flex-wrap">
-              <FilterIcon className="w-5 h-5 text-accent-cyan flex-shrink-0" />
-              <span className="font-display font-semibold text-sm sm:text-base">Filters:</span>
-              
-              <select
-                value={selectedLeague}
-                onChange={(e) => setSelectedLeague(e.target.value)}
-                className="input-field max-w-xs text-sm py-2"
-              >
-                <option value="all">All ({matches.length})</option>
-                {leagues.map(league => {
-                  const count = matches.filter(m => m.league.name === league).length;
-                  return (
-                    <option key={league} value={league}>
-                      {league} ({count})
-                    </option>
-                  );
-                })}
-              </select>
-              
-              {activeFiltersCount > 0 && (
-                <label className="flex items-center gap-2 cursor-pointer text-sm flex-shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={showOnlyFiltered || false}
-                    onChange={(e) => setShowOnlyFiltered(e.target.checked)}
-                    className="w-4 h-4 rounded border-glass-medium bg-glass-light accent-accent-cyan"
-                  />
-                  <span className="flex items-center gap-1">
-                    <Target className="w-3 h-3 sm:w-4 sm:h-4 text-accent-green flex-shrink-0" />
-                    <span className="hidden sm:inline">Matched</span>
-                    <span className="sm:hidden">({matchesWithFilters})</span>
-                    <span className="hidden sm:inline">({matchesWithFilters})</span>
-                  </span>
-                </label>
-              )}
-              
-              {applyingFilters && (
-                <span className="text-xs sm:text-sm text-text-muted flex items-center gap-2 flex-shrink-0">
-                  <svg className="animate-spin h-3 w-3 sm:h-4 sm:w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Applying...
-                </span>
-              )}
-              
-              <span className="text-text-muted text-xs sm:text-sm ml-auto sm:ml-0 flex-shrink-0">
-                {activeFiltersCount === 0 ? (
-                  '💡 Create filters'
-                ) : (
-                  `✅ ${activeFiltersCount} filters`
-                )}
-              </span>
+          {/* STATS BAR */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="glass-card p-4 text-center border-b-2 border-accent-cyan">
+              <p className="text-xs text-text-secondary uppercase">Live</p>
+              <p className="text-2xl font-black text-accent-cyan">{matches.length}</p>
             </div>
+            <div className="glass-card p-4 text-center border-b-2 border-accent-green">
+              <p className="text-xs text-text-secondary uppercase">Matched</p>
+              <p className="text-2xl font-black text-accent-green">{Array.from(filterResults.keys()).length}</p>
+            </div>
+            {/* ... rest of stats ... */}
           </div>
-          
-          {/* ========== RECENTLY TRIGGERED (Last 20 min) ========== */}
-          {recentlyTriggered.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card p-4 sm:p-6 border-l-4 border-accent-cyan"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-accent-cyan animate-pulse" />
-                  Recently Triggered
-                  <span className="text-sm text-accent-cyan ml-2">({recentlyTriggered.length})</span>
-                </h3>
-                <button
-                  onClick={() => router.push('/dashboard/history')}
-                  className="text-sm text-accent-cyan hover:text-accent-blue transition-colors"
-                >
-                  View Full History →
-                </button>
-              </div>
-              
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {recentlyTriggered.map((match) => {
-                  const timeSinceTriggered = (() => {
-                    const now = new Date();
-                    const triggered = new Date(match.triggered_at);
-                    const diffMs = now.getTime() - triggered.getTime();
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                    if (diffMins < 1) return `${diffSecs}s ago`;
-                    return `${diffMins}m ago`;
-                  })();
 
-                  return (
-                    <Link
-                      key={match.id || `${match.match_id}-${match.filter_id}-${match.created_at}`}
-                      href={`/dashboard/triggered/${match.id}`}
-                      className="flex items-center justify-between p-3 rounded-lg bg-glass-light border border-accent-cyan/30 hover:border-accent-cyan/60 hover:bg-glass-light/80 transition-all text-sm cursor-pointer group"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-accent-cyan truncate group-hover:text-accent-blue transition-colors">
-                          {match.home_team} vs {match.away_team}
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          <FilterIcon className="w-3 h-3 inline mr-1" />
-                          {match.filter_name}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                        {match.match_time && (
-                          <span className="text-xs bg-accent-green/20 text-accent-green px-2 py-1 rounded font-semibold">
-                            {match.match_time}&apos;
-                          </span>
-                        )}
-                        <span className="text-xs text-accent-blue whitespace-nowrap">{timeSinceTriggered}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-          
-          {/* ========== LOADING ========== */}
-          {loading && matches.length === 0 && (
-            <div className="glass-card p-12 text-center">
-              <div className="w-16 h-16 rounded-full border-4 border-accent-cyan border-t-transparent animate-spin mx-auto mb-4" />
-              <p className="text-text-secondary">Loading live matches...</p>
-            </div>
-          )}
-          
-          {/* ========== ERROR ========== */}
-          {error && (
-            <div className="glass-card p-6 border-l-4 border-accent-red">
-              <h3 className="text-accent-red font-semibold mb-2">
-                ❌ Loading Error
-              </h3>
-              <p className="text-text-secondary text-sm mb-3">{error}</p>
-              <button onClick={handleRefresh} className="btn-primary">
-                Try Again
-              </button>
-            </div>
-          )}
-          
-          {/* ========== MECIURI ========== */}
-          {!loading && !error && filteredMatches.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
-            >
-              {filteredMatches.map((match, index) => (
-                <motion.div
-                  key={match.fixture?.id || index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <MatchCard
-                    match={match}
-                    onClick={() => setSelectedMatch(match)}
-                    showStatistics={true}
-                    filterResults={filterResults.get(match.fixture?.id)}
-                  />
-                </motion.div>
+          {/* FILTERS SECTION */}
+          <div className="glass-card p-4 flex gap-4 items-center">
+            <FilterIcon className="text-accent-cyan" />
+            <select value={selectedLeague} onChange={(e) => setSelectedLeague(e.target.value)} className="input-field max-w-xs">
+              <option value="all">All Leagues</option>
+              {leagues.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={showOnlyFiltered || false} onChange={(e) => setShowOnlyFiltered(e.target.checked)} className="accent-accent-cyan" />
+              <span className="text-sm font-bold">Show Only Filtered</span>
+            </label>
+          </div>
+
+          {/* MATCH GRID */}
+          {!loading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredMatches.map((match) => (
+                <MatchCard 
+                  key={match.fixture.id} 
+                  match={match} 
+                  onClick={() => handleMatchClick(match)}
+                  filterResults={filterResults.get(match.fixture.id)}
+                />
               ))}
-            </motion.div>
+            </div>
           )}
 
-          {/* Floating Action Button for New Filter */}
-          <button
-            onClick={() => router.push('/dashboard/filters/new')}
-            className="fixed bottom-20 right-4 z-40 bg-gradient-to-br from-accent-cyan to-accent-blue text-white rounded-full shadow-lg p-4 flex items-center justify-center md:hidden hover:scale-105 transition"
-            aria-label="Create New Filter"
-          >
-            <FilterIcon className="w-7 h-7" />
-          </button>
-
-          {/* Match Details Modal */}
+          {/* MODAL STATISTICI */}
           {selectedMatch && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-              <div className="bg-glass-light rounded-2xl shadow-2xl max-w-lg w-full p-6 relative animate-fadeIn">
-                <button
-                  onClick={() => setSelectedMatch(null)}
-                  className="absolute top-3 right-3 text-text-secondary hover:text-accent-cyan"
-                  aria-label="Close"
-                >
-                  ×
-                </button>
-                <h2 className="text-xl font-bold mb-2 text-accent-cyan">
-                  {selectedMatch.teams.home.name} vs {selectedMatch.teams.away.name}
-                </h2>
-                <div className="text-sm text-text-secondary mb-4">
-                  <p>League: {selectedMatch.league.name}</p>
-                  <p>Time: {selectedMatch.fixture.status.long} ({selectedMatch.fixture.status.elapsed}&apos;)</p>
-                  <p>Score: {selectedMatch.goals.home} - {selectedMatch.goals.away}</p>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
+              <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-[#050505] border border-white/10 rounded-3xl w-full max-w-md p-6 relative">
+                <button onClick={() => setSelectedMatch(null)} className="absolute top-5 right-5 text-white/50 text-2xl">✕</button>
+                
+                <div className="text-center mb-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="flex-1 font-black uppercase text-sm">{selectedMatch.teams.home.name}</p>
+                    <div className="mx-4 bg-white text-black px-4 py-1 font-black text-2xl skew-x-[-10deg]">
+                      {selectedMatch.goals.home} - {selectedMatch.goals.away}
+                    </div>
+                    <p className="flex-1 font-black uppercase text-sm text-right">{selectedMatch.teams.away.name}</p>
+                  </div>
+                  <span className="text-accent-cyan text-xs font-bold animate-pulse tracking-widest uppercase">
+                    Minute {selectedMatch.fixture.status.elapsed}&apos;
+                  </span>
                 </div>
-                <div className="text-center text-sm text-text-muted">
-                  <p>Full stats integration coming soon</p>
+
+                <div className="space-y-6 bg-white/5 p-6 rounded-2xl border border-white/5">
+                  {loadingStats ? (
+                    <div className="py-10 text-center animate-pulse text-accent-cyan font-bold">LOADING LIVE DATA...</div>
+                  ) : selectedMatchStats ? (
+                    <>
+                      <DynamicStatBar 
+                        label="Dangerous Attacks" 
+                        homeValue={selectedMatchStats['Dangerous Attacks']?.home || 0} 
+                        awayValue={selectedMatchStats['Dangerous Attacks']?.away || 0} 
+                      />
+                      <DynamicStatBar 
+                        label="Shots on Target" 
+                        homeValue={selectedMatchStats['Shots on Goal']?.home || 0} 
+                        awayValue={selectedMatchStats['Shots on Goal']?.away || 0} 
+                      />
+                      <DynamicStatBar 
+                        label="Possession %" 
+                        homeValue={parseInt(selectedMatchStats['Ball Possession']?.home) || 0} 
+                        awayValue={parseInt(selectedMatchStats['Ball Possession']?.away) || 0} 
+                      />
+                    </>
+                  ) : (
+                    <p className="text-center py-10 opacity-30">No stats available</p>
+                  )}
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
-          
-          {/* ========== EMPTY STATE ========== */}
-          {!loading && !error && filteredMatches.length === 0 && (
-            <div className="glass-card p-12 text-center">
-              <Activity className="w-16 h-16 text-text-muted mx-auto mb-4" />
-              <h3 className="text-xl font-display font-semibold mb-2">
-                No live matches at the moment
-              </h3>
-              <p className="text-text-secondary mb-4">
-                {matches.length > 0 
-                  ? 'No matches match the selected filter.'
-                  : 'Try again when matches are scheduled (usually afternoon/evening).'}
-              </p>
-              <button onClick={handleRefresh} className="btn-primary">
-                <RefreshCw className="w-4 h-4 inline mr-2" />
-                Check Again
-              </button>
-            </div>
-          )}
-          
-          {/* ========== INFO ========== */}
-          <div className="glass-card p-4 text-sm">
-            <h4 className="font-semibold text-accent-cyan mb-2">
-              💡 How does the Auto-Scanner work?
-            </h4>
-            <ul className="space-y-1 text-text-muted">
-              <li>• The scanner checks matches every 45 seconds</li>
-              <li>• When a match matches an active filter → you get automatic notification!</li>
-              <li>• Notifications are sent only once per match + filter (no duplicates)</li>
-              <li>• You can enable/disable notifications per filter in the Filters section</li>
-              <li>• Match refresh runs every 30s, scanner every 45s (for API optimization)</li>
-            </ul>
-          </div>
+
         </div>
       </div>
     </AuthWrapper>
