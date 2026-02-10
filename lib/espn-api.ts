@@ -114,11 +114,13 @@ async function fetchWithRetry(url: string, retries = 2): Promise<any> {
  */
 export async function getLeagueMatches(
   sport: string,
-  league: string
+  league: string,
+  date?: string // Format: YYYYMMDD - fetches specific date instead of today
 ): Promise<ESPNMatch[]> {
   try {
-    const url = `${BASE_URL}/${sport}/${league}/scoreboard`;
-    console.log(`📡 Fetching ${league} matches from ESPN...`);
+    let url = `${BASE_URL}/${sport}/${league}/scoreboard`;
+    if (date) url += `?dates=${date}`;
+    console.log(`📡 Fetching ${league} matches from ESPN${date ? ` for ${date}` : ''}...`);
     
     const data = await fetchWithRetry(url);
     

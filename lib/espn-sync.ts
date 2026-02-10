@@ -322,12 +322,13 @@ export async function getLiveMatchesOnly() {
 }
 
 /**
- * Get upcoming matches (scheduled for next 3 hours)
+ * Get all today's scheduled matches (rest of day)
  */
 export async function getUpcomingMatches() {
   try {
     const now = new Date();
-    const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
 
     const { data, error } = await supabase
       .from('espn_matches')
@@ -336,18 +337,163 @@ export async function getUpcomingMatches() {
       .neq('league', 'multi')
       .eq('status', 'scheduled')
       .gte('date', now.toISOString())
-      .lte('date', threeHoursLater.toISOString())
+      .lte('date', endOfToday.toISOString())
       .order('date', { ascending: true });
 
     if (error) {
       console.error('Error fetching upcoming matches:', error);
       return [];
     }
-    
+
     return data || [];
   } catch (error) {
     console.error('Error reading from Supabase:', error);
     return [];
+  }
+}
+
+/**
+ * Get scheduled matches for next N days (tomorrow onwards) for Predicted section
+ */
+export async function getScheduledMatchesRange(daysAhead: number = 7) {
+  try {
+    const now = new Date();
+    const startOfTomorrow = new Date(now);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    startOfTomorrow.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(now);
+    endDate.setDate(endDate.getDate() + daysAhead);
+    endDate.setHours(23, 59, 59, 999);
+
+    const { data, error } = await supabase
+      .from('espn_matches')
+      .select('*')
+      .eq('sport', 'soccer')
+      .neq('league', 'multi')
+      .eq('status', 'scheduled')
+      .gte('date', startOfTomorrow.toISOString())
+      .lte('date', endDate.toISOString())
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching scheduled range:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error reading from Supabase:', error);
+    return [];
+  }
+}
+
+/**
+ * Sync upcoming days' matches from ESPN (next 7 days)
+ * Called infrequently (~every 15 min) to populate schedule for Predicted section
+ */
+export async function syncUpcomingDays(days: number = 7): Promise<{ count: number; duration: number }> {
+  const startTime = Date.now();
+
+  try {
+    console.log(`📅 [ESPN Sync] Syncing upcoming ${days} days of matches...`);
+
+    const soccerLeagues = [
+      { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
+      { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
+      { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
+      { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
+      { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
+      { sport: 'soccer', league: 'usa.1', name: 'MLS' },
+      { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
+    ];
+
+    const allMatches: ESPNAPI.ESPNMatch[] = [];
+
+    for (let d = 1; d <= days; d++) {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + d);
+      const dateStr = futureDate.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+
+      for (const config of soccerLeagues) {
+        try {
+          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
+          matches.forEach(m => {
+            (m as any).__league_config = config;
+          });
+          allMatches.push(...matches);
+        } catch (err) {
+          // Non-critical - continue with other leagues/dates
+        }
+      }
+    }
+
+    if (allMatches.length === 0) {
+      console.log('📅 [ESPN Sync] No upcoming matches found');
+      return { count: 0, duration: Date.now() - startTime };
+    }
+
+    const rows = allMatches.map(match => {
+      const leagueConfig = (match as any).__league_config || {};
+      return {
+        id: match.id,
+        event_id: match.eventId || match.id,
+        sport: 'soccer',
+        league: leagueConfig.name || 'Soccer',
+        date: new Date(match.date),
+        status: match.status,
+        home_team_id: match.homeTeam.id,
+        away_team_id: match.awayTeam.id,
+        home_team_name: match.homeTeam.displayName || match.homeTeam.name,
+        away_team_name: match.awayTeam.displayName || match.awayTeam.name,
+        home_score: match.homeScore || 0,
+        away_score: match.awayScore || 0,
+        home_goals: match.homeGoals,
+        away_goals: match.awayGoals,
+        home_corners: match.homeCorners,
+        away_corners: match.awayCorners,
+        home_shots_on_target: match.homeShotsOnTarget,
+        away_shots_on_target: match.awayShotsOnTarget,
+        home_possession: match.homePossession,
+        away_possession: match.awayPossession,
+        home_yellow_cards: match.homeYellowCards,
+        away_yellow_cards: match.awayYellowCards,
+        home_red_cards: match.homeRedCards,
+        away_red_cards: match.awayRedCards,
+        period: match.period,
+        minute: match.minute,
+        venue_id: match.venue?.id,
+        venue_name: match.venue?.name,
+        broadcast: match.broadcast,
+        odds: match.odds ? JSON.stringify(match.odds) : null,
+        raw_data: match,
+      };
+    });
+
+    // Deduplicate
+    const uniqueMatches = new Map<string, typeof rows[0]>();
+    for (const row of rows) {
+      if (!uniqueMatches.has(row.id)) {
+        uniqueMatches.set(row.id, row);
+      }
+    }
+
+    const uniqueRows = Array.from(uniqueMatches.values());
+    const { error } = await supabase
+      .from('espn_matches')
+      .upsert(uniqueRows, { onConflict: 'id' });
+
+    if (error) {
+      console.error('❌ [ESPN Sync] Upcoming days upsert failed:', error);
+      throw error;
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [ESPN Sync] Synced ${uniqueRows.length} upcoming matches (${days} days) in ${duration}ms`);
+    return { count: uniqueRows.length, duration };
+  } catch (error) {
+    console.error('❌ [ESPN Sync] Upcoming sync failed:', error);
+    throw error;
   }
 }
 

@@ -21,13 +21,19 @@ export async function POST(request: NextRequest) {
   try {
     console.log('📨 [API] ESPN sync endpoint called');
 
-    // Main sync: matches (happens every call)
+    // Main sync: today's matches (happens every call)
     const matchResult = await espnSync.syncAllMatches();
-    
+
     // Occasional sync: teams (1 in 10 calls = ~every 10 minutes)
     let teamResult = { count: 0, duration: 0 };
     if (Math.random() < 0.1) {
       teamResult = await espnSync.syncAllTeams();
+    }
+
+    // Occasional sync: upcoming 7 days (~every 15 minutes)
+    let upcomingResult = { count: 0, duration: 0 };
+    if (Math.random() < 0.067) {
+      upcomingResult = await espnSync.syncUpcomingDays(7);
     }
 
     return NextResponse.json({
@@ -39,6 +45,10 @@ export async function POST(request: NextRequest) {
       teams: {
         synced: teamResult.count,
         duration_ms: teamResult.duration,
+      },
+      upcoming: {
+        synced: upcomingResult.count,
+        duration_ms: upcomingResult.duration,
       },
       timestamp: new Date().toISOString(),
     }, {

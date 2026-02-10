@@ -12,6 +12,7 @@ export default function MatchesAnalyticsPage() {
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<LiveMatch[]>([]);
+  const [scheduledMatches, setScheduledMatches] = useState<LiveMatch[]>([]);
   const [teamForm, setTeamForm] = useState<Record<string, any>>({});
   const [userFilters, setUserFilters] = useState<Filter[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,10 +33,11 @@ export default function MatchesAnalyticsPage() {
 
       // Try to get separated live and upcoming matches first
       const separated = await getLiveAndUpcomingMatches();
-      if (separated.live.length > 0 || separated.upcoming.length > 0) {
-        console.log(`📊 Got ${separated.live.length} live and ${separated.upcoming.length} upcoming matches`);
+      if (separated.live.length > 0 || separated.upcoming.length > 0 || separated.scheduled.length > 0) {
+        console.log(`📊 Got ${separated.live.length} live, ${separated.upcoming.length} upcoming, ${separated.scheduled.length} scheduled matches`);
         setLiveMatches(separated.live);
         setUpcomingMatches(separated.upcoming);
+        setScheduledMatches(separated.scheduled);
         setTeamForm(separated.teamForm || {});
         setMatches([...separated.live, ...separated.upcoming]);
       } else {
@@ -105,7 +107,7 @@ export default function MatchesAnalyticsPage() {
             </button>
           </div>
           <p className="text-text-secondary mt-1">
-            Real-time match stats • Filter predictions • Next 3 hours{lastUpdate && ` • Updated: ${lastUpdate}`}
+            Real-time match stats • Filter predictions • Today + 7-day schedule{lastUpdate && ` • Updated: ${lastUpdate}`}
           </p>
         </div>
       </motion.div>
@@ -116,6 +118,7 @@ export default function MatchesAnalyticsPage() {
           matches={matches}
           liveMatches={liveMatches}
           upcomingMatches={upcomingMatches}
+          scheduledMatches={scheduledMatches}
           teamForm={teamForm}
           userFilters={userFilters}
           loading={loading}

@@ -13,45 +13,33 @@ export const revalidate = 0;
 
 /**
  * GET /api/espn/matches
- * Get live + upcoming soccer matches from Supabase (FIFA only)
- * Also returns recent form for each team
- * Returns data synced in the last minute, filtered for soccer sport
+ * Returns 3 sections: live, today (all today's scheduled), scheduled (next 7 days)
+ * Also returns recent form for teams in live + today matches
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get live and upcoming matches separately
+    // Get live, today's scheduled, and 7-day scheduled matches
     const liveRaw = await espnSync.getLiveMatchesOnly();
-    const upcomingRaw = await espnSync.getUpcomingMatches();
-    
-    // Convert to LiveMatch format
-    const liveMatches = liveRaw
-      .filter(row => 
-        row.sport === 'soccer' && 
-        row.league !== 'multi' &&
-        row.home_team_name && 
-        row.home_team_name !== 'Unknown' &&
-        row.away_team_name &&
-        row.away_team_name !== 'Unknown' &&
-        row.id
-      )
-      .map(row => espnSync.convertESPNMatchToLiveMatch(row));
+    const todayRaw = await espnSync.getUpcomingMatches();
+    const scheduledRaw = await espnSync.getScheduledMatchesRange(7);
 
-    const upcomingMatches = upcomingRaw
-      .filter(row => 
-        row.sport === 'soccer' && 
-        row.league !== 'multi' &&
-        row.home_team_name && 
-        row.home_team_name !== 'Unknown' &&
-        row.away_team_name &&
-        row.away_team_name !== 'Unknown' &&
-        row.id
-      )
-      .map(row => espnSync.convertESPNMatchToLiveMatch(row));
+    const validFilter = (row: any) =>
+      row.sport === 'soccer' &&
+      row.league !== 'multi' &&
+      row.home_team_name &&
+      row.home_team_name !== 'Unknown' &&
+      row.away_team_name &&
+      row.away_team_name !== 'Unknown' &&
+      row.id;
 
-    // Fetch recent form for teams in current matches (live + upcoming)
-    const allCurrentMatches = [...liveRaw, ...upcomingRaw];
+    const liveMatches = liveRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
+    const todayMatches = todayRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
+    const scheduledMatches = scheduledRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
+
+    // Fetch recent form for teams in live + today matches only (skip scheduled for perf)
+    const currentMatches = [...liveRaw, ...todayRaw];
     const teamIds = new Set<string>();
-    allCurrentMatches.forEach(m => {
+    currentMatches.forEach(m => {
       if (m.home_team_id) teamIds.add(m.home_team_id);
       if (m.away_team_id) teamIds.add(m.away_team_id);
     });
@@ -70,25 +58,30 @@ export async function GET(request: NextRequest) {
         matches: liveMatches,
       },
       upcoming: {
-        count: upcomingMatches.length,
-        matches: upcomingMatches,
+        count: todayMatches.length,
+        matches: todayMatches,
+      },
+      scheduled: {
+        count: scheduledMatches.length,
+        matches: scheduledMatches,
       },
       teamForm: teamForm,
       timestamp: new Date().toISOString(),
     }, {
       headers: {
-        'Cache-Control': 'private, max-age=5', // Can cache for 5 seconds
+        'Cache-Control': 'private, max-age=5',
         'X-Data-Source': 'Supabase (synced from ESPN)',
       }
     });
   } catch (error) {
     console.error('Error fetching matches:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Failed to fetch matches',
         live: { count: 0, matches: [] },
         upcoming: { count: 0, matches: [] },
+        scheduled: { count: 0, matches: [] },
         teamForm: {},
       },
       { status: 500 }

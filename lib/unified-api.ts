@@ -88,10 +88,11 @@ export async function getLiveAndUpcomingMatches() {
     if (res.ok) {
       const body = await res.json();
       if (body?.live && body?.upcoming) {
-        console.log(`✅ Got ${body.live.count} live and ${body.upcoming.count} upcoming matches`);
+        console.log(`✅ Got ${body.live.count} live, ${body.upcoming.count} upcoming, ${body.scheduled?.count || 0} scheduled matches`);
         return {
           live: body.live.matches || [],
           upcoming: body.upcoming.matches || [],
+          scheduled: body.scheduled?.matches || [],
           teamForm: body.teamForm || {},
         };
       }
@@ -100,7 +101,7 @@ export async function getLiveAndUpcomingMatches() {
     console.error('Error fetching separated matches:', err);
   }
 
-  return { live: [], upcoming: [], teamForm: {} };
+  return { live: [], upcoming: [], scheduled: [], teamForm: {} };
 }
 
 /**
