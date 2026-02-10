@@ -327,6 +327,22 @@ export function enrichMatchWithSummary(
 // INTERNAL PARSERS
 // ============================================
 
+/**
+ * Parse score from ESPN - handles both formats:
+ * - Scoreboard: competitor.score is a string like "2"
+ * - Schedule: competitor.score is an object { value: 2.0, displayValue: "2" }
+ */
+function parseScore(score: any): number {
+  if (score == null) return 0;
+  if (typeof score === 'number') return score;
+  if (typeof score === 'string') return parseInt(score) || 0;
+  if (typeof score === 'object') {
+    if (score.value != null) return Math.round(Number(score.value)) || 0;
+    if (score.displayValue != null) return parseInt(score.displayValue) || 0;
+  }
+  return 0;
+}
+
 function parseESPNMatch(event: any): ESPNMatch {
   const competition = event.competitions?.[0] || {};
   const competitors = competition.competitors || [];
@@ -354,11 +370,11 @@ function parseESPNMatch(event: any): ESPNMatch {
       abbreviation: awayCompetitor.team?.abbreviation,
       logo: awayCompetitor.team?.logo,
     },
-    homeScore: parseInt(homeCompetitor.score) || 0,
-    awayScore: parseInt(awayCompetitor.score) || 0,
-    // Scoreboard doesn't return stats - these will be enriched from summary endpoint
-    homeGoals: parseInt(homeCompetitor.score) || 0,
-    awayGoals: parseInt(awayCompetitor.score) || 0,
+    // Score can be a string ("2") on scoreboard or an object ({value: 2.0, displayValue: "2"}) on schedule
+    homeScore: parseScore(homeCompetitor.score),
+    awayScore: parseScore(awayCompetitor.score),
+    homeGoals: parseScore(homeCompetitor.score),
+    awayGoals: parseScore(awayCompetitor.score),
     homeCorners: 0,
     awayCorners: 0,
     homeShotsOnTarget: 0,
