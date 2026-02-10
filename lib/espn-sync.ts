@@ -542,22 +542,9 @@ export async function syncRecentDays(days: number = 14): Promise<{ count: number
       return { count: 0, duration: Date.now() - startTime };
     }
 
-    // Enrich completed matches with summary stats
-    const completedMatches = allMatches.filter(m => m.status === 'completed');
-    console.log(`📊 [ESPN Sync] Enriching ${completedMatches.length} completed past matches with summary stats...`);
-    for (const match of completedMatches) {
-      try {
-        const config = (match as any).__league_config;
-        if (!config) continue;
-        const summary = await ESPNAPI.getMatchSummary(config.sport, config.league, match.id);
-        if (summary) {
-          const enriched = ESPNAPI.enrichMatchWithSummary(match, summary);
-          Object.assign(match, enriched);
-        }
-      } catch (err) {
-        // Non-critical: continue without stats
-      }
-    }
+    // NOTE: Skip enrichment for past matches (too slow for serverless).
+    // Basic scoreboard data (scores, teams, status) is enough for team form.
+    // Detailed stats are enriched via periodic sync for today's matches only.
 
     const rows = allMatches.map(match => {
       const leagueConfig = (match as any).__league_config || {};

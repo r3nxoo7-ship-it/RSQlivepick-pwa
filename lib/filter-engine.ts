@@ -6,8 +6,70 @@
 
 import type { LiveMatch } from '@/lib/football-data';
 import type { Filter } from '@/lib/supabase';
-import { getMatchStatistics } from '@/lib/football-data';
-import { parseMatchStats } from '@/lib/api-football';
+
+/**
+ * Extract parsed stats directly from ESPN match.statistics array
+ * Replaces the old getMatchStatistics + parseMatchStats flow
+ */
+function extractStatsFromMatch(match: LiveMatch): ReturnType<typeof parseMatchStatsCompat> | null {
+  return parseMatchStatsCompat(match.statistics);
+}
+
+function parseMatchStatsCompat(statistics: any[] | undefined) {
+  if (!statistics || statistics.length === 0) return null;
+
+  const getNum = (teamStats: any, type: string): number => {
+    if (!teamStats?.statistics) return 0;
+    const stat = teamStats.statistics.find((s: any) =>
+      s.type?.toLowerCase() === type.toLowerCase() ||
+      s.type?.toLowerCase().includes(type.toLowerCase())
+    );
+    if (!stat) return 0;
+    const val = stat.value;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') return parseInt(val.replace(/[^0-9]/g, '')) || 0;
+    return 0;
+  };
+
+  const home = statistics[0];
+  const away = statistics[1];
+
+  return {
+    corners: {
+      home: getNum(home, 'corners'),
+      away: getNum(away, 'corners'),
+      total: getNum(home, 'corners') + getNum(away, 'corners'),
+    },
+    shots_on_target: {
+      home: getNum(home, 'shots on goal'),
+      away: getNum(away, 'shots on goal'),
+    },
+    shots_off_target: {
+      home: getNum(home, 'shots off goal'),
+      away: getNum(away, 'shots off goal'),
+    },
+    total_shots: {
+      home: getNum(home, 'total shots'),
+      away: getNum(away, 'total shots'),
+    },
+    possession: {
+      home: getNum(home, 'possession'),
+      away: getNum(away, 'possession'),
+    },
+    yellow_cards: {
+      home: getNum(home, 'yellow card'),
+      away: getNum(away, 'yellow card'),
+    },
+    red_cards: {
+      home: getNum(home, 'red card'),
+      away: getNum(away, 'red card'),
+    },
+    fouls: {
+      home: getNum(home, 'fouls'),
+      away: getNum(away, 'fouls'),
+    },
+  };
+}
 
 // ============================================
 // TYPES
@@ -104,24 +166,9 @@ export async function matchesFilter(
   }
   
   // 2. STATISTICS (corners, shots, cards, etc.)
-  // We need detailed statistics from API
-  
-  // If we don't already have stats, fetch them from API
+  // Extract from ESPN match.statistics array (no external API call needed)
   if (!stats) {
-    try {
-      const matchStats = await getMatchStatistics(match.fixture.id);
-      stats = parseMatchStats(matchStats as any);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      failedConditions.push('Could not fetch match statistics');
-      return {
-        matches: false,
-        filter,
-        match,
-        matchedConditions,
-        failedConditions,
-      };
-    }
+    stats = extractStatsFromMatch(match);
   }
   
   // If stats is null (match doesn't have stats yet)
@@ -322,15 +369,8 @@ export async function applyFiltersToMatch(
     return results;
   }
 
-  // Obținem statisticile o singură dată (pentru performance)
-  let stats = null;
-  try {
-    const matchStats = await getMatchStatistics(match.fixture.id);
-    stats = parseMatchStats(matchStats as any);
-  } catch (error) {
-    console.error('Error fetching stats for match:', match.fixture.id, error);
-    return results;
-  }
+  // Extract stats from ESPN match.statistics array (no external API call)
+  const stats = extractStatsFromMatch(match);
   
   // Verificăm fiecare filtru
   for (const filter of activeFilters) {
