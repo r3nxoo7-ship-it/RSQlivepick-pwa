@@ -35,6 +35,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // On-demand sync: if no completed matches exist, sync past 14 days for team history
+    const completedCheck = await espnSync.getCompletedMatchCount();
+    if (completedCheck === 0) {
+      console.log('📅 No completed matches in DB, syncing past 14 days on-demand...');
+      try {
+        await espnSync.syncRecentDays(14);
+        console.log('📅 Past matches sync complete');
+      } catch (syncErr) {
+        console.error('⚠️ On-demand past sync failed:', syncErr);
+      }
+    }
+
     const validFilter = (row: any) =>
       row.sport === 'soccer' &&
       row.league !== 'multi' &&

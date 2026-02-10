@@ -498,6 +498,154 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
 }
 
 /**
+ * Sync recent past days of matches from ESPN scoreboard
+ * Fetches matches from the past N days so team form has historical data
+ */
+export async function syncRecentDays(days: number = 14): Promise<{ count: number; duration: number }> {
+  const startTime = Date.now();
+
+  try {
+    console.log(`📅 [ESPN Sync] Syncing past ${days} days of matches...`);
+
+    const soccerLeagues = [
+      { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
+      { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
+      { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
+      { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
+      { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
+      { sport: 'soccer', league: 'usa.1', name: 'MLS' },
+      { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
+    ];
+
+    const allMatches: ESPNAPI.ESPNMatch[] = [];
+
+    for (let d = 1; d <= days; d++) {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - d);
+      const dateStr = pastDate.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+
+      for (const config of soccerLeagues) {
+        try {
+          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
+          matches.forEach(m => {
+            (m as any).__league_config = config;
+          });
+          allMatches.push(...matches);
+        } catch (err) {
+          // Non-critical - continue with other leagues/dates
+        }
+      }
+    }
+
+    if (allMatches.length === 0) {
+      console.log('📅 [ESPN Sync] No past matches found');
+      return { count: 0, duration: Date.now() - startTime };
+    }
+
+    // Enrich completed matches with summary stats
+    const completedMatches = allMatches.filter(m => m.status === 'completed');
+    console.log(`📊 [ESPN Sync] Enriching ${completedMatches.length} completed past matches with summary stats...`);
+    for (const match of completedMatches) {
+      try {
+        const config = (match as any).__league_config;
+        if (!config) continue;
+        const summary = await ESPNAPI.getMatchSummary(config.sport, config.league, match.id);
+        if (summary) {
+          const enriched = ESPNAPI.enrichMatchWithSummary(match, summary);
+          Object.assign(match, enriched);
+        }
+      } catch (err) {
+        // Non-critical: continue without stats
+      }
+    }
+
+    const rows = allMatches.map(match => {
+      const leagueConfig = (match as any).__league_config || {};
+      return {
+        id: match.id,
+        event_id: match.eventId || match.id,
+        sport: 'soccer',
+        league: leagueConfig.name || 'Soccer',
+        date: new Date(match.date),
+        status: match.status,
+        home_team_id: match.homeTeam.id,
+        away_team_id: match.awayTeam.id,
+        home_team_name: match.homeTeam.displayName || match.homeTeam.name,
+        away_team_name: match.awayTeam.displayName || match.awayTeam.name,
+        home_score: match.homeScore || 0,
+        away_score: match.awayScore || 0,
+        home_goals: match.homeGoals,
+        away_goals: match.awayGoals,
+        home_corners: match.homeCorners,
+        away_corners: match.awayCorners,
+        home_shots_on_target: match.homeShotsOnTarget,
+        away_shots_on_target: match.awayShotsOnTarget,
+        home_possession: match.homePossession,
+        away_possession: match.awayPossession,
+        home_yellow_cards: match.homeYellowCards,
+        away_yellow_cards: match.awayYellowCards,
+        home_red_cards: match.homeRedCards,
+        away_red_cards: match.awayRedCards,
+        period: match.period,
+        minute: match.minute,
+        venue_id: match.venue?.id,
+        venue_name: match.venue?.name,
+        broadcast: match.broadcast,
+        odds: match.odds ? JSON.stringify(match.odds) : null,
+        raw_data: match,
+      };
+    });
+
+    // Deduplicate
+    const uniqueMatches = new Map<string, typeof rows[0]>();
+    for (const row of rows) {
+      if (!uniqueMatches.has(row.id)) {
+        uniqueMatches.set(row.id, row);
+      }
+    }
+
+    const uniqueRows = Array.from(uniqueMatches.values());
+    const { error } = await supabase
+      .from('espn_matches')
+      .upsert(uniqueRows, { onConflict: 'id' });
+
+    if (error) {
+      console.error('❌ [ESPN Sync] Recent days upsert failed:', error);
+      throw error;
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [ESPN Sync] Synced ${uniqueRows.length} past matches (${days} days) in ${duration}ms`);
+    return { count: uniqueRows.length, duration };
+  } catch (error) {
+    console.error('❌ [ESPN Sync] Recent sync failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Quick check: count completed matches in DB
+ * Used for on-demand sync trigger (if 0, we need to sync past days)
+ */
+export async function getCompletedMatchCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('espn_matches')
+      .select('id', { count: 'exact', head: true })
+      .eq('sport', 'soccer')
+      .eq('status', 'completed');
+
+    if (error) {
+      console.error('Error checking completed match count:', error);
+      return 0;
+    }
+    return count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Get recent completed matches for a team (last 5)
  */
 export async function getTeamRecentMatches(teamId: string, limit = 5) {

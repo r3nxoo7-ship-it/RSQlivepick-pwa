@@ -36,6 +36,12 @@ export async function POST(request: NextRequest) {
       upcomingResult = await espnSync.syncUpcomingDays(7);
     }
 
+    // Occasional sync: past 14 days for team form history (~every 15 minutes)
+    let recentResult = { count: 0, duration: 0 };
+    if (Math.random() < 0.067) {
+      recentResult = await espnSync.syncRecentDays(14);
+    }
+
     return NextResponse.json({
       success: true,
       matches: {
@@ -49,6 +55,10 @@ export async function POST(request: NextRequest) {
       upcoming: {
         synced: upcomingResult.count,
         duration_ms: upcomingResult.duration,
+      },
+      recent: {
+        synced: recentResult.count,
+        duration_ms: recentResult.duration,
       },
       timestamp: new Date().toISOString(),
     }, {
