@@ -49,23 +49,26 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Filters read successfully:', data?.length || 0);
 
-    // Return with extremely aggressive cache control to prevent Vercel edge caching
-    // This response must never be cached - data changes frequently
     return NextResponse.json(
-      { data: data || [], error: null },
-      {
-        headers: {
-          'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-          'CDN-Cache-Control': 'no-cache',
-          'X-Content-Type-Options': 'nosniff',
-          'X-timestamp': new Date().toISOString(),
-          // Tell Vercel to not cache this at all
-          'X-Vercel-Cache': 'BYPASS',
-        }
-      }
-    );
+  { data: data || [], error: null },
+  {
+    headers: {
+      // Cache private per user, 30 secunde fresh + 30 sec stale-while-revalidate
+      'Cache-Control': 'private, max-age=30, stale-while-revalidate=30',
+
+      // Elimină header-ele care blochează caching-ul
+      // 'Cache-Control': 'private, no-cache, no-store...'  ← șterge sau comentează
+      // 'Pragma': 'no-cache',
+      // 'Expires': '0',
+      // 'CDN-Cache-Control': 'no-cache',
+      // 'X-Vercel-Cache': 'BYPASS',
+
+      // Păstrează-le pe astea dacă vrei (nu strică)
+      'X-Content-Type-Options': 'nosniff',
+      'X-timestamp': new Date().toISOString(),
+    }
+  }
+);
   } catch (err) {
     console.error('❌ Error in /filters/get:', err);
     return NextResponse.json(
