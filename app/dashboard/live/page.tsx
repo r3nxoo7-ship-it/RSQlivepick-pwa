@@ -24,6 +24,7 @@ import MatchStatsDisplay from '@/components/MatchStatsDisplay';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
+import { Clock, Calendar, Trophy } from 'lucide-react';
 import { applyFiltersToMatches, FilterMatchResult } from '@/lib/filter-engine';
 import { useBackgroundScanner } from '@/lib/background-scanner';
 import { checkNotificationStatus, requestNotificationPermission } from '@/lib/notifications';
@@ -68,6 +69,14 @@ export default function LiveMatchesPage() {
   // Triggered matches state (last 20 minutes)
   const [recentlyTriggered, setRecentlyTriggered] = useState<any[]>([]);
   const [triggeredLoading, setTriggeredLoading] = useState(false);
+
+  // Full history state
+  const [showFullHistory, setShowFullHistory] = useState(false);
+  const [historyMatches, setHistoryMatches] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(true);
+  const [historyTimeRange, setHistoryTimeRange] = useState<'all' | '24h' | '7d' | '30d'>('7d');
   
   // Use background scanner hook
   const backgroundScanner = useBackgroundScanner(true);
@@ -88,6 +97,35 @@ export default function LiveMatchesPage() {
       console.error('Error loading triggered matches:', err);
     } finally {
       setTriggeredLoading(false);
+    }
+  }, []);
+
+  const loadFullHistory = useCallback(async (page: number, timeRange: string, reset: boolean) => {
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) return;
+
+      setHistoryLoading(true);
+      const itemsPerPage = 20;
+      let matches: any[] = [];
+
+      if (timeRange === 'all') {
+        matches = await dbHelpers.getTriggeredMatchesHistory(currentUser.id, itemsPerPage, page * itemsPerPage);
+      } else {
+        const minutesMap: Record<string, number> = { '24h': 24 * 60, '7d': 7 * 24 * 60, '30d': 30 * 24 * 60 };
+        matches = await dbHelpers.getTriggeredMatches(currentUser.id, minutesMap[timeRange] || 20, 50);
+      }
+
+      if (reset) {
+        setHistoryMatches(matches);
+      } else {
+        setHistoryMatches(prev => [...prev, ...matches]);
+      }
+      setHistoryHasMore(matches.length === itemsPerPage);
+    } catch (err) {
+      console.error('Error loading history:', err);
+    } finally {
+      setHistoryLoading(false);
     }
   }, []);
   

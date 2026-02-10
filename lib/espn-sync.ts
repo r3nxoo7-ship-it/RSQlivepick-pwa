@@ -32,16 +32,8 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
   try {
     console.log('⚽ [ESPN Sync] Starting soccer match sync (FIFA leagues only)...');
     
-    // Soccer leagues only - avoid NBA, NFL, etc.
-    const soccerLeagues = [
-      { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
-      { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
-      { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
-      { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
-      { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
-      { sport: 'soccer', league: 'usa.1', name: 'MLS' },
-      { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
-    ];
+    // Use curated sync leagues (top leagues + cups + continental)
+    const soccerLeagues = ESPNAPI.SYNC_SOCCER_LEAGUES;
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
 
@@ -399,15 +391,7 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
   try {
     console.log(`📅 [ESPN Sync] Syncing upcoming ${days} days of matches...`);
 
-    const soccerLeagues = [
-      { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
-      { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
-      { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
-      { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
-      { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
-      { sport: 'soccer', league: 'usa.1', name: 'MLS' },
-      { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
-    ];
+    const soccerLeagues = ESPNAPI.SYNC_SOCCER_LEAGUES;
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
 
@@ -515,15 +499,7 @@ export async function syncRecentDays(days: number = 7): Promise<{ count: number;
   try {
     console.log(`📅 [ESPN Sync] Syncing past ${days} days of matches (parallel)...`);
 
-    const soccerLeagues = [
-      { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
-      { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
-      { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
-      { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
-      { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
-      { sport: 'soccer', league: 'usa.1', name: 'MLS' },
-      { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
-    ];
+    const soccerLeagues = ESPNAPI.SYNC_SOCCER_LEAGUES;
 
     // Build all fetch tasks upfront
     const fetchTasks: Array<{ config: typeof soccerLeagues[0]; dateStr: string }> = [];

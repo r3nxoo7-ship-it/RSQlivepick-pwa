@@ -1,12 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Radio, Filter, Activity, Clock, Share2 } from "lucide-react";
+import { Home, Radio, Filter, Activity } from "lucide-react";
 
 const navItems = [
   { label: "Home", icon: Home, href: "/dashboard" },
   { label: "Live", icon: Radio, href: "/dashboard/live" },
-  { label: "History", icon: Clock, href: "/dashboard/history" },
   { label: "Filters", icon: Filter, href: "/dashboard/filters" },
   { label: "Matches", icon: Activity, href: "/dashboard/matches" },
 ];

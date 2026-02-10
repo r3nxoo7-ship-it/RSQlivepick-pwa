@@ -16,10 +16,10 @@ export async function GET(request: NextRequest) {
   }
 
   // Try specified league first, then all others
-  const allLeagues = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'usa.1', 'uefa.champions'];
+  const allLeagueCodes = ESPNAPI.ALL_SOCCER_LEAGUES.map(l => l.code);
   const leaguesToTry = league
-    ? [league, ...allLeagues.filter(l => l !== league)]
-    : allLeagues;
+    ? [league, ...allLeagueCodes.filter(l => l !== league)]
+    : allLeagueCodes;
 
   for (const leagueCode of leaguesToTry) {
     try {

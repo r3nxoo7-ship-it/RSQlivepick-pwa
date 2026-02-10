@@ -68,32 +68,190 @@ export const LEAGUES = {
   'soccer-ligue-1': { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
   'soccer-mls': { sport: 'soccer', league: 'usa.1', name: 'MLS' },
   'soccer-champions-league': { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
-  
+
   // American Football
   'nfl': { sport: 'football', league: 'nfl', name: 'NFL' },
-  
+
   // Basketball
   'nba': { sport: 'basketball', league: 'nba', name: 'NBA' },
-  
+
   // Baseball
   'mlb': { sport: 'baseball', league: 'mlb', name: 'MLB' },
-  
+
   // Hockey
   'nhl': { sport: 'hockey', league: 'nhl', name: 'NHL' },
 };
 
 const BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports';
 
-// Reverse map: league display name → ESPN league code
-export const LEAGUE_NAME_TO_CODE: Record<string, string> = {
-  'Premier League': 'eng.1',
-  'La Liga': 'esp.1',
-  'Serie A': 'ita.1',
-  'Bundesliga': 'ger.1',
-  'Ligue 1': 'fra.1',
-  'MLS': 'usa.1',
-  'Champions League': 'uefa.champions',
-};
+// ============================================
+// ALL VALID ESPN SOCCER LEAGUE CODES (127 verified)
+// Used for team history across all competitions
+// ============================================
+export const ALL_SOCCER_LEAGUES: Array<{ code: string; name: string }> = [
+  // Top 5 European Leagues
+  { code: 'eng.1', name: 'Premier League' },
+  { code: 'esp.1', name: 'La Liga' },
+  { code: 'ita.1', name: 'Serie A' },
+  { code: 'ger.1', name: 'Bundesliga' },
+  { code: 'fra.1', name: 'Ligue 1' },
+  // Other major European leagues
+  { code: 'ned.1', name: 'Eredivisie' },
+  { code: 'por.1', name: 'Primeira Liga' },
+  { code: 'bel.1', name: 'Belgian Pro League' },
+  { code: 'sco.1', name: 'Scottish Premiership' },
+  { code: 'tur.1', name: 'Super Lig' },
+  { code: 'rus.1', name: 'Russian Premier League' },
+  { code: 'gre.1', name: 'Greek Super League' },
+  { code: 'sui.1', name: 'Swiss Super League' },
+  { code: 'aut.1', name: 'Austrian Bundesliga' },
+  { code: 'den.1', name: 'Danish Superliga' },
+  { code: 'swe.1', name: 'Allsvenskan' },
+  { code: 'nor.1', name: 'Eliteserien' },
+  { code: 'cze.1', name: 'Czech First League' },
+  { code: 'rou.1', name: 'Romanian Liga 1' },
+  { code: 'isr.1', name: 'Israeli Premier League' },
+  { code: 'cyp.1', name: 'Cypriot First Division' },
+  { code: 'fin.1', name: 'Veikkausliiga' },
+  { code: 'irl.1', name: 'Irish Premier Division' },
+  { code: 'nir.1', name: 'Northern Irish Premiership' },
+  { code: 'wal.1', name: 'Welsh Premier League' },
+  // Second divisions
+  { code: 'eng.2', name: 'Championship' },
+  { code: 'eng.3', name: 'League One' },
+  { code: 'eng.4', name: 'League Two' },
+  { code: 'eng.5', name: 'National League' },
+  { code: 'esp.2', name: 'La Liga 2' },
+  { code: 'ita.2', name: 'Serie B' },
+  { code: 'ger.2', name: '2. Bundesliga' },
+  { code: 'fra.2', name: 'Ligue 2' },
+  { code: 'ned.2', name: 'Eerste Divisie' },
+  { code: 'sco.2', name: 'Scottish Championship' },
+  { code: 'sco.3', name: 'Scottish League One' },
+  { code: 'sco.4', name: 'Scottish League Two' },
+  { code: 'tur.2', name: 'TFF 1. Lig' },
+  // Domestic cups
+  { code: 'eng.fa', name: 'FA Cup' },
+  { code: 'eng.league_cup', name: 'Carabao Cup' },
+  { code: 'eng.trophy', name: 'EFL Trophy' },
+  { code: 'eng.charity', name: 'Community Shield' },
+  { code: 'esp.copa_del_rey', name: 'Copa del Rey' },
+  { code: 'esp.super_cup', name: 'Spanish Super Cup' },
+  { code: 'ita.coppa_italia', name: 'Coppa Italia' },
+  { code: 'ita.super_cup', name: 'Italian Super Cup' },
+  { code: 'ger.dfb_pokal', name: 'DFB Pokal' },
+  { code: 'ger.super_cup', name: 'DFL Supercup' },
+  { code: 'fra.coupe_de_france', name: 'Coupe de France' },
+  { code: 'fra.coupe_de_la_ligue', name: 'Coupe de la Ligue' },
+  { code: 'ned.cup', name: 'KNVB Beker' },
+  // South America
+  { code: 'bra.1', name: 'Brasileirao Serie A' },
+  { code: 'bra.2', name: 'Brasileirao Serie B' },
+  { code: 'bra.3', name: 'Brasileirao Serie C' },
+  { code: 'arg.1', name: 'Argentine Primera' },
+  { code: 'arg.2', name: 'Argentine Nacional B' },
+  { code: 'col.1', name: 'Colombian Primera A' },
+  { code: 'col.2', name: 'Colombian Primera B' },
+  { code: 'chi.1', name: 'Chilean Primera' },
+  { code: 'uru.1', name: 'Uruguayan Primera' },
+  { code: 'per.1', name: 'Peruvian Liga 1' },
+  { code: 'ecu.1', name: 'LigaPro Ecuador' },
+  { code: 'ven.1', name: 'Venezuelan Primera' },
+  { code: 'bol.1', name: 'Bolivian Primera' },
+  { code: 'par.1', name: 'Paraguayan Primera' },
+  // North/Central America
+  { code: 'usa.1', name: 'MLS' },
+  { code: 'usa.open', name: 'US Open Cup' },
+  { code: 'usa.usl.1', name: 'USL Championship' },
+  { code: 'usa.usl.l1', name: 'USL League One' },
+  { code: 'mex.1', name: 'Liga MX' },
+  { code: 'mex.2', name: 'Liga de Expansion MX' },
+  { code: 'crc.1', name: 'Costa Rican Primera' },
+  { code: 'hon.1', name: 'Honduran Liga Nacional' },
+  { code: 'slv.1', name: 'Salvadoran Primera' },
+  { code: 'gua.1', name: 'Guatemalan Liga Nacional' },
+  { code: 'jam.1', name: 'Jamaican Premier League' },
+  // Asia
+  { code: 'jpn.1', name: 'J1 League' },
+  { code: 'chn.1', name: 'Chinese Super League' },
+  { code: 'aus.1', name: 'A-League' },
+  { code: 'ind.1', name: 'Indian Super League' },
+  { code: 'ind.2', name: 'I-League' },
+  { code: 'sgp.1', name: 'Singapore Premier League' },
+  { code: 'tha.1', name: 'Thai League 1' },
+  { code: 'mys.1', name: 'Malaysian Super League' },
+  { code: 'idn.1', name: 'Indonesian Liga 1' },
+  // Africa
+  { code: 'rsa.1', name: 'South African Premier' },
+  { code: 'nga.1', name: 'Nigerian Professional League' },
+  { code: 'gha.1', name: 'Ghana Premier League' },
+  { code: 'ken.1', name: 'Kenyan Premier League' },
+  // UEFA competitions
+  { code: 'uefa.champions', name: 'Champions League' },
+  { code: 'uefa.europa', name: 'Europa League' },
+  { code: 'uefa.europa.conf', name: 'Conference League' },
+  { code: 'uefa.super_cup', name: 'UEFA Super Cup' },
+  { code: 'uefa.euro', name: 'Euro Championship' },
+  { code: 'uefa.euroq', name: 'Euro Qualifying' },
+  { code: 'uefa.nations', name: 'UEFA Nations League' },
+  // CONMEBOL
+  { code: 'conmebol.libertadores', name: 'Copa Libertadores' },
+  { code: 'conmebol.sudamericana', name: 'Copa Sudamericana' },
+  { code: 'conmebol.recopa', name: 'Recopa Sudamericana' },
+  { code: 'conmebol.america', name: 'Copa America' },
+  // CONCACAF
+  { code: 'concacaf.champions', name: 'CONCACAF Champions Cup' },
+  { code: 'concacaf.gold', name: 'Gold Cup' },
+  { code: 'concacaf.nations.league', name: 'CONCACAF Nations League' },
+  { code: 'concacaf.league', name: 'CONCACAF League' },
+  // AFC
+  { code: 'afc.champions', name: 'AFC Champions League' },
+  { code: 'afc.cup', name: 'AFC Champions League Two' },
+  // CAF
+  { code: 'caf.champions', name: 'CAF Champions League' },
+  { code: 'caf.confed', name: 'CAF Confederation Cup' },
+  { code: 'caf.nations', name: 'Africa Cup of Nations' },
+  // FIFA / International
+  { code: 'fifa.world', name: 'FIFA World Cup' },
+  { code: 'fifa.worldq.uefa', name: 'WCQ UEFA' },
+  { code: 'fifa.worldq.conmebol', name: 'WCQ CONMEBOL' },
+  { code: 'fifa.worldq.concacaf', name: 'WCQ CONCACAF' },
+  { code: 'fifa.worldq.afc', name: 'WCQ AFC' },
+  { code: 'fifa.worldq.caf', name: 'WCQ CAF' },
+  { code: 'fifa.worldq.ofc', name: 'WCQ OFC' },
+  { code: 'fifa.friendly', name: 'International Friendly' },
+  { code: 'fifa.cwc', name: 'Club World Cup' },
+  { code: 'fifa.olympics', name: 'Olympic Football' },
+  { code: 'club.friendly', name: 'Club Friendly' },
+];
+
+// Leagues to sync for LIVE scoreboard (curated - top leagues + cups + continental)
+// These get synced every 30s-1min for the dashboard
+export const SYNC_SOCCER_LEAGUES = ALL_SOCCER_LEAGUES.filter(l =>
+  // Top European + their cups
+  ['eng.1','esp.1','ita.1','ger.1','fra.1','ned.1','por.1','bel.1','sco.1','tur.1',
+   'eng.2','esp.2','ita.2','ger.2','fra.2',
+   'eng.fa','eng.league_cup','esp.copa_del_rey','ita.coppa_italia','ger.dfb_pokal','fra.coupe_de_france',
+   // Americas
+   'bra.1','arg.1','col.1','mex.1','usa.1','chi.1','uru.1',
+   // Asia
+   'jpn.1','aus.1','ind.1','sau.1','chn.1',
+   // Africa
+   'rsa.1',
+   // Continental & international
+   'uefa.champions','uefa.europa','uefa.europa.conf',
+   'conmebol.libertadores','conmebol.sudamericana',
+   'concacaf.champions','afc.champions',
+   'caf.champions','caf.nations',
+   'fifa.world','fifa.worldq.uefa','fifa.worldq.conmebol','fifa.worldq.concacaf',
+   'fifa.friendly','fifa.cwc','club.friendly',
+  ].includes(l.code)
+).map(l => ({ sport: 'soccer', league: l.code, name: l.name }));
+
+// Reverse map: league display name → ESPN league code (comprehensive)
+export const LEAGUE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  ALL_SOCCER_LEAGUES.map(l => [l.name, l.code])
+);
 
 // ============================================
 // FETCH HELPERS
@@ -156,10 +314,10 @@ export async function getTeamSchedule(
   league?: string,
 ): Promise<ESPNMatch[]> {
   // Always try the specified league first, then all others in parallel
-  const allLeagues = Object.values(LEAGUE_NAME_TO_CODE);
+  const allLeagueCodes = ALL_SOCCER_LEAGUES.map(l => l.code);
   const leaguesToTry = league
-    ? [league, ...allLeagues.filter(l => l !== league)]
-    : allLeagues;
+    ? [league, ...allLeagueCodes.filter(l => l !== league)]
+    : allLeagueCodes;
 
   // Fetch from ALL leagues in parallel
   const results = await Promise.allSettled(
@@ -201,11 +359,8 @@ export async function getTeamSchedule(
 }
 
 function getLeagueName(code: string): string {
-  const names: Record<string, string> = {
-    'eng.1': 'Premier League', 'esp.1': 'La Liga', 'ita.1': 'Serie A',
-    'ger.1': 'Bundesliga', 'fra.1': 'Ligue 1', 'usa.1': 'MLS', 'uefa.champions': 'Champions League',
-  };
-  return names[code] || code;
+  const entry = ALL_SOCCER_LEAGUES.find(l => l.code === code);
+  return entry?.name || code;
 }
 
 /**

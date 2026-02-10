@@ -18,7 +18,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:fbref.com)",
       "WebFetch(domain:sports.core.api.espn.com)",
-      "WebFetch(domain:www.goal.com)"
+      "WebFetch(domain:www.goal.com)",
+      "Bash(node:*)"
     ]
   }
 }
