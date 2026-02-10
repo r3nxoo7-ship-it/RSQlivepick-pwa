@@ -228,13 +228,17 @@ function StatBar({
   const awayNum = typeof awayValue === 'string' ? parseInt(awayValue) : awayValue;
   const total = homeNum + awayNum;
   const homePercent = total > 0 ? Math.round((homeNum / total) * 100) : 50;
+  const awayPercent = 100 - homePercent;
 
-  const colorClass = {
+  const homeColorClass = {
     cyan: 'from-accent-cyan to-accent-blue',
     green: 'from-accent-green to-emerald-600',
     amber: 'from-accent-amber to-orange-600',
     red: 'from-accent-red to-rose-600',
   }[color];
+
+  // Away team uses a vibrant magenta/pink color that contrasts well with turquoise
+  const awayColorClass = 'from-accent-magenta to-pink-600';
 
   return (
     <div className="space-y-1">
@@ -248,12 +252,18 @@ function StatBar({
           {homeValue}
           {unit}
         </div>
-        <div className="flex-1 h-2 bg-glass-light rounded-full overflow-hidden">
+        <div className="flex-1 h-2 bg-glass-light rounded-full overflow-hidden flex">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${homePercent}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className={`h-full bg-gradient-to-r ${colorClass}`}
+            className={`h-full bg-gradient-to-r ${homeColorClass}`}
+          />
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${awayPercent}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className={`h-full bg-gradient-to-r ${awayColorClass}`}
           />
         </div>
         <div className="text-xs font-bold text-text-primary flex-shrink-0 w-8">
