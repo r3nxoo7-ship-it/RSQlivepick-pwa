@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const teamId = request.nextUrl.searchParams.get('teamId');
-  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '5');
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
 
   if (!teamId) {
     return NextResponse.json({ error: 'teamId required' }, { status: 400 });

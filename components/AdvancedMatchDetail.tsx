@@ -11,8 +11,12 @@ interface AdvancedMatchDetailProps {
 }
 
 interface RecentMatchData {
+  id?: string;
   date: string;
   league: string;
+  sport?: string;
+  status?: string;
+  minute?: number | null;
   home_team_id: string;
   away_team_id: string;
   home_team_name: string;
@@ -29,6 +33,7 @@ interface RecentMatchData {
   away_yellow_cards: number | null;
   home_red_cards: number | null;
   away_red_cards: number | null;
+  raw_data?: Record<string, any>;
 }
 
 interface TeamFormData {
@@ -104,8 +109,8 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
         const awayId = match.teams?.away?.id;
 
         const [homeRes, awayRes] = await Promise.all([
-          homeId ? fetch(`/api/espn/team-form?teamId=${homeId}`).then(r => r.ok ? r.json() : null) : null,
-          awayId ? fetch(`/api/espn/team-form?teamId=${awayId}`).then(r => r.ok ? r.json() : null) : null,
+          homeId ? fetch(`/api/espn/team-form?teamId=${homeId}&limit=10`).then(r => r.ok ? r.json() : null) : null,
+          awayId ? fetch(`/api/espn/team-form?teamId=${awayId}&limit=10`).then(r => r.ok ? r.json() : null) : null,
         ]);
 
         setHomeForm(homeRes);
@@ -490,7 +495,9 @@ function TeamFormBox({
   recentData: TeamRecentFormResult | null;
   loading: boolean;
 }) {
-  // Loading state
+  const [venueFilter, setVenueFilter] = useState<'ALL' | 'HOME' | 'AWAY'>('ALL');
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="bg-glass-light/50 rounded-lg p-4 animate-pulse">
@@ -504,7 +511,6 @@ function TeamFormBox({
     );
   }
 
-  // No data
   if (!recentData || !recentData.matches || recentData.matches.length === 0) {
     return (
       <div className="bg-glass-light/50 rounded-lg p-4">
@@ -515,21 +521,26 @@ function TeamFormBox({
   }
 
   const { matches, form } = recentData;
-  const avgGoalsFor = form.played > 0 ? (form.goalsFor / form.played).toFixed(1) : '0';
-  const avgGoalsAgainst = form.played > 0 ? (form.goalsAgainst / form.played).toFixed(1) : '0';
+
+  // Filter by venue
+  const filteredMatches = matches.filter(m => {
+    if (venueFilter === 'HOME') return m.home_team_id === teamId;
+    if (venueFilter === 'AWAY') return m.away_team_id === teamId;
+    return true;
+  });
 
   return (
     <div className="bg-glass-light/50 rounded-lg p-4">
-      {/* Team name + form summary badge */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-semibold text-white">{team}</div>
-        <div className="flex items-center gap-1.5">
+      {/* Header: Team name + W/D/L badges */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-semibold text-white text-sm">Last matches: | {team}</div>
+        <div className="flex items-center gap-1">
           {matches.slice(0, 5).map((m, i) => {
             const result = getMatchResult(m, teamId);
             return (
               <div
                 key={i}
-                className={`w-7 h-7 rounded flex items-center justify-center font-bold text-[10px] ${
+                className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[9px] ${
                   result === 'W'
                     ? 'bg-accent-green/30 text-accent-green'
                     : result === 'D'
@@ -545,55 +556,86 @@ function TeamFormBox({
         </div>
       </div>
 
-      {/* Per-match detail rows */}
-      <div className="space-y-1.5 mb-3">
-        {matches.slice(0, 5).map((m, i) => {
+      {/* Venue filter tabs */}
+      <div className="flex gap-1 mb-3">
+        {(['ALL', 'HOME', 'AWAY'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setVenueFilter(tab)}
+            className={`px-3 py-1 text-[10px] font-bold rounded transition ${
+              venueFilter === tab
+                ? 'bg-accent-cyan/20 text-accent-cyan'
+                : 'text-text-muted hover:text-white hover:bg-glass-light'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Match rows */}
+      <div className="space-y-0 mb-3">
+        {filteredMatches.slice(0, 5).map((m, i) => {
           const result = getMatchResult(m, teamId);
-          const stats = getTeamMatchStats(m, teamId);
-          const opponent = getOpponent(m, teamId);
+          const isHome = m.home_team_id === teamId;
+          const matchKey = m.id || `${m.date}-${i}`;
+          const isExpanded = expandedMatchId === matchKey;
 
           return (
-            <div key={i} className="flex items-center gap-2 text-[11px] py-1 border-b border-white/5 last:border-0">
-              {/* Date */}
-              <span className="text-text-muted w-[52px] shrink-0">{formatDate(m.date)}</span>
+            <div key={matchKey}>
+              {/* Match row */}
+              <div
+                onClick={() => setExpandedMatchId(isExpanded ? null : matchKey)}
+                className={`flex items-center gap-2 text-[11px] py-2 px-1 border-b border-white/5 cursor-pointer transition hover:bg-white/5 rounded ${
+                  isExpanded ? 'bg-white/5' : ''
+                }`}
+              >
+                {/* Date */}
+                <span className="text-text-muted w-[44px] shrink-0 text-[10px]">
+                  {formatDate(m.date)}
+                </span>
 
-              {/* Venue badge */}
-              <span className={`w-4 text-center font-bold shrink-0 ${
-                stats.venue === 'H' ? 'text-accent-green' : 'text-accent-cyan'
-              }`}>
-                {stats.venue}
-              </span>
+                {/* Teams: Home ... Away */}
+                <div className="flex-1 min-w-0 truncate">
+                  <span className={isHome ? 'font-bold text-white' : 'text-text-secondary'}>
+                    {m.home_team_name.length > 16 ? m.home_team_name.substring(0, 14) + '..' : m.home_team_name}
+                  </span>
+                  <span className="text-text-muted"> ... </span>
+                  <span className={!isHome ? 'font-bold text-white' : 'text-text-secondary'}>
+                    {m.away_team_name.length > 16 ? m.away_team_name.substring(0, 14) + '..' : m.away_team_name}
+                  </span>
+                </div>
 
-              {/* Opponent */}
-              <span className="text-text-secondary truncate flex-1 min-w-0" title={m.home_team_id === teamId ? m.away_team_name : m.home_team_name}>
-                {opponent}
-              </span>
+                {/* Score */}
+                <span className={`font-bold shrink-0 text-xs ${
+                  result === 'W' ? 'text-accent-green' : result === 'D' ? 'text-accent-yellow' : 'text-accent-red'
+                }`}>
+                  {m.home_score}:{m.away_score}
+                </span>
 
-              {/* Score */}
-              <span className={`font-bold shrink-0 ${
-                result === 'W' ? 'text-accent-green' : result === 'D' ? 'text-accent-yellow' : 'text-accent-red'
-              }`}>
-                {stats.goalsFor}:{stats.goalsAgainst}
-              </span>
-
-              {/* Mini stats */}
-              <div className="flex items-center gap-1.5 text-text-muted shrink-0">
-                {stats.corners !== null && (
-                  <span title="Corners">C:{stats.corners}</span>
-                )}
-                {stats.shotsOnTarget !== null && (
-                  <span title="Shots on Target">S:{stats.shotsOnTarget}</span>
-                )}
-                {stats.yellowCards !== null && stats.yellowCards > 0 && (
-                  <span title="Yellow Cards" className="text-accent-yellow">Y:{stats.yellowCards}</span>
-                )}
-                {stats.possession !== null && (
-                  <span title="Possession">{stats.possession}%</span>
-                )}
+                {/* W/D/L badge */}
+                <div className={`w-5 h-5 rounded flex items-center justify-center font-bold text-[9px] shrink-0 ${
+                  result === 'W'
+                    ? 'bg-accent-green/30 text-accent-green'
+                    : result === 'D'
+                      ? 'bg-accent-yellow/30 text-accent-yellow'
+                      : 'bg-accent-red/30 text-accent-red'
+                }`}>
+                  {result}
+                </div>
               </div>
+
+              {/* Expanded match detail */}
+              {isExpanded && (
+                <ExpandedMatchStats match={m} />
+              )}
             </div>
           );
         })}
+
+        {filteredMatches.length === 0 && (
+          <div className="text-xs text-text-muted py-2">No {venueFilter.toLowerCase()} matches found</div>
+        )}
       </div>
 
       {/* Aggregate stats footer */}
@@ -606,15 +648,103 @@ function TeamFormBox({
         <span className="text-text-muted">
           GF:{form.goalsFor} GA:{form.goalsAgainst} GD:{form.goalDifference >= 0 ? '+' : ''}{form.goalDifference}
         </span>
-        <span className="text-text-muted">
-          Avg: {avgGoalsFor} / {avgGoalsAgainst}
-        </span>
         <span className={`font-bold ${
           form.winRate >= 60 ? 'text-accent-green' : form.winRate >= 40 ? 'text-accent-yellow' : 'text-accent-red'
         }`}>
           {form.winRate}% WR
         </span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Expanded stats panel for a historical match
+ * Shows possession, shots, corners, cards from the DB row fields + raw_data
+ */
+function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
+  const raw = match.raw_data || {};
+
+  const homePoss = match.home_possession || raw.homePossession || 0;
+  const awayPoss = match.away_possession || raw.awayPossession || 0;
+  const homeSoT = match.home_shots_on_target || raw.homeShotsOnTarget || 0;
+  const awaySoT = match.away_shots_on_target || raw.awayShotsOnTarget || 0;
+  const homeTotalShots = raw.homeTotalShots || 0;
+  const awayTotalShots = raw.awayTotalShots || 0;
+  const homeCorners = match.home_corners || raw.homeCorners || 0;
+  const awayCorners = match.away_corners || raw.awayCorners || 0;
+  const homeYellow = match.home_yellow_cards || raw.homeYellowCards || 0;
+  const awayYellow = match.away_yellow_cards || raw.awayYellowCards || 0;
+  const homeRed = match.home_red_cards || raw.homeRedCards || 0;
+  const awayRed = match.away_red_cards || raw.awayRedCards || 0;
+  const homeFouls = raw.homeFouls || 0;
+  const awayFouls = raw.awayFouls || 0;
+  const homeOffsides = raw.homeOffsides || 0;
+  const awayOffsides = raw.awayOffsides || 0;
+
+  const hasStats = homePoss || awayPoss || homeSoT || awaySoT || homeCorners || awayCorners;
+
+  if (!hasStats) {
+    return (
+      <div className="py-2 px-2 text-[10px] text-text-muted bg-glass-light/30 rounded-b mb-1">
+        No detailed statistics available for this match
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      className="bg-glass-light/30 rounded-b px-3 py-3 mb-1 space-y-2"
+    >
+      {/* Match header */}
+      <div className="flex items-center justify-between text-[10px] text-text-muted mb-2">
+        <span>{match.home_team_name}</span>
+        <span className="font-bold text-white text-xs">{match.home_score} - {match.away_score}</span>
+        <span>{match.away_team_name}</span>
+      </div>
+
+      {/* Stats rows */}
+      {homePoss > 0 && <MiniStatRow label="Possession" home={homePoss} away={awayPoss} unit="%" />}
+      {(homeSoT > 0 || awaySoT > 0) && <MiniStatRow label="On Target" home={homeSoT} away={awaySoT} />}
+      {(homeTotalShots > 0 || awayTotalShots > 0) && <MiniStatRow label="Total Shots" home={homeTotalShots} away={awayTotalShots} />}
+      {(homeCorners > 0 || awayCorners > 0) && <MiniStatRow label="Corners" home={homeCorners} away={awayCorners} />}
+      {(homeYellow > 0 || awayYellow > 0) && <MiniStatRow label="Yellow Cards" home={homeYellow} away={awayYellow} />}
+      {(homeRed > 0 || awayRed > 0) && <MiniStatRow label="Red Cards" home={homeRed} away={awayRed} />}
+      {(homeFouls > 0 || awayFouls > 0) && <MiniStatRow label="Fouls" home={homeFouls} away={awayFouls} />}
+      {(homeOffsides > 0 || awayOffsides > 0) && <MiniStatRow label="Offsides" home={homeOffsides} away={awayOffsides} />}
+    </motion.div>
+  );
+}
+
+/**
+ * Compact stat comparison row for expanded match detail
+ */
+function MiniStatRow({ label, home, away, unit = '' }: { label: string; home: number; away: number; unit?: string }) {
+  const total = home + away;
+  const homePercent = total === 0 ? 50 : Math.round((home / total) * 100);
+
+  return (
+    <div className="flex items-center gap-2 text-[10px]">
+      <span className={`w-8 text-right font-bold ${home > away ? 'text-accent-cyan' : 'text-text-secondary'}`}>
+        {home}{unit}
+      </span>
+      <div className="flex-1 h-1.5 bg-glass-light rounded-full overflow-hidden flex">
+        <div
+          className="h-full bg-accent-cyan/60 rounded-l"
+          style={{ width: `${homePercent}%` }}
+        />
+        <div
+          className="h-full bg-accent-blue/60 rounded-r"
+          style={{ width: `${100 - homePercent}%` }}
+        />
+      </div>
+      <span className={`w-8 text-left font-bold ${away > home ? 'text-accent-blue' : 'text-text-secondary'}`}>
+        {away}{unit}
+      </span>
+      <span className="text-text-muted w-[68px] text-[9px] truncate">{label}</span>
     </div>
   );
 }
