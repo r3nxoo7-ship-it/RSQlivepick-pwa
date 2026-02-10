@@ -296,6 +296,29 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
             </div>
           )}
 
+          {/* Recent Form - History (moved up for visibility) */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-accent-green" />
+              Team History (Last 10 Matches)
+            </h3>
+            <p className="text-xs text-text-muted -mt-2">Click any match to see detailed stats</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TeamFormBox
+                team={match.teams?.home?.name || 'Home'}
+                teamId={String(match.teams?.home?.id || '')}
+                recentData={homeForm}
+                loading={formLoading}
+              />
+              <TeamFormBox
+                team={match.teams?.away?.name || 'Away'}
+                teamId={String(match.teams?.away?.id || '')}
+                recentData={awayForm}
+                loading={formLoading}
+              />
+            </div>
+          </div>
+
           {/* Time Windows Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
@@ -322,25 +345,6 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
               <div className="text-center text-text-secondary text-sm w-full">
                 Momentum data coming from live match feed
               </div>
-            </div>
-          </div>
-
-          {/* Recent Form (Last 5 Matches) */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-white">Recent Form (Last 5 Matches)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TeamFormBox
-                team={match.teams?.home?.name || 'Home'}
-                teamId={String(match.teams?.home?.id || '')}
-                recentData={homeForm}
-                loading={formLoading}
-              />
-              <TeamFormBox
-                team={match.teams?.away?.name || 'Away'}
-                teamId={String(match.teams?.away?.id || '')}
-                recentData={awayForm}
-                loading={formLoading}
-              />
             </div>
           </div>
         </div>
