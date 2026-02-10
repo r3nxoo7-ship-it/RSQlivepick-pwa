@@ -332,19 +332,28 @@ function parseESPNMatch(event: any): ESPNMatch {
 function normalizeStatus(status?: any): 'scheduled' | 'in_progress' | 'completed' {
   if (!status) return 'scheduled';
 
+  // ESPN returns: { type: { name: "STATUS_FULL_TIME", state: "post", completed: true } }
+  // Check the explicit `completed` boolean first
+  if (typeof status === 'object') {
+    if (status.type?.completed === true) return 'completed';
+    // Check state field (most reliable): "pre", "in", "post"
+    const state = (status.type?.state || status.state || '').toLowerCase();
+    if (state === 'post') return 'completed';
+    if (state === 'in') return 'in_progress';
+    if (state === 'pre') return 'scheduled';
+  }
+
+  // Fallback: string matching on name
   let s = '';
   if (typeof status === 'string') {
     s = status;
   } else if (typeof status === 'object') {
-    // ESPN sometimes returns an object like { type: { name: 'STATUS', state: 'in' } }
     if (status.type) {
       if (typeof status.type === 'string') s = status.type;
       else if (status.type.name) s = status.type.name;
       else if (status.type.state) s = status.type.state;
     } else if (status.name) {
       s = status.name;
-    } else if (status.state) {
-      s = status.state;
     } else {
       s = JSON.stringify(status);
     }
@@ -354,8 +363,8 @@ function normalizeStatus(status?: any): 'scheduled' | 'in_progress' | 'completed
 
   s = s.toLowerCase();
   if (s.includes('pre') || s.includes('scheduled')) return 'scheduled';
-  if (s.includes('live') || s.includes('in')) return 'in_progress';
-  if (s.includes('post') || s.includes('final') || s.includes('completed')) return 'completed';
+  if (s.includes('live') || s.includes('in_progress') || s === 'in') return 'in_progress';
+  if (s.includes('post') || s.includes('final') || s.includes('completed') || s.includes('full_time') || s.includes('ended')) return 'completed';
   return 'scheduled';
 }
 

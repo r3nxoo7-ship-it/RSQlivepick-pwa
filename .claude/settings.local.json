@@ -13,7 +13,9 @@
       "Bash(curl:*)",
       "Bash(git push:*)",
       "WebFetch(domain:site.api.espn.com)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: add on-demand sync for scheduled matches when none exist\n\nWhen the matches API returns 0 scheduled matches, trigger\nsyncUpcomingDays\\(7\\) immediately so future day tabs have data.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: add on-demand sync for scheduled matches when none exist\n\nWhen the matches API returns 0 scheduled matches, trigger\nsyncUpcomingDays\\(7\\) immediately so future day tabs have data.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(gh api:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
