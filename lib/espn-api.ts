@@ -84,6 +84,17 @@ export const LEAGUES = {
 
 const BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports';
 
+// Reverse map: league display name → ESPN league code
+export const LEAGUE_NAME_TO_CODE: Record<string, string> = {
+  'Premier League': 'eng.1',
+  'La Liga': 'esp.1',
+  'Serie A': 'ita.1',
+  'Bundesliga': 'ger.1',
+  'Ligue 1': 'fra.1',
+  'MLS': 'usa.1',
+  'Champions League': 'uefa.champions',
+};
+
 // ============================================
 // FETCH HELPERS
 // ============================================
@@ -134,6 +145,52 @@ export async function getLeagueMatches(
     console.error(`Error fetching ${league}:`, error);
     return [];
   }
+}
+
+/**
+ * Get a team's schedule/results (completed matches with scores)
+ * Uses ESPN /teams/{teamId}/schedule endpoint - returns 12-15 completed matches
+ * This is the primary source for team form/history data
+ */
+export async function getTeamSchedule(
+  teamId: string,
+  league?: string,
+): Promise<ESPNMatch[]> {
+  // Try all soccer leagues if no specific league given
+  const leaguesToTry = league
+    ? [league]
+    : Object.values(LEAGUE_NAME_TO_CODE);
+
+  for (const leagueCode of leaguesToTry) {
+    try {
+      const url = `${BASE_URL}/soccer/${leagueCode}/teams/${teamId}/schedule`;
+      const data = await fetchWithRetry(url);
+
+      if (!data?.events || data.events.length === 0) continue;
+
+      // Filter to completed matches only, parse them
+      const completed = data.events
+        .filter((e: any) => e.competitions?.[0]?.status?.type?.completed === true)
+        .map((e: any) => {
+          try {
+            return parseESPNMatch(e);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean) as ESPNMatch[];
+
+      if (completed.length > 0) {
+        console.log(`[ESPN] Team ${teamId} schedule from ${leagueCode}: ${completed.length} completed matches`);
+        return completed;
+      }
+    } catch {
+      // Try next league
+    }
+  }
+
+  console.log(`[ESPN] No schedule found for team ${teamId} across all leagues`);
+  return [];
 }
 
 /**

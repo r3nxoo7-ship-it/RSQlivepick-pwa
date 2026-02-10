@@ -107,10 +107,18 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
       try {
         const homeId = match.teams?.home?.id;
         const awayId = match.teams?.away?.id;
+        // Map league name to ESPN code for faster lookup
+        const leagueMap: Record<string, string> = {
+          'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
+          'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
+          'Champions League': 'uefa.champions',
+        };
+        const leagueCode = leagueMap[match.league?.name || ''] || '';
+        const leagueParam = leagueCode ? `&league=${leagueCode}` : '';
 
         const [homeRes, awayRes] = await Promise.all([
-          homeId ? fetch(`/api/espn/team-form?teamId=${homeId}&limit=10`).then(r => r.ok ? r.json() : null) : null,
-          awayId ? fetch(`/api/espn/team-form?teamId=${awayId}&limit=10`).then(r => r.ok ? r.json() : null) : null,
+          homeId ? fetch(`/api/espn/team-form?teamId=${homeId}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
+          awayId ? fetch(`/api/espn/team-form?teamId=${awayId}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
         ]);
 
         setHomeForm(homeRes);
@@ -122,7 +130,7 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
       }
     }
     fetchForm();
-  }, [match.teams?.home?.id, match.teams?.away?.id]);
+  }, [match.teams?.home?.id, match.teams?.away?.id, match.league?.name]);
 
   // Extract statistics from match.statistics array if available
   const homeStats = {
