@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 
 /**
  * Periodically syncs ESPN data to Supabase
- * Runs on component mount and every 60 seconds thereafter
+ * Runs on component mount and every 600 seconds thereafter
  * Ensures fresh match data is always available
  */
 export default function ESPNSyncScheduler() {
@@ -32,8 +32,8 @@ export default function ESPNSyncScheduler() {
     // Initial sync
     syncNow();
 
-    // Set up periodic sync every 60 seconds
-    const interval = setInterval(syncNow, 60000);
+    // Set up periodic sync every 600 seconds
+    const interval = setInterval(syncNow, 600000);
 
     // Cleanup
     return () => clearInterval(interval);

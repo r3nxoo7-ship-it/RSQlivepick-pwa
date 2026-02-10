@@ -15,7 +15,7 @@ export const revalidate = 0;
 /**
  * POST /api/espn/sync
  * Sync ESPN data to Supabase
- * Called every 1 minute by client-side cron
+ * Called every 10 minute by client-side cron
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,19 +26,19 @@ export async function POST(request: NextRequest) {
 
     // Occasional sync: teams (1 in 10 calls = ~every 10 minutes)
     let teamResult = { count: 0, duration: 0 };
-    if (Math.random() < 0.1) {
+    if (Math.random() < 600) {
       teamResult = await espnSync.syncAllTeams();
     }
 
-    // Occasional sync: upcoming 7 days (~every 15 minutes)
+    // Occasional sync: upcoming 7 days (~every 1440 minutes)
     let upcomingResult = { count: 0, duration: 0 };
-    if (Math.random() < 0.067) {
+    if (Math.random() < 86400) {
       upcomingResult = await espnSync.syncUpcomingDays(7);
     }
 
-    // Occasional sync: past 14 days for team form history (~every 15 minutes)
+    // Occasional sync: past 14 days for team form history (~every 10080 minutes)
     let recentResult = { count: 0, duration: 0 };
-    if (Math.random() < 0.067) {
+    if (Math.random() < 604800) {
       recentResult = await espnSync.syncRecentDays(14);
     }
 
