@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     const todayMatches = todayRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
     const scheduledMatches = scheduledRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
 
-    // Fetch recent form for teams in live + today matches only (skip scheduled for perf)
+    // Fetch recent form for teams in live + today matches (parallel, not sequential)
     const currentMatches = [...liveRaw, ...todayRaw];
     const teamIds = new Set<string>();
     currentMatches.forEach(m => {
@@ -69,10 +69,18 @@ export async function GET(request: NextRequest) {
     });
 
     const teamForm: Record<string, any> = {};
-    for (const teamId of teamIds) {
-      const recentMatches = await espnSync.getTeamRecentMatches(teamId, 5);
-      const form = espnSync.calculateTeamForm(recentMatches, teamId);
-      teamForm[teamId] = form;
+    if (teamIds.size > 0) {
+      const formResults = await Promise.allSettled(
+        Array.from(teamIds).map(async (teamId) => {
+          const recentMatches = await espnSync.getTeamRecentMatches(teamId, 5);
+          return { teamId, form: espnSync.calculateTeamForm(recentMatches, teamId) };
+        })
+      );
+      for (const r of formResults) {
+        if (r.status === 'fulfilled') {
+          teamForm[r.value.teamId] = r.value.form;
+        }
+      }
     }
 
     return NextResponse.json({

@@ -1,9 +1,3 @@
-// ============================================
-// BACKGROUND SCANNER INITIALIZER
-// ============================================
-// Initializes background scanning when app mounts
-// Runs in the root layout to ensure it persists across all pages
-
 'use client';
 
 import { useEffect } from 'react';
@@ -30,7 +24,9 @@ export function ScannerInitializer() {
     
     // Start background scanner (30-second intervals)
     // Runs in background regardless of which page user is on
-    scanner.start(30);
+    // scanner.start(30);   ← COMENTEAZĂ LINIA ASTA (sau șterge-o temporar)
+
+    console.log('Scanner oprit temporar pentru a evita consumul mare de CPU');
 
     // Clean up if component unmounts (won't actually stop scanner due to singleton)
     return () => {

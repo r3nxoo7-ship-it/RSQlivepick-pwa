@@ -45,19 +45,20 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
 
-    for (const config of soccerLeagues) {
-      try {
+    // Fetch all leagues in parallel for speed
+    const leagueResults = await Promise.allSettled(
+      soccerLeagues.map(async (config) => {
         const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league);
-        console.log(`  ⚽ ${config.name}: ${matches.length} matches`);
-        
-        // Add league info to each match for better tracking
-        matches.forEach(m => {
-          (m as any).__league_config = config;
-        });
-        
-        allMatches.push(...matches);
-      } catch (err) {
-        console.warn(`⚠️ [ESPN Sync] Failed to fetch ${config.name}:`, err);
+        matches.forEach(m => { (m as any).__league_config = config; });
+        return { config, matches };
+      })
+    );
+    for (const r of leagueResults) {
+      if (r.status === 'fulfilled') {
+        console.log(`  ⚽ ${r.value.config.name}: ${r.value.matches.length} matches`);
+        allMatches.push(...r.value.matches);
+      } else {
+        console.warn(`⚠️ [ESPN Sync] Failed to fetch a league:`, r.reason);
       }
     }
     
@@ -410,21 +411,27 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
 
+    // Build all fetch tasks and run in parallel (like syncRecentDays)
+    const fetchTasks: Array<{ config: typeof soccerLeagues[0]; dateStr: string }> = [];
     for (let d = 1; d <= days; d++) {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + d);
-      const dateStr = futureDate.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
-
+      const dateStr = futureDate.toISOString().slice(0, 10).replace(/-/g, '');
       for (const config of soccerLeagues) {
-        try {
-          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
-          matches.forEach(m => {
-            (m as any).__league_config = config;
-          });
-          allMatches.push(...matches);
-        } catch (err) {
-          // Non-critical - continue with other leagues/dates
-        }
+        fetchTasks.push({ config, dateStr });
+      }
+    }
+
+    const results = await Promise.allSettled(
+      fetchTasks.map(async ({ config, dateStr }) => {
+        const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
+        matches.forEach(m => { (m as any).__league_config = config; });
+        return matches;
+      })
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allMatches.push(...result.value);
       }
     }
 
