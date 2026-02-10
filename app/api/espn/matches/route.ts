@@ -21,7 +21,19 @@ export async function GET(request: NextRequest) {
     // Get live, today's scheduled, and 7-day scheduled matches
     const liveRaw = await espnSync.getLiveMatchesOnly();
     const todayRaw = await espnSync.getUpcomingMatches();
-    const scheduledRaw = await espnSync.getScheduledMatchesRange(7);
+    let scheduledRaw = await espnSync.getScheduledMatchesRange(7);
+
+    // On-demand sync: if no scheduled matches exist, fetch them now
+    if (scheduledRaw.length === 0) {
+      console.log('📅 No scheduled matches found, syncing upcoming 7 days on-demand...');
+      try {
+        await espnSync.syncUpcomingDays(7);
+        scheduledRaw = await espnSync.getScheduledMatchesRange(7);
+        console.log(`📅 On-demand sync complete: ${scheduledRaw.length} scheduled matches`);
+      } catch (syncErr) {
+        console.error('⚠️ On-demand upcoming sync failed:', syncErr);
+      }
+    }
 
     const validFilter = (row: any) =>
       row.sport === 'soccer' &&
