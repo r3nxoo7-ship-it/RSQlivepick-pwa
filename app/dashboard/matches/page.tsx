@@ -66,10 +66,10 @@ export default function MatchesAnalyticsPage() {
 
   useEffect(() => {
     loadData();
-    // Auto-refresh every 30 seconds
+    // Auto-refresh 
     const interval = setInterval(() => {
       loadData();
-    }, 30000);
+    }, 300000); // Refresh every 5 minutes
     return () => clearInterval(interval);
   }, [loadData]);
 
