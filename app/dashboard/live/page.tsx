@@ -7,16 +7,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  RefreshCw, 
-  Filter as FilterIcon, 
-  Activity, 
-  Target, 
-  Bell, 
-  BellOff, 
+import {
+  RefreshCw,
+  Filter as FilterIcon,
+  Activity,
+  Target,
+  Bell,
+  BellOff,
   Zap,
   Settings,
-  Radio
+  Radio,
+  Clock,
+  Calendar,
+  Trophy,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
@@ -24,7 +29,6 @@ import MatchStatsDisplay from '@/components/MatchStatsDisplay';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
-import { Clock, Calendar, Trophy } from 'lucide-react';
 import { applyFiltersToMatches, FilterMatchResult } from '@/lib/filter-engine';
 import { useBackgroundScanner } from '@/lib/background-scanner';
 import { checkNotificationStatus, requestNotificationPermission } from '@/lib/notifications';
@@ -464,10 +468,16 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                   <span className="text-sm text-accent-cyan ml-2">({recentlyTriggered.length})</span>
                 </h3>
                 <button
-                  onClick={() => router.push('/dashboard/history')}
-                  className="text-sm text-accent-cyan hover:text-accent-blue transition-colors"
+                  onClick={() => {
+                    setShowFullHistory(!showFullHistory);
+                    if (!showFullHistory && historyMatches.length === 0) {
+                      loadFullHistory(0, historyTimeRange, true);
+                    }
+                  }}
+                  className="text-sm text-accent-cyan hover:text-accent-blue transition-colors flex items-center gap-1"
                 >
-                  View Full History →
+                  {showFullHistory ? 'Hide' : 'Full'} History
+                  {showFullHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
               </div>
               
@@ -617,6 +627,129 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
             </div>
           )}
           
+          {/* ========== FULL TRIGGERED HISTORY ========== */}
+          {showFullHistory && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="glass-card p-4 sm:p-6 border border-glass-lighter"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-accent-purple" />
+                  Triggered History
+                </h3>
+              </div>
+
+              {/* Time range filter */}
+              <div className="flex gap-2 flex-wrap mb-4">
+                {(['24h', '7d', '30d', 'all'] as const).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => {
+                      setHistoryTimeRange(range);
+                      setHistoryPage(0);
+                      loadFullHistory(0, range, true);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      historyTimeRange === range
+                        ? 'bg-accent-cyan text-black'
+                        : 'bg-glass-light text-text-secondary hover:bg-glass-medium'
+                    }`}
+                  >
+                    {range === 'all' ? 'All' : range}
+                  </button>
+                ))}
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="text-center p-2 rounded-lg bg-glass-light border border-glass-lighter">
+                  <div className="text-xs text-text-muted">Triggered</div>
+                  <div className="text-lg font-bold text-accent-cyan">{historyMatches.length}</div>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-glass-light border border-glass-lighter">
+                  <div className="text-xs text-text-muted">Matches</div>
+                  <div className="text-lg font-bold text-accent-green">
+                    {new Set(historyMatches.map(m => m.match_id)).size}
+                  </div>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-glass-light border border-glass-lighter">
+                  <div className="text-xs text-text-muted">Filters</div>
+                  <div className="text-lg font-bold text-accent-purple">
+                    {new Set(historyMatches.map(m => m.filter_id)).size}
+                  </div>
+                </div>
+              </div>
+
+              {/* History list */}
+              {historyLoading && historyMatches.length === 0 ? (
+                <div className="text-center py-6">
+                  <div className="inline-block animate-spin mb-2">
+                    <Zap className="w-6 h-6 text-accent-cyan" />
+                  </div>
+                  <p className="text-text-secondary text-sm">Loading history...</p>
+                </div>
+              ) : historyMatches.length === 0 ? (
+                <div className="text-center py-6">
+                  <Trophy className="w-10 h-10 text-text-muted mx-auto mb-2 opacity-50" />
+                  <p className="text-text-secondary text-sm">No triggered matches found</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {historyMatches.map((match) => {
+                    const timeSince = (() => {
+                      const diffMs = Date.now() - new Date(match.triggered_at).getTime();
+                      const mins = Math.floor(diffMs / 60000);
+                      const hours = Math.floor(diffMs / 3600000);
+                      const days = Math.floor(diffMs / 86400000);
+                      if (mins < 1) return 'Just now';
+                      if (mins < 60) return `${mins}m ago`;
+                      if (hours < 24) return `${hours}h ago`;
+                      return `${days}d ago`;
+                    })();
+
+                    return (
+                      <Link
+                        key={match.id || `${match.match_id}-${match.filter_id}-${match.created_at}`}
+                        href={`/dashboard/triggered/${match.id}`}
+                        className="flex items-center justify-between p-3 rounded-lg bg-glass-light/50 border border-glass-lighter hover:border-accent-cyan/40 transition-all text-sm group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-white truncate group-hover:text-accent-cyan transition-colors">
+                            {match.home_team} vs {match.away_team}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
+                            <FilterIcon className="w-3 h-3 inline" />
+                            <span className="truncate">{match.filter_name}</span>
+                            {match.score_home != null && (
+                              <span className="text-accent-green font-semibold">{match.score_home}-{match.score_away}</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-xs text-text-muted whitespace-nowrap ml-2">{timeSince}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Load more */}
+              {historyHasMore && !historyLoading && historyTimeRange === 'all' && (
+                <button
+                  onClick={() => {
+                    const nextPage = historyPage + 1;
+                    setHistoryPage(nextPage);
+                    loadFullHistory(nextPage, historyTimeRange, false);
+                  }}
+                  className="w-full mt-3 py-2 rounded-lg bg-glass-light text-accent-cyan text-sm font-semibold hover:bg-glass-medium transition-all"
+                >
+                  Load More
+                </button>
+              )}
+            </motion.div>
+          )}
+
           {/* ========== INFO ========== */}
           <div className="glass-card p-4 text-sm">
             <h4 className="font-semibold text-accent-cyan mb-2">
