@@ -219,7 +219,7 @@ export default function AnalyticsPage() {
                 Export CSV
               </button>
               
-              <select
+              <select  
                 value={timeRange}
                 onChange={(e) => setTimeRange(Number(e.target.value) as 7 | 30)}
                 className="input-field w-full sm:w-40"
