@@ -24,9 +24,7 @@ export function ScannerInitializer() {
     
     // Start background scanner (30-second intervals)
     // Runs in background regardless of which page user is on
-    // scanner.start(30);   ← COMENTEAZĂ LINIA ASTA (sau șterge-o temporar)
-
-    console.log('Scanner oprit temporar pentru a evita consumul mare de CPU');
+    scanner.start(30);
 
     // Clean up if component unmounts (won't actually stop scanner due to singleton)
     return () => {
