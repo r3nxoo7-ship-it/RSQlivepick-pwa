@@ -34,9 +34,12 @@ export async function GET(request: NextRequest) {
     console.log('📖 API /filters/get: Reading filters for user:', userId);
 
     // Fetch only needed columns to reduce bandwidth and response size
+    // Note: Select only columns that exist in the database schema
+    // Optional columns (color, template_id, forked_from_id, forked_from_user, version, is_editable)
+    // will be added via database migration separately
     const { data, error } = await supabaseAdmin
       .from('filters')
-      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at, color, template_id, forked_from_id, forked_from_user, version, is_editable')
+      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 

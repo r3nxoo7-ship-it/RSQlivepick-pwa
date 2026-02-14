@@ -61,14 +61,13 @@ export interface Filter {
   success_rate: number | null;
   created_at: string;
   updated_at: string;
-  // Filter styling
+  // Optional fields (added via future migration)
   color?: 'cyan' | 'green' | 'amber' | 'purple' | 'blue' | 'red' | 'gray'; // Color theme for card display
   template_id?: string; // Reference to template this was created from
-  // Versioning & Forking (v2.0 system)
   forked_from_id?: string; // ID of the original filter this was forked from
   forked_from_user?: string; // Username of original creator (read-only reference)
-  version: number; // v1.0 = original, v2.0+ = user's modified version
-  is_editable: boolean; // Can this be edited? (false for base/forked filters users can't edit)
+  version?: number; // v1.0 = original, v2.0+ = user's modified version (default: 1)
+  is_editable?: boolean; // Can this be edited? (default: true)
 }
 
 export interface FilterConditions {

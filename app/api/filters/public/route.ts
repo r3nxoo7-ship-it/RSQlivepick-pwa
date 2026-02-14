@@ -22,9 +22,10 @@ export async function GET(request: NextRequest) {
     console.log('📝 API /filters/public: Fetching all public filters');
 
     // Fetch only needed columns to reduce bandwidth
+    // Note: Optional columns (color, template_id, version) will be added via migration
     const { data: filters, error } = await supabaseAdmin
       .from('filters')
-      .select('id, user_id, name, description, conditions, is_active, is_public, notification_enabled, color, template_id, trigger_count, success_rate, created_at, version')
+      .select('id, user_id, name, description, conditions, is_active, is_public, notification_enabled, trigger_count, success_rate, created_at')
       .eq('is_public', true)
       .order('created_at', { ascending: false });
 
