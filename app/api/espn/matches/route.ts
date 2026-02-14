@@ -9,7 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as espnSync from '@/lib/espn-sync';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Cache for 30 seconds to reduce Supabase load while keeping data relatively fresh
+export const revalidate = 30;
 
 /**
  * GET /api/espn/matches
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     }, {
       headers: {
-        'Cache-Control': 'private, max-age=5',
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=30',
         'X-Data-Source': 'Supabase (synced from ESPN)',
       }
     });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as ESPNAPI from '@/lib/espn-api';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 120; // Cache team form for 2 minutes
 
 /**
  * GET /api/espn/team-form?teamId=xxx&league=eng.1&limit=10
@@ -63,6 +64,10 @@ export async function GET(request: NextRequest) {
       teamId,
       matches,
       form,
+    }, {
+      headers: {
+        'Cache-Control': 'private, max-age=120, stale-while-revalidate=120',
+      }
     });
   } catch (error) {
     console.error('Error fetching team form:', error);

@@ -2,9 +2,10 @@
 
 import { motion } from 'framer-motion';
 import { Target, TrendingUp } from 'lucide-react';
-import { LiveMatch } from '@/lib/football-data';
+import type { LiveMatch } from '@/lib/types';
 import { FilterMatchResult } from '@/lib/filter-engine';
 import { MatchOdds, formatOdds } from '@/lib/odds-provider';
+import { memo } from 'react';
 
 interface MatchCardProps {
   match: LiveMatch;
@@ -14,7 +15,7 @@ interface MatchCardProps {
   odds?: MatchOdds;
 }
 
-export default function MatchCard({
+function MatchCard({
   match,
   onClick,
   showStatistics = false,
@@ -119,3 +120,5 @@ export default function MatchCard({
     </motion.div>
   );
 }
+
+export default memo(MatchCard);

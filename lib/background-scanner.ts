@@ -4,7 +4,7 @@
 // Manages background match scanning that persists across page navigation
 // Uses Web Workers and Service Workers for continuous background operation
 
-import type { LiveMatch } from '@/lib/football-data';
+import type { LiveMatch } from '@/lib/types';
 import type { Filter } from '@/lib/supabase';
 import { applyFiltersToMatch } from '@/lib/filter-engine';
 import { sendMatchNotification } from '@/lib/notifications';

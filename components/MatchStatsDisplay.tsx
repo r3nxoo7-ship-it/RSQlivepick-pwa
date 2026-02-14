@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Zap } from 'lucide-react';
-import { MatchStatistics } from '@/lib/api-football';
+import type { MatchStatistics } from '@/lib/types';
 import { MatchOdds, formatOdds, getImpliedProbability } from '@/lib/odds-provider';
 
 interface MatchStatsDisplayProps {

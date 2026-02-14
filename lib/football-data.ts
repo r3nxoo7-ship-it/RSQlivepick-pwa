@@ -4,73 +4,16 @@
 // Alternative la API-Football - FREE cu 10 req/min!
 // https://www.football-data.org/
 
+import { LiveMatch, MatchStatistics } from '@/lib/types';
+
 const FOOTBALL_DATA_API_KEY = process.env.NEXT_PUBLIC_FOOTBALL_DATA_KEY;
 // ⚠️ NU mai facem request direct! Folosim API route proxy!
 // const BASE_URL = 'https://api.football-data.org/v4';
 const PROXY_URL = '/api/football-data'; // Next.js API route (server-side)
 
 // ============================================
-// TYPES (compatibile cu API-Football)
+// TYPES ARE NOW UNIFIED IN lib/types.ts
 // ============================================
-
-export interface LiveMatch {
-  id?: number;
-  fixture: {
-    id: number;
-    date: string;
-    timestamp: number;
-    status: {
-      long: string;
-      short: string;
-      elapsed: number | null;
-    };
-  };
-  statistics?: MatchStatistics[];
-  league: {
-    id: number;
-    name: string;
-    country: string;
-    logo: string;
-    flag: string;
-  };
-  teams: {
-    home: {
-      id: number;
-      name: string;
-      logo: string;
-    };
-    away: {
-      id: number;
-      name: string;
-      logo: string;
-    };
-  };
-  goals: {
-    home: number | null;
-    away: number | null;
-  };
-  score: {
-    halftime: {
-      home: number | null;
-      away: number | null;
-    };
-    fulltime: {
-      home: number | null;
-      away: number | null;
-    };
-  };
-}
-
-export interface MatchStatistics {
-  team: {
-    id: number;
-    name: string;
-  };
-  statistics: Array<{
-    type: string;
-    value: number | string | null;
-  }>;
-}
 
 // ============================================
 // HELPER FUNCTIONS

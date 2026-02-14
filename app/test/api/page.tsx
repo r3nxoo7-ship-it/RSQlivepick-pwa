@@ -12,8 +12,9 @@ import { useState } from 'react'; // useState = memorie pentru component
 // Importăm funcțiile din api-football.ts
 import { 
   getLiveMatches,           // Funcția care ia meciuri live
-  LiveMatch                 // Type-ul pentru meci
 } from '@/lib/api-football';
+
+import type { LiveMatch } from '@/lib/types';
 
 // ============================================
 // COMPONENTA PRINCIPALĂ

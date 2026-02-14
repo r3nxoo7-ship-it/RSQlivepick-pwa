@@ -4,7 +4,7 @@
 // Engine that verifies whether matches satisfy filters
 // For beginners: learn filtering logic, type checking
 
-import type { LiveMatch } from '@/lib/football-data';
+import type { LiveMatch } from '@/lib/types';
 import type { Filter } from '@/lib/supabase';
 
 /**
@@ -52,6 +52,16 @@ function parseMatchStatsCompat(statistics: any[] | undefined) {
       home: getNum(home, 'total shots'),
       away: getNum(away, 'total shots'),
     },
+    attacks: {
+      home: getNum(home, 'attacks'),
+      away: getNum(away, 'attacks'),
+      total: getNum(home, 'attacks') + getNum(away, 'attacks'),
+    },
+    dangerous_attacks: {
+      home: getNum(home, 'dangerous attacks'),
+      away: getNum(away, 'dangerous attacks'),
+      total: getNum(home, 'dangerous attacks') + getNum(away, 'dangerous attacks'),
+    },
     possession: {
       home: getNum(home, 'possession'),
       away: getNum(away, 'possession'),
@@ -59,10 +69,12 @@ function parseMatchStatsCompat(statistics: any[] | undefined) {
     yellow_cards: {
       home: getNum(home, 'yellow card'),
       away: getNum(away, 'yellow card'),
+      total: getNum(home, 'yellow card') + getNum(away, 'yellow card'),
     },
     red_cards: {
       home: getNum(home, 'red card'),
       away: getNum(away, 'red card'),
+      total: getNum(home, 'red card') + getNum(away, 'red card'),
     },
     fouls: {
       home: getNum(home, 'fouls'),
@@ -296,10 +308,25 @@ export async function matchesFilter(
     }
   }
   
-  // 10. DANGEROUS ATTACKS (dacă e implementat în stats)
+  // 10. ATTACKS & DANGEROUS ATTACKS
+  if (conditions.attacks && stats.attacks) {
+    const { min, max } = conditions.attacks;
+    const total = stats.attacks.total;
+    
+    const minOk = min === undefined || total >= min;
+    const maxOk = max === undefined || total <= max;
+    
+    if (minOk && maxOk) {
+      matchedConditions.push(`Attacks: ${total}`);
+    } else {
+      failedConditions.push(`Attacks: ${total} not in range ${min}-${max || '∞'}`);
+    }
+  }
+
+  // 11. DANGEROUS ATTACKS (đã implementat în stats)
   if (conditions.dangerous_attacks && stats.dangerous_attacks) {
     const { min, max } = conditions.dangerous_attacks;
-    const total = stats.dangerous_attacks.home + stats.dangerous_attacks.away;
+    const total = stats.dangerous_attacks.total;
     
     const minOk = min === undefined || total >= min;
     const maxOk = max === undefined || total <= max;
@@ -310,10 +337,43 @@ export async function matchesFilter(
       failedConditions.push(`Dangerous attacks: ${total} not in range ${min}-${max || '∞'}`);
     }
   }
-  
-  // ============================================
-  // REZULTAT FINAL
-  // ============================================
+  // 12. ODDS FILTERING (Live Odds)
+  // Check Goal Line OVER/UNDER odds availability
+  if (conditions.goal_line) {
+    const { type, value } = conditions.goal_line;
+    const odds = match.odds as any;
+    
+    if (odds) {
+      // Build the odds key: goals_over_2_5, goals_under_2_5, etc.
+      const oddsKey = `goals_${type}_${value}`;
+      const oddsValue = odds[oddsKey];
+      
+      if (oddsValue) {
+        matchedConditions.push(`Goal Line ${type.toUpperCase()} ${value}: Odds ${oddsValue.toFixed(2)}`);
+      } else {
+        failedConditions.push(`Goal Line ${type.toUpperCase()} ${value}: Odds not available`);
+      }
+    } else {
+      failedConditions.push(`Goal Line ${type.toUpperCase()} ${value}: No odds data`);
+    }
+  }
+
+  // Check match goals odds
+  if (conditions.match_goals) {
+    const { type, value } = conditions.match_goals;
+    const odds = match.odds as any;
+    
+    if (odds) {
+      const oddsKey = `goals_${type}_${value}`;
+      const oddsValue = odds[oddsKey];
+      
+      if (oddsValue) {
+        matchedConditions.push(`Match Goals ${type.toUpperCase()} ${value}: Odds available (${oddsValue.toFixed(2)})`);
+      } else {
+        failedConditions.push(`Match Goals ${type.toUpperCase()} ${value}: Odds not available`);
+      }
+    }
+  }
   
   // Meciul match-uiește DOAR dacă:
   // - Avem cel puțin o condiție matched

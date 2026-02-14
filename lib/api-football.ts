@@ -1,5 +1,7 @@
 // ============================================
 import { MatchOdds } from '@/lib/odds-provider';
+import { LiveMatch, MatchStatistics, ApiResponse } from '@/lib/types';
+
 // R$Q FOOTBALL SCANNER - API Football Client
 // ============================================
 // This file handles all communications with API-Football
@@ -20,105 +22,8 @@ if (!API_KEY) {
 }
 
 // ============================================
-// PARTEA 2: TypeScript TYPES (Ce tip de date vom primi)
+// TYPES ARE NOW UNIFIED IN lib/types.ts
 // ============================================
-
-// Type = descriem cum arată un obiect în TypeScript
-// Așa știm exact ce proprietăți are fiecare obiect
-
-/**
- * Cum arată un meci live în răspunsul de la API
- * Exemple: fixture.id = 12345, teams.home.name = "Arsenal"
- */
-export interface LiveMatch {
-  // Informații despre meci
-  fixture: {
-    id: number;              // ID unic al meciului (ex: 12345)
-    date: string;            // Data/ora meciului (ex: "2025-01-03T19:00:00+00:00")
-    timestamp: number;       // Unix timestamp
-    status: {
-      long: string;          // Status lung (ex: "First Half")
-      short: string;         // Status scurt (ex: "1H", "2H", "FT")
-      elapsed: number;       // Minutul curent (ex: 67)
-    };
-  };
-  
-  // Liga în care se joacă
-  league: {
-    id: number;              // ID ligă
-    name: string;            // Nume ligă (ex: "Premier League")
-    country: string;         // Țara (ex: "England")
-    logo: string;            // URL logo ligă
-    flag: string;            // URL steag țară
-    season: number;          // Sezonul (ex: 2024)
-  };
-  
-  // Echipele care joacă
-  teams: {
-    home: {
-      id: number;            // ID echipă
-      name: string;          // Nume (ex: "Arsenal")
-      logo: string;          // URL logo
-    };
-    away: {
-      id: number;
-      name: string;          // ex: "Chelsea"
-      logo: string;
-    };
-  };
-  
-  // Goals scored
-  goals: {
-    home: number | null;     // Home team goals (null if match hasn't started)
-    away: number | null;     // Away team goals
-  };
-
-  // Score (may include extra time, penalties)
-  score: {
-    halftime: {
-      home: number | null;   // Halftime score
-      away: number | null;
-    };
-    fulltime: {
-      home: number | null;   // Final score
-      away: number | null;
-    };
-  };
-
-  // Additional properties for enhanced data
-  statistics?: MatchStatistics[];
-  odds?: MatchOdds['bookmakers']; // Simplified odds for display
-}
-
-/**
- * Detailed match statistics
- * Contains: corners, shots, possession, cards, etc.
- */
-export interface MatchStatistics {
-  team: {
-    id: number;
-    name: string;            // "Arsenal" or "Chelsea"
-  };
-  statistics: Array<{
-    type: string;            // Statistic type (e.g., "Corners", "Shots on Goal")
-    value: number | string;  // Value (e.g., 8 corners, "58%" possession)
-  }>;
-}
-
-/**
- * Răspunsul complet de la API pentru live matches
- */
-interface ApiResponse<T> {
-  get: string;               // Called endpoint
-  parameters: any;           // Parameters sent
-  errors: any[];             // Array with errors (empty if ok)
-  results: number;           // How many results we received
-  paging: {
-    current: number;         // Current page
-    total: number;           // Total pages
-  };
-  response: T[];             // The actual data (array of matches)
-}
 
 // ============================================
 // PARTEA 3: HELPER FUNCTIONS (Funcții ajutătoare)

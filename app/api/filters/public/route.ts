@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 300; // Cache public filters for 5 minutes (they change infrequently)
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -18,10 +21,10 @@ export async function GET(request: NextRequest) {
   try {
     console.log('📝 API /filters/public: Fetching all public filters');
 
-    // Fetch all public filters with user info
+    // Fetch only needed columns to reduce bandwidth
     const { data: filters, error } = await supabaseAdmin
       .from('filters')
-      .select('*')
+      .select('id, user_id, name, description, conditions, is_active, is_public, notification_enabled, color, template_id, trigger_count, success_rate, created_at, version')
       .eq('is_public', true)
       .order('created_at', { ascending: false });
 
@@ -34,7 +37,11 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(`✅ Fetched ${filters?.length || 0} public filters`);
-    return NextResponse.json({ data: filters || [], error: null });
+    return NextResponse.json({ data: filters || [], error: null }, {
+      headers: {
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=300',
+      }
+    });
   } catch (err) {
     console.error('❌ Error in /filters/public:', err);
     return NextResponse.json(

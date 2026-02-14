@@ -12,7 +12,7 @@ import * as APIFootball from './api-football';
 // is used by client components. We'll fetch synced data via the server API
 // endpoint `/api/espn/matches` to avoid bundling server secrets.
 
-export type { LiveMatch, MatchStatistics } from './football-data';
+export type { LiveMatch, MatchStatistics } from '@/lib/types';
 
 // ============================================
 // CONFIG

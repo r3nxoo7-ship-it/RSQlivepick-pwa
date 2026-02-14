@@ -5,7 +5,7 @@
 // Pentru începători: învață React hooks, intervals, side effects
 
 import { useEffect, useRef, useState } from 'react';
-import { LiveMatch } from '@/lib/football-data';
+import type { LiveMatch } from '@/lib/types';
 import type { Filter } from '@/lib/supabase';
 import { applyFiltersToMatch, FilterMatchResult } from '@/lib/filter-engine';
 import { sendMatchNotification } from '@/lib/notifications';

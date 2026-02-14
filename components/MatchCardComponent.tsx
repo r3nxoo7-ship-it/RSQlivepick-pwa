@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Target, TrendingUp } from 'lucide-react';
-import { LiveMatch } from '@/lib/football-data';
+import type { LiveMatch } from '@/lib/types';
 import { FilterMatchResult } from '@/lib/filter-engine';
 
 interface MatchCardProps {

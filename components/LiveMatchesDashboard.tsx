@@ -5,7 +5,7 @@
 // ============================================
 // Versiune optimizată cu Match Scanner integrat
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   RefreshCw, 
@@ -80,6 +80,15 @@ export default function LiveMatchesPage() {
   
   // Use background scanner hook
   const backgroundScanner = useBackgroundScanner(true);
+  
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // ============================================
   // LOAD FUNCTIONS
@@ -210,7 +219,7 @@ export default function LiveMatchesPage() {
     setShowOnlyFiltered(saved === 'true' ? true : false);
   }, []);
   
-  // Update scanner stats every 5 seconds
+  // Update scanner stats every 10 seconds (reduced from 5s to save resources)
   useEffect(() => {
     const interval = setInterval(() => {
       const stats = backgroundScanner.getState();
@@ -222,17 +231,17 @@ export default function LiveMatchesPage() {
         matchesScanned: stats.matchesScanned,
         lastScanTime: stats.lastScanTime,
       });
-    }, 5000);
+    }, 10000);
     
     return () => clearInterval(interval);
   }, [backgroundScanner]);
 
-  // Load recently triggered matches every 10 seconds
+  // Load recently triggered matches every 20 seconds (reduced from 10s to save API calls)
   useEffect(() => {
     loadRecentlyTriggered();
     const interval = setInterval(() => {
       loadRecentlyTriggered();
-    }, 10000);
+    }, 20000);
     
     return () => clearInterval(interval);
   }, [loadRecentlyTriggered]);
@@ -254,11 +263,11 @@ export default function LiveMatchesPage() {
   }, [fetchMatches]);
   
   useEffect(() => {
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 60 seconds (reduced from 30s to save API calls and Supabase usage)
     const interval = setInterval(() => {
       console.log('⏰ Auto-refresh matches...');
       fetchMatches();
-    }, 30000);
+    }, 60000);
     
     return () => clearInterval(interval);
   }, [fetchMatches]);
@@ -271,13 +280,18 @@ export default function LiveMatchesPage() {
   const activeFiltersCount = userFilters.filter(f => f.is_active).length;
   const filtersWithNotifications = userFilters.filter(f => f.is_active && f.notification_enabled).length;
   
-  let filteredMatches = selectedLeague === 'all' 
-    ? matches 
-    : matches.filter(m => m.league?.name === selectedLeague);
-  
-  if (showOnlyFiltered === true) {
-    filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has(m.fixture.id));
-  }
+  // Memoize filteredMatches to prevent unnecessary re-renders
+  const filteredMatches = useMemo(() => {
+    let filtered = selectedLeague === 'all' 
+      ? matches 
+      : matches.filter(m => m.league?.name === selectedLeague);
+    
+    if (showOnlyFiltered === true) {
+      filtered = filtered.filter(m => m.fixture?.id && filterResults.has(m.fixture.id));
+    }
+    
+    return filtered;
+  }, [matches, selectedLeague, showOnlyFiltered, filterResults]);
   
   const leagues = Array.from(new Set(matches.map(m => m.league?.name || 'Unknown')));
   
@@ -547,7 +561,7 @@ export default function LiveMatchesPage() {
                   key={match.fixture?.id || index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: isMobile ? 0 : index * 0.05 }}
                 >
                   <MatchCard
                     match={match}
