@@ -18,9 +18,10 @@ import {
   Settings,
   Radio
 } from 'lucide-react';
-import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
+import { getLiveMatches, getLiveAndUpcomingMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
 import MatchStatsDisplay from '@/components/MatchStatsDisplay';
+import AdvancedMatchDetail from '@/components/AdvancedMatchDetail';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
@@ -160,19 +161,19 @@ export default function LiveMatchesPage() {
     
     try {
       console.log('🔍 Fetching live matches...');
-      const liveMatches = await getLiveMatches();
-      
-      setMatches(liveMatches);
+      // Use the separated API to ensure we only show actual live matches in this view
+      const { live } = await getLiveAndUpcomingMatches();
+      setMatches(live);
       setLastUpdate(new Date());
       
-      console.log(`✅ Loaded ${liveMatches.length} live matches`);
+      console.log(`✅ Loaded ${live?.length || 0} live matches`);
       
       // Apply filters directly inline to avoid dependency issues
       if (userFilters.length > 0) {
         setApplyingFilters(true);
         try {
           console.log('🎯 Applying filters to matches...');
-          const results = await applyFiltersToMatches(liveMatches, userFilters);
+          const results = await applyFiltersToMatches(live || [], userFilters);
           setFilterResults(results);
           console.log(`✅ ${results.size} matches have filter matches`);
         } catch (err) {
@@ -586,7 +587,7 @@ export default function LiveMatchesPage() {
           {/* Match Details Modal */}
           {selectedMatch && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-              <div className="bg-glass-light rounded-2xl shadow-2xl max-w-lg w-full p-6 relative animate-fadeIn">
+                  <div className="bg-glass-light rounded-2xl shadow-2xl max-w-lg w-full p-6 relative animate-fadeIn">
                 <button
                   onClick={() => setSelectedMatch(null)}
                   className="absolute top-3 right-3 text-text-secondary hover:text-accent-cyan"
@@ -594,17 +595,8 @@ export default function LiveMatchesPage() {
                 >
                   ×
                 </button>
-                <h2 className="text-xl font-bold mb-2 text-accent-cyan">
-                  {selectedMatch.teams.home.name} vs {selectedMatch.teams.away.name}
-                </h2>
-                <div className="text-sm text-text-secondary mb-4">
-                  <p>League: {selectedMatch.league.name}</p>
-                  <p>Time: {selectedMatch.fixture.status.long} ({selectedMatch.fixture.status.elapsed}&apos;)</p>
-                  <p>Score: {selectedMatch.goals.home} - {selectedMatch.goals.away}</p>
-                </div>
-                <div className="text-center text-sm text-text-muted">
-                  <p>Full stats integration coming soon</p>
-                </div>
+                {/* Mirror full match detail component used elsewhere */}
+                <AdvancedMatchDetail match={selectedMatch} onClose={() => setSelectedMatch(null)} />
               </div>
             </div>
           )}

@@ -100,6 +100,7 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
   const [homeForm, setHomeForm] = useState<TeamRecentFormResult | null>(null);
   const [awayForm, setAwayForm] = useState<TeamRecentFormResult | null>(null);
   const [formLoading, setFormLoading] = useState(true);
+  const [h2hMatches, setH2HMatches] = useState<RecentMatchData[]>([]);
 
   useEffect(() => {
     async function fetchForm() {
@@ -107,6 +108,8 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
       try {
         const homeId = match.teams?.home?.id;
         const awayId = match.teams?.away?.id;
+        const homeIdStr = homeId !== undefined && homeId !== null ? String(homeId) : '';
+        const awayIdStr = awayId !== undefined && awayId !== null ? String(awayId) : '';
         // Map league name to ESPN code for faster lookup
         const leagueMap: Record<string, string> = {
           'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
@@ -116,12 +119,15 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
         const leagueCode = leagueMap[match.league?.name || ''] || '';
         const leagueParam = leagueCode ? `&league=${leagueCode}` : '';
 
-        const [homeRes, awayRes] = await Promise.all([
-          homeId ? fetch(`/api/espn/team-form?teamId=${homeId}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
-          awayId ? fetch(`/api/espn/team-form?teamId=${awayId}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
+        const [homeRes, awayRes, h2hRes] = await Promise.all([
+          homeId ? fetch(`/api/espn/team-form?teamId=${encodeURIComponent(homeIdStr)}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
+          awayId ? fetch(`/api/espn/team-form?teamId=${encodeURIComponent(awayIdStr)}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
+          (homeId && awayId) ? fetch(`/api/espn/h2h?homeId=${encodeURIComponent(homeIdStr)}&awayId=${encodeURIComponent(awayIdStr)}&limit=10`).then(r => r.ok ? r.json() : null) : null,
         ]);
 
-        setHomeForm(homeRes);
+        if (homeRes) setHomeForm({ teamId: homeIdStr || '', matches: homeRes.matches || [], form: homeRes.form });
+        if (awayRes) setAwayForm({ teamId: awayIdStr || '', matches: awayRes.matches || [], form: awayRes.form });
+        if (h2hRes && h2hRes.matches) setH2HMatches(h2hRes.matches || []);
         setAwayForm(awayRes);
       } catch (err) {
         console.error('Error fetching team form:', err);
@@ -186,6 +192,7 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
             </div>
             <button
               onClick={onClose}
+              aria-label="Close match details"
               className="p-2 rounded-lg hover:bg-glass-light transition text-text-secondary hover:text-white"
             >
               <X className="w-6 h-6" />
@@ -314,6 +321,29 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
             </div>
           </div>
 
+            {/* Head-to-Head */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-accent-blue" />
+                Head-to-Head (Last 10)
+              </h3>
+              {h2hMatches.length === 0 && (
+                <div className="text-xs text-text-muted">No recent H2H matches found</div>
+              )}
+              {h2hMatches.length > 0 && (
+                <div className="space-y-2">
+                  {h2hMatches.map((m, i) => (
+                    <div key={m.id || i} className="flex items-center justify-between p-2 bg-glass-light rounded">
+                      <div className="text-sm">
+                        <div className="font-semibold">{m.home_team_name} {m.home_score} - {m.away_score} {m.away_team_name}</div>
+                        <div className="text-xs text-text-muted">{new Date(m.date).toLocaleDateString()} • {m.league}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           {/* Time Windows Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
@@ -379,8 +409,8 @@ function StatRow({
         </div>
 
         <div className="flex items-center">
-          <div className="flex-1 h-2 bg-gradient-to-r from-accent-cyan to-transparent rounded-l" style={{ width: `${homePercent}%` }} />
-          <div className="flex-1 h-2 bg-gradient-to-l from-accent-blue to-transparent rounded-r" style={{ width: `${awayPercent}%` }} />
+          <div className="h-2 bg-gradient-to-r from-accent-cyan to-transparent rounded-l" style={{ width: `${homePercent}%` }} />
+          <div className="h-2 bg-gradient-to-l from-accent-blue to-transparent rounded-r" style={{ width: `${awayPercent}%` }} />
         </div>
 
         <div className="text-center">
@@ -608,7 +638,7 @@ function TeamFormBox({
 
   if (loading) {
     return (
-      <div className="rounded-lg p-4 border border-white/10 animate-pulse" style={{ background: 'rgba(15, 23, 42, 0.85)' }}>
+      <div className="rounded-lg p-4 border border-white/10 animate-pulse bg-[rgba(15,23,42,0.85)]">
         <div className="font-semibold text-white mb-3">{team}</div>
         <div className="space-y-2">
           <div className="h-8 bg-white/5 rounded" />
@@ -621,7 +651,7 @@ function TeamFormBox({
 
   if (!recentData || !recentData.matches || recentData.matches.length === 0) {
     return (
-      <div className="rounded-lg p-4 border border-white/10" style={{ background: 'rgba(15, 23, 42, 0.85)' }}>
+      <div className="rounded-lg p-4 border border-white/10 bg-[rgba(15,23,42,0.85)]">
         <div className="font-semibold text-white mb-3">{team}</div>
         <div className="text-xs text-text-muted">No recent match data available</div>
       </div>
@@ -638,12 +668,12 @@ function TeamFormBox({
   });
 
   return (
-    <div className="rounded-lg p-4 border border-white/10" style={{ background: 'rgba(15, 23, 42, 0.85)' }}>
+    <div className="rounded-lg p-4 border border-white/10 bg-[rgba(15,23,42,0.85)]">
       {/* Header: Team name + W/D/L badges */}
       <div className="flex items-center justify-between mb-2">
         <div className="font-semibold text-white text-sm truncate">{team}</div>
         <div className="flex items-center gap-1">
-          {matches.slice(0, 5).map((m, i) => {
+          {matches.slice(0, 10).map((m, i) => {
             const result = getMatchResult(m, teamId);
             return (
               <div
@@ -683,7 +713,7 @@ function TeamFormBox({
 
       {/* Match rows */}
       <div className="space-y-0 mb-3">
-        {filteredMatches.slice(0, 5).map((m, i) => {
+        {filteredMatches.slice(0, 10).map((m, i) => {
           const result = getMatchResult(m, teamId);
           const isHome = m.home_team_id === teamId;
           const matchKey = m.id || `${m.date}-${i}`;
@@ -795,7 +825,7 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
 
   if (loading) {
     return (
-      <div className="py-3 px-2 text-[10px] text-text-muted rounded-b mb-1" style={{ background: 'rgba(15, 23, 42, 0.6)' }}>
+      <div className="py-3 px-2 text-[10px] text-text-muted rounded-b mb-1 bg-[rgba(15,23,42,0.6)]">
         Loading stats...
       </div>
     );
@@ -803,7 +833,7 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
 
   if (!stats) {
     return (
-      <div className="py-2 px-2 text-[10px] text-text-muted rounded-b mb-1" style={{ background: 'rgba(15, 23, 42, 0.6)' }}>
+      <div className="py-2 px-2 text-[10px] text-text-muted rounded-b mb-1 bg-[rgba(15,23,42,0.6)]">
         Statistics not available for this match
       </div>
     );
@@ -814,8 +844,7 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, height: 0 }}
-      className="rounded-b px-3 py-3 mb-1 space-y-2"
-      style={{ background: 'rgba(15, 23, 42, 0.6)' }}
+      className="rounded-b px-3 py-3 mb-1 space-y-2 bg-[rgba(15,23,42,0.6)]"
     >
       {/* Match header */}
       <div className="flex items-center justify-between text-[10px] text-text-muted mb-2">

@@ -590,7 +590,14 @@ export const dbHelpers = {
 
         lastResult = { response, result };
 
-        if (response.ok && !result.error && Array.isArray(result.data) && result.data.length > 0) {
+        // If authentication issue returned from server, clear local cache and force re-login
+        if (response.status === 401 || (result && result.error && String(result.error).toLowerCase().includes('invalid user'))) {
+          console.error('❌ getUserFilters: Authentication invalid according to server response. Clearing local session.');
+          try { authHelpers.logout(); } catch (e) { /* ignore */ }
+          return [];
+        }
+
+        if (response.ok && !result.error && Array.isArray(result.data)) {
           console.log('✅ Filters fetched successfully:', result.data.length);
           return result.data as Filter[];
         }

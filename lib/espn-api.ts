@@ -227,26 +227,23 @@ export const ALL_SOCCER_LEAGUES: Array<{ code: string; name: string }> = [
 
 // Leagues to sync for LIVE scoreboard (curated - top leagues + cups + continental)
 // These get synced every 30s-1min for the dashboard
-export const SYNC_SOCCER_LEAGUES = ALL_SOCCER_LEAGUES.filter(l =>
-  // Top European + their cups
-  ['eng.1','esp.1','ita.1','ger.1','fra.1','ned.1','por.1','bel.1','sco.1','tur.1',
-   'eng.2','esp.2','ita.2','ger.2','fra.2',
-   'eng.fa','eng.league_cup','esp.copa_del_rey','ita.coppa_italia','ger.dfb_pokal','fra.coupe_de_france',
-   // Americas
-   'bra.1','arg.1','col.1','mex.1','usa.1','chi.1','uru.1',
-   // Asia
-   'jpn.1','aus.1','ind.1','sau.1','chn.1',
-   // Africa
-   'rsa.1',
-   // Continental & international
-   'uefa.champions','uefa.europa','uefa.europa.conf',
-   'conmebol.libertadores','conmebol.sudamericana',
-   'concacaf.champions','afc.champions',
-   'caf.champions','caf.nations',
-   'fifa.world','fifa.worldq.uefa','fifa.worldq.conmebol','fifa.worldq.concacaf',
-   'fifa.friendly','fifa.cwc','club.friendly',
-  ].includes(l.code)
-).map(l => ({ sport: 'soccer', league: l.code, name: l.name }));
+// For now, sync only the competitions requested by the user (curated list)
+export const SYNC_SOCCER_LEAGUES = [
+  { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
+  { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
+  { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
+  { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
+  { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
+  { sport: 'soccer', league: 'uefa.europa', name: 'Europa League' },
+  { sport: 'soccer', league: 'uefa.europa.conf', name: 'Conference League' },
+  { sport: 'soccer', league: 'por.1', name: 'Primeira Liga' },
+  { sport: 'soccer', league: 'ned.1', name: 'Eredivisie' },
+  { sport: 'soccer', league: 'pol.1', name: 'Poland Ekstraklasa' },
+  { sport: 'soccer', league: 'bel.1', name: 'Belgian Pro League' },
+  { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
+  { sport: 'soccer', league: 'tur.1', name: 'Turkish Super Lig' },
+  { sport: 'soccer', league: 'aut.1', name: 'Austrian Bundesliga' },
+];
 
 // Reverse map: league display name → ESPN league code (comprehensive)
 export const LEAGUE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(

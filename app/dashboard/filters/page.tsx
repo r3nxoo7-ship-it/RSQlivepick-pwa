@@ -6,6 +6,7 @@
 // TOATE funcțiile CRUD implementate complet
 
 import { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -33,6 +34,7 @@ export default function FiltersPage() {
   // ============================================
   
   const [filters, setFilters] = useState<Filter[]>([]);
+  const [openFilterId, setOpenFilterId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingNotifications, setUpdatingNotifications] = useState<string[]>([]);
@@ -386,131 +388,126 @@ export default function FiltersPage() {
           {/* ========== FILTERS LIST ========== */}
           {!loading && !error && filters.length > 0 && (
             <div className="space-y-4">
-              {filters.map((filter, index) => (
-                <motion.div
-                  key={filter.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`
-                    glass-card-hover p-6 
-                    border-l-4 
-                    ${filter.is_active ? 'border-accent-green' : 'border-glass-medium'}
-                  `}
-                >
-                  {/* Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 gap-4">
-                    <div className="flex-1 min-w-0">
-                      {/* Nume + Badges */}
-                      <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <h3 className="text-lg sm:text-xl font-display font-semibold break-words">
-                          {filter.name}
-                        </h3>
-                        
-                        {/* Active badge */}
-                        {filter.is_active && (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green text-xs font-semibold whitespace-nowrap">
-                            ACTIVE
-                          </span>
-                        )}
-                        
-                        {/* Notifications badge */}
-                        {filter.notification_enabled && (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs flex items-center gap-1 whitespace-nowrap">
-                            <Bell className="w-3 h-3" />
-                            Notifications
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Descriere */}
-                      {filter.description && (
-                        <p className="text-text-secondary text-sm mb-3">
-                          {filter.description}
-                        </p>
-                      )}
-                      
-                      {/* Condiții preview */}
-                      <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
-                        <FilterIcon className="w-4 h-4 text-accent-cyan flex-shrink-0" />
-                        <span className="text-text-muted">
-                          {getConditionsCount(filter)} conditions: {getConditionsPreview(filter)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Actions - responsive layout */}
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
-                      {/* Toggle Notifications */}
-                      <button
-                        onClick={() => handleToggleNotifications(filter.id, filter.notification_enabled)}
-                        className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
-                        title={filter.notification_enabled ? 'Disable notifications' : 'Enable notifications'}
-                        disabled={updatingNotifications.includes(filter.id)}
-                      >
-                        {updatingNotifications.includes(filter.id) ? (
-                          <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                        ) : (
-                          <Bell className={`w-5 h-5 ${filter.notification_enabled ? 'text-accent-cyan' : 'text-text-muted'}`} />
-                        )}
-                      </button>
+              {filters.map((filter, index) => {
+                const isOpen = openFilterId === filter.id;
+                return (
+                  <motion.div
+                    key={filter.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className={`glass-card-hover p-0 border-l-4 ${filter.is_active ? 'border-accent-green' : 'border-glass-medium'}`}
+                  >
+                    <div className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => setOpenFilterId(isOpen ? null : filter.id)} role="button" tabIndex={0} aria-expanded={isOpen ? 'true' : 'false'}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                              <h3 className="text-lg sm:text-xl font-display font-semibold break-words">
+                                {filter.name}
+                              </h3>
+                              {filter.is_active && (
+                                <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green text-xs font-semibold whitespace-nowrap">
+                                  ACTIVE
+                                </span>
+                              )}
+                              {filter.notification_enabled && (
+                                <span className="px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs flex items-center gap-1 whitespace-nowrap">
+                                  <Bell className="w-3 h-3" />
+                                  Notifications
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
+                              <FilterIcon className="w-4 h-4 text-accent-cyan flex-shrink-0" />
+                              <span className="text-text-muted">
+                                {getConditionsCount(filter)} conditions: {getConditionsPreview(filter)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-                      {/* Toggle Active */}
-                      <button
-                        onClick={() => handleToggleActive(filter.id, filter.is_active)}
-                        className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
-                        title={filter.is_active ? 'Disable' : 'Enable'}
-                      >
-                        {filter.is_active ? (
-                          <ToggleRight className="w-5 h-5 text-accent-green" />
-                        ) : (
-                          <ToggleLeft className="w-5 h-5 text-text-muted" />
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
+                          <button
+                            onClick={() => handleToggleNotifications(filter.id, filter.notification_enabled)}
+                            className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
+                            title={filter.notification_enabled ? 'Disable notifications' : 'Enable notifications'}
+                            disabled={updatingNotifications.includes(filter.id)}
+                          >
+                            {updatingNotifications.includes(filter.id) ? (
+                              <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            ) : (
+                              <Bell className={`w-5 h-5 ${filter.notification_enabled ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleActive(filter.id, filter.is_active)}
+                            className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
+                            title={filter.is_active ? 'Disable' : 'Enable'}
+                          >
+                            {filter.is_active ? (
+                              <ToggleRight className="w-5 h-5 text-accent-green" />
+                            ) : (
+                              <ToggleLeft className="w-5 h-5 text-text-muted" />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => handleEdit(filter.id)}
+                            className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
+                            title="Edit"
+                          >
+                            <Edit className="w-5 h-5 text-accent-cyan" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(filter.id, filter.name)}
+                            className="p-2 rounded-xl hover:bg-accent-red/10 text-text-secondary hover:text-accent-red transition-all flex-shrink-0"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            className="mt-4 pt-4 border-t border-glass-medium"
+                          >
+                            {filter.description && (
+                              <p className="text-text-secondary text-sm mb-3">{filter.description}</p>
+                            )}
+
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <p className="text-xs text-text-muted mb-1">Triggers</p>
+                                <p className="text-lg font-semibold">{filter.trigger_count || 0}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-text-muted mb-1">Success Rate</p>
+                                <p className="text-lg font-semibold text-accent-green">
+                                  {filter.success_rate ? `${filter.success_rate.toFixed(1)}%` : '-'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-text-muted mb-1">Last triggered</p>
+                                <p className="text-sm">
+                                  {filter.last_triggered ? new Date(filter.last_triggered).toLocaleDateString() : 'Never'}
+                                </p>
+                              </div>
+                            </div>
+                          </motion.div>
                         )}
-                      </button>
-                      
-                      {/* Edit */}
-                      <button
-                        onClick={() => handleEdit(filter.id)}
-                        className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
-                        title="Edit"
-                      >
-                        <Edit className="w-5 h-5 text-accent-cyan" />
-                      </button>
-                      
-                      {/* Delete */}
-                      <button
-                        onClick={() => handleDelete(filter.id, filter.name)}
-                        className="p-2 rounded-xl hover:bg-accent-red/10 text-text-secondary hover:text-accent-red transition-all flex-shrink-0"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      </AnimatePresence>
                     </div>
-                  </div>
-                  
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4 pt-4 border-t border-glass-medium">
-                    <div>
-                      <p className="text-xs text-text-muted mb-1">Triggers</p>
-                      <p className="text-lg font-semibold">{filter.trigger_count || 0}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-text-muted mb-1">Success Rate</p>
-                      <p className="text-lg font-semibold text-accent-green">
-                        {filter.success_rate ? `${filter.success_rate.toFixed(1)}%` : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-text-muted mb-1">Last triggered</p>
-                      <p className="text-sm">
-                        {filter.last_triggered 
-                          ? new Date(filter.last_triggered).toLocaleDateString()
-                          : 'Never'}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
           

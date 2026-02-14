@@ -204,6 +204,8 @@ export default function CompleteFilterBuilder() {
   // Pre-match odds (market-specific)
   const [preMatchOddsEnabled, setPreMatchOddsEnabled] = useState(false);
   const [preMatchMarkets, setPreMatchMarkets] = useState<Record<string, { min?: number; max?: number }>>({});
+  // UI: which builder section is open (accordion behavior)
+  const [openSection, setOpenSection] = useState<string | null>(null);
   
   // ============================================
   // LOAD DATA
@@ -599,116 +601,122 @@ export default function CompleteFilterBuilder() {
     values: TeamCondition,
     setValues: (val: TeamCondition) => void,
     icon: React.ReactNode
-  ) => (
-    <div className="glass-card p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          {icon}
-          <h3 className="text-lg font-semibold">{title}</h3>
-        </div>
+  ) => {
+    const key = title.toLowerCase().replace(/\s+/g, '_');
+    const isOpen = openSection === key;
+
+    const toggleEnabled = (checked: boolean) => {
+      setEnabled(checked);
+      // when enabling, open this section and close others
+      if (checked) setOpenSection(key);
+      else if (openSection === key) setOpenSection(null);
+    };
+
+    return (
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setOpenSection(isOpen ? null : key)}>
+            {icon}
+            <h3 className="text-lg font-semibold">{title}</h3>
+          </div>
           <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-            className="w-5 h-5 rounded"
-          />
-          <span className="text-sm">Enable</span>
-        </label>
-      </div>
-      
-      {enabled && (
-        <div className="space-y-4">
-          {/* Home Team */}
-          <div>
-            <label className="block text-sm font-semibold mb-2 text-accent-green">
-              Home
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="number"
-                placeholder="Min"
-                value={values.home_min || ''}
-                onChange={(e) => setValues({
-                  ...values,
-                  home_min: e.target.value ? parseInt(e.target.value) : undefined,
-                })}
-                className="input-field"
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                value={values.home_max || ''}
-                onChange={(e) => setValues({
-                  ...values,
-                  home_max: e.target.value ? parseInt(e.target.value) : undefined,
-                })}
-                className="input-field"
-              />
-            </div>
-          </div>
-          
-          {/* Away Team */}
-          <div>
-            <label className="block text-sm font-semibold mb-2 text-accent-cyan">
-              Away
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="number"
-                placeholder="Min"
-                value={values.away_min || ''}
-                onChange={(e) => setValues({
-                  ...values,
-                  away_min: e.target.value ? parseInt(e.target.value) : undefined,
-                })}
-                className="input-field"
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                value={values.away_max || ''}
-                onChange={(e) => setValues({
-                  ...values,
-                  away_max: e.target.value ? parseInt(e.target.value) : undefined,
-                })}
-                className="input-field"
-              />
-            </div>
-          </div>
-          
-          {/* Total */}
-          <div>
-            <label className="block text-sm font-semibold mb-2 text-accent-purple">
-              Match Total
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="number"
-                placeholder="Min"
-                value={values.total_min || ''}
-                onChange={(e) => setValues({
-                  ...values,
-                  total_min: e.target.value ? parseInt(e.target.value) : undefined,
-                })}
-                className="input-field"
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                value={values.total_max || ''}
-                onChange={(e) => setValues({
-                  ...values,
-                  total_max: e.target.value ? parseInt(e.target.value) : undefined,
-                })}
-                className="input-field"
-              />
-            </div>
-          </div>
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => toggleEnabled(e.target.checked)}
+              className="w-5 h-5 rounded"
+            />
+            <span className="text-sm">Enable</span>
+          </label>
         </div>
-      )}
-    </div>
-  );
+
+        {enabled && isOpen && (
+          <div className="space-y-4">
+            {/* Home Team */}
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-accent-green">Home</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={values.home_min || ''}
+                  onChange={(e) => setValues({
+                    ...values,
+                    home_min: e.target.value ? parseInt(e.target.value) : undefined,
+                  })}
+                  className="input-field"
+                />
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={values.home_max || ''}
+                  onChange={(e) => setValues({
+                    ...values,
+                    home_max: e.target.value ? parseInt(e.target.value) : undefined,
+                  })}
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            {/* Away Team */}
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-accent-cyan">Away</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={values.away_min || ''}
+                  onChange={(e) => setValues({
+                    ...values,
+                    away_min: e.target.value ? parseInt(e.target.value) : undefined,
+                  })}
+                  className="input-field"
+                />
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={values.away_max || ''}
+                  onChange={(e) => setValues({
+                    ...values,
+                    away_max: e.target.value ? parseInt(e.target.value) : undefined,
+                  })}
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            {/* Total */}
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-accent-purple">Match Total</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={values.total_min || ''}
+                  onChange={(e) => setValues({
+                    ...values,
+                    total_min: e.target.value ? parseInt(e.target.value) : undefined,
+                  })}
+                  className="input-field"
+                />
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={values.total_max || ''}
+                  onChange={(e) => setValues({
+                    ...values,
+                    total_max: e.target.value ? parseInt(e.target.value) : undefined,
+                  })}
+                  className="input-field"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
   
   // ============================================
   // RENDER

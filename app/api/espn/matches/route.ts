@@ -10,7 +10,7 @@ import * as espnSync from '@/lib/espn-sync';
 
 export const dynamic = 'force-dynamic';
 // Cache for 30 seconds to reduce Supabase load while keeping data relatively fresh
-export const revalidate = 30;
+export const revalidate = 10;
 
 /**
  * GET /api/espn/matches
@@ -57,9 +57,17 @@ export async function GET(request: NextRequest) {
       row.away_team_name !== 'Unknown' &&
       row.id;
 
-    const liveMatches = liveRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
-    const todayMatches = todayRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
-    const scheduledMatches = scheduledRaw.filter(validFilter).map(row => espnSync.convertESPNMatchToLiveMatch(row));
+    // Limit to the curated league codes (same as SYNC_SOCCER_LEAGUES)
+    const allowedLeagues = new Set([
+      'eng.1','ger.1','ita.1','esp.1','uefa.champions','uefa.europa','uefa.europa.conf',
+      'por.1','ned.1','pol.1','bel.1','fra.1','tur.1','aut.1'
+    ]);
+
+    const filterByAllowed = (row: any) => validFilter(row) && (!row.league || allowedLeagues.has(row.league) || allowedLeagues.has((row.__league_config || {}).league));
+
+    const liveMatches = liveRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
+    const todayMatches = todayRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
+    const scheduledMatches = scheduledRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
 
     // Fetch recent form for teams in live + today matches (parallel, not sequential)
     const currentMatches = [...liveRaw, ...todayRaw];
@@ -102,7 +110,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     }, {
       headers: {
-        'Cache-Control': 'private, max-age=30, stale-while-revalidate=30',
+        'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
         'X-Data-Source': 'Supabase (synced from ESPN)',
       }
     });
