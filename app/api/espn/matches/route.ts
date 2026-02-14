@@ -20,19 +20,25 @@ export const revalidate = 10;
 export async function GET(request: NextRequest) {
   try {
     // Get live, today's scheduled, and 7-day scheduled matches
-    const liveRaw = await espnSync.getLiveMatchesOnly();
-    const todayRaw = await espnSync.getUpcomingMatches();
+    let liveRaw = await espnSync.getLiveMatchesOnly();
+    let todayRaw = await espnSync.getUpcomingMatches();
     let scheduledRaw = await espnSync.getScheduledMatchesRange(7);
 
-    // On-demand sync: if no scheduled matches exist, fetch them now
-    if (scheduledRaw.length === 0) {
-      console.log('📅 No scheduled matches found, syncing upcoming 7 days on-demand...');
+    // On-demand sync: if ALL are empty, sync everything right now
+    if (liveRaw.length === 0 && todayRaw.length === 0 && scheduledRaw.length === 0) {
+      console.log('📊 [API] No matches found, triggering full on-demand sync...');
       try {
-        await espnSync.syncUpcomingDays(7);
+        await espnSync.syncAllMatches(); // This syncs live + today's scheduled
+        await espnSync.syncUpcomingDays(7); // Schedule for next 7 days
+        
+        // Re-fetch after sync
+        liveRaw = await espnSync.getLiveMatchesOnly();
+        todayRaw = await espnSync.getUpcomingMatches();
         scheduledRaw = await espnSync.getScheduledMatchesRange(7);
-        console.log(`📅 On-demand sync complete: ${scheduledRaw.length} scheduled matches`);
+        
+        console.log(`✅ Full sync complete: ${liveRaw.length} live, ${todayRaw.length} today, ${scheduledRaw.length} scheduled`);
       } catch (syncErr) {
-        console.error('⚠️ On-demand upcoming sync failed:', syncErr);
+        console.error('⚠️ Full on-demand sync failed:', syncErr);
       }
     }
 
