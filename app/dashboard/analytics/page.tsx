@@ -268,6 +268,11 @@ export default function AnalyticsPage() {
                   {overallStats.totalTriggers}
                 </h3>
                 <p className="text-sm text-text-muted">Total Triggers</p>
+                {overallStats.totalTriggers === 0 && (
+                  <p className="text-[10px] text-text-muted mt-2">
+                    Triggers are logged when live matches meet your filter conditions while the app is open
+                  </p>
+                )}
               </motion.div>
               
               <motion.div

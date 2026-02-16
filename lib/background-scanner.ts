@@ -99,12 +99,12 @@ class BackgroundScannerService {
         return;
       }
 
-      // Load active filters from database
+      // Load active filters from database - track ALL active filters, not just notification-enabled
       const allFilters = await dbHelpers.getUserFilters(currentUser.id);
-      const activeFilters = allFilters.filter(f => f.is_active && f.notification_enabled);
+      const activeFilters = allFilters.filter(f => f.is_active);
 
       if (activeFilters.length === 0) {
-        console.log('⏸️ Scanner: No active filters with notifications');
+        console.log('⏸️ Scanner: No active filters');
         return;
       }
 
@@ -113,7 +113,7 @@ class BackgroundScannerService {
 
       let notificationsSentThisScan = 0;
 
-      // Scan each match (guard against incomplete match objects)
+      // Scan each match - only process matches that are actually live (in progress)
       for (const match of matches) {
         if (!match || !match.fixture || !match.fixture.id) {
           console.warn('⚠️ Scanner: Skipping invalid match (missing fixture.id)', match);
@@ -122,6 +122,12 @@ class BackgroundScannerService {
 
         if (!match.teams || !match.teams.home || !match.teams.away) {
           console.warn('⚠️ Scanner: Skipping match with missing team data', match.fixture.id);
+          continue;
+        }
+
+        // Skip matches that haven't started yet - no stats to evaluate
+        const status = match.fixture?.status?.short;
+        if (status === 'NS' || status === 'TBD' || status === 'PST' || status === 'CANC') {
           continue;
         }
 

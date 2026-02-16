@@ -31,7 +31,7 @@ export default function HistoryTriggeredPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [timeRange, setTimeRange] = useState<'all' | '24h' | '7d' | '30d'>('all');
+  const [timeRange, setTimeRange] = useState<'all' | '24h' | '7d' | '30d'>('7d');
   const [refreshing, setRefreshing] = useState(false); // pentru butonul Refresh
   
   const itemsPerPage = 20;
@@ -225,8 +225,18 @@ export default function HistoryTriggeredPage() {
           ) : triggeredMatches.length === 0 ? (
             <div className="glass-card p-12 text-center">
               <Trophy className="w-12 h-12 text-text-muted mx-auto mb-4 opacity-50" />
-              <p className="text-text-secondary">No triggered matches found</p>
-              <p className="text-xs text-text-muted mt-2">Matches that trigger your filters will appear here</p>
+              <p className="text-text-secondary">No triggered matches {timeRange !== 'all' ? `in the last ${timeRange}` : ''}</p>
+              <p className="text-xs text-text-muted mt-2 max-w-sm mx-auto">
+                Triggers are logged when live matches meet your filter conditions while you have the app open. Keep the app open during match times to see results here.
+              </p>
+              {timeRange !== 'all' && (
+                <button
+                  onClick={() => handleTimeRangeChange('all')}
+                  className="text-accent-cyan text-xs mt-3 hover:underline"
+                >
+                  Try All Time
+                </button>
+              )}
             </div>
           ) : (
             <motion.div
