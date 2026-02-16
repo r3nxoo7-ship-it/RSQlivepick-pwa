@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp, BarChart3, Clock } from 'lucide-react';
+import { X, TrendingUp, BarChart3, Clock, Activity } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
 
 interface AdvancedMatchDetailProps {
@@ -427,34 +427,22 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
             })()}
           </div>
 
-          {/* Time Windows Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-5 h-5 text-accent-amber" />
-              <h3 className="text-lg font-bold text-white">Goals in Time Windows</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TimeWindowStat label="First Half Goals" home={homeStats.firstHalf} away={awayStats.firstHalf} />
-              <TimeWindowStat label="Second Half Goals" home={homeStats.secondHalf} away={awayStats.secondHalf} />
-              <TimeWindowStat label="Last 5 Minutes" home={0} away={0} disabled={true} />
-              <TimeWindowStat label="Last 10 Minutes" home={0} away={0} disabled={true} />
-              <TimeWindowStat label="Last 15 Minutes" home={0} away={0} disabled={true} />
-              <TimeWindowStat label="Last 20 Minutes" home={0} away={0} disabled={true} />
-            </div>
-          </div>
-
-          {/* Momentum Chart */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              Match Momentum (Timeline)
-            </h3>
-            <div className="rounded-lg p-4 h-32 flex items-center justify-center border border-white/10 bg-[rgba(15,23,42,0.85)]">
-              <div className="text-xs text-text-muted">
-                Momentum data available during live matches
+          {/* Goals by Half */}
+          {(homeStats.firstHalf > 0 || awayStats.firstHalf > 0 || homeStats.secondHalf > 0 || awayStats.secondHalf > 0) && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-accent-amber" />
+                <h3 className="text-lg font-bold text-white">Goals by Half</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <TimeWindowStat label="First Half" home={homeStats.firstHalf} away={awayStats.firstHalf} />
+                <TimeWindowStat label="Second Half" home={homeStats.secondHalf} away={awayStats.secondHalf} />
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Match Momentum - Calculated from available stats */}
+          <MomentumSection homeStats={homeStats} awayStats={awayStats} match={match} />
         </div>
       </motion.div>
     </motion.div>
@@ -622,25 +610,194 @@ function BettingOddsSection({
   );
 }
 
-function TimeWindowStat({ label, home, away, disabled = false }: { label: string; home: number; away: number; disabled?: boolean }) {
-  if (disabled) {
-    return (
-      <div className="bg-glass-light/50 rounded-lg p-3 opacity-50">
-        <div className="text-xs text-text-muted mb-2">{label}</div>
-        <div className="flex items-center justify-center h-8">
-          <div className="text-xs text-text-muted">Coming soon</div>
-        </div>
-      </div>
-    );
-  }
-
+function TimeWindowStat({ label, home, away }: { label: string; home: number; away: number; disabled?: boolean }) {
   return (
-    <div className="bg-glass-light/50 rounded-lg p-3">
+    <div className="rounded-lg p-3 border border-white/10 bg-[rgba(15,23,42,0.85)]">
       <div className="text-xs text-text-muted mb-2">{label}</div>
       <div className="flex items-center justify-between">
         <div className="text-lg font-bold text-accent-cyan">{home}</div>
         <div className="text-xs text-text-secondary">-</div>
         <div className="text-lg font-bold text-accent-blue">{away}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Calculate momentum from available match statistics.
+ * Returns a score from -100 (away dominant) to +100 (home dominant).
+ */
+function calculateMomentum(homeStats: Record<string, number>, awayStats: Record<string, number>): {
+  overall: number; // -100 to +100
+  categories: { label: string; home: number; away: number; icon: string; weight: number }[];
+} {
+  const categories = [
+    { label: 'Possession', home: homeStats.possession, away: awayStats.possession, icon: 'ball', weight: 0.25 },
+    { label: 'Shots on Target', home: homeStats.shotsOnTarget, away: awayStats.shotsOnTarget, icon: 'target', weight: 0.20 },
+    { label: 'Dangerous Attacks', home: homeStats.dangerousAttacks, away: awayStats.dangerousAttacks, icon: 'danger', weight: 0.20 },
+    { label: 'Corners', home: homeStats.corners, away: awayStats.corners, icon: 'corner', weight: 0.15 },
+    { label: 'Total Shots', home: homeStats.shotsOnTarget + homeStats.shotsOffTarget, away: awayStats.shotsOnTarget + awayStats.shotsOffTarget, icon: 'shot', weight: 0.10 },
+    { label: 'Fouls Won', home: awayStats.fouls, away: homeStats.fouls, icon: 'foul', weight: 0.10 },
+  ].filter(c => c.home + c.away > 0);
+
+  if (categories.length === 0) return { overall: 0, categories: [] };
+
+  // Normalize weights for available categories
+  const totalWeight = categories.reduce((sum, c) => sum + c.weight, 0);
+  let overall = 0;
+
+  for (const cat of categories) {
+    const total = cat.home + cat.away;
+    if (total === 0) continue;
+    const homeRatio = (cat.home / total) * 2 - 1; // -1 (all away) to +1 (all home)
+    overall += homeRatio * (cat.weight / totalWeight) * 100;
+  }
+
+  return { overall: Math.round(overall), categories };
+}
+
+/**
+ * Momentum Section - visualizes match dominance from available statistics
+ */
+function MomentumSection({
+  homeStats,
+  awayStats,
+  match,
+}: {
+  homeStats: Record<string, number>;
+  awayStats: Record<string, number>;
+  match: LiveMatch;
+}) {
+  const hasStats = match.statistics && match.statistics.length > 0;
+  const { overall, categories } = calculateMomentum(homeStats, awayStats);
+
+  if (!hasStats || categories.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Activity className="w-5 h-5 text-accent-purple" />
+          <h3 className="text-lg font-bold text-white">Match Momentum</h3>
+        </div>
+        <div className="rounded-lg p-4 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+          <div className="text-xs text-text-muted">Statistics not yet available for this match</div>
+        </div>
+      </div>
+    );
+  }
+
+  const homeName = match.teams?.home?.name || 'Home';
+  const awayName = match.teams?.away?.name || 'Away';
+
+  // Determine dominance label
+  const absOverall = Math.abs(overall);
+  let dominanceLabel = 'Balanced';
+  let dominanceColor = 'text-accent-yellow';
+  if (absOverall > 30) {
+    dominanceLabel = overall > 0 ? `${homeName} Dominant` : `${awayName} Dominant`;
+    dominanceColor = overall > 0 ? 'text-accent-cyan' : 'text-accent-blue';
+  } else if (absOverall > 10) {
+    dominanceLabel = overall > 0 ? `${homeName} Slight Edge` : `${awayName} Slight Edge`;
+    dominanceColor = overall > 0 ? 'text-accent-cyan' : 'text-accent-blue';
+  }
+
+  // Convert overall (-100..+100) to a position (0..100) for the bar
+  const barPosition = 50 + overall / 2; // 0=full away, 50=balanced, 100=full home
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Activity className="w-5 h-5 text-accent-purple" />
+        <h3 className="text-lg font-bold text-white">Match Momentum</h3>
+      </div>
+
+      <div className="rounded-xl p-4 border border-white/10 bg-[rgba(15,23,42,0.85)] space-y-4">
+        {/* Overall Momentum Gauge */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-accent-cyan font-bold truncate max-w-[120px]">{homeName}</span>
+            <span className={`text-xs font-semibold ${dominanceColor}`}>{dominanceLabel}</span>
+            <span className="text-accent-blue font-bold truncate max-w-[120px]">{awayName}</span>
+          </div>
+
+          {/* Main momentum bar */}
+          <div className="relative h-6 rounded-full overflow-hidden bg-white/5">
+            {/* Gradient fill */}
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+              style={{
+                width: `${barPosition}%`,
+                background: 'linear-gradient(90deg, rgba(34,211,238,0.15) 0%, rgba(34,211,238,0.6) 100%)',
+              }}
+            />
+            <div
+              className="absolute inset-y-0 right-0 rounded-full transition-all duration-700"
+              style={{
+                width: `${100 - barPosition}%`,
+                background: 'linear-gradient(270deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.6) 100%)',
+              }}
+            />
+            {/* Center line */}
+            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
+            {/* Momentum indicator dot */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-lg transition-all duration-700"
+              style={{
+                left: `${barPosition}%`,
+                transform: `translate(-50%, -50%)`,
+                backgroundColor: overall > 10 ? 'rgb(34,211,238)' : overall < -10 ? 'rgb(59,130,246)' : 'rgb(250,204,21)',
+              }}
+            />
+          </div>
+
+          {/* Score */}
+          <div className="text-center">
+            <span className="text-[10px] text-text-muted">Momentum Score: </span>
+            <span className={`text-xs font-bold ${overall > 0 ? 'text-accent-cyan' : overall < 0 ? 'text-accent-blue' : 'text-accent-yellow'}`}>
+              {overall > 0 ? '+' : ''}{overall}
+            </span>
+          </div>
+        </div>
+
+        {/* Category Breakdown */}
+        <div className="space-y-2 pt-2 border-t border-white/8">
+          {categories.map(cat => {
+            const total = cat.home + cat.away;
+            const homePercent = total > 0 ? Math.round((cat.home / total) * 100) : 50;
+            const homeLead = cat.home > cat.away;
+            const awayLead = cat.away > cat.home;
+
+            return (
+              <div key={cat.label} className="flex items-center gap-2 text-[10px]">
+                <span className={`w-5 text-right font-bold ${homeLead ? 'text-accent-cyan' : 'text-text-secondary'}`}>
+                  {cat.home}
+                </span>
+                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex">
+                  <div
+                    className={`h-full rounded-l-full transition-all duration-500 ${homeLead ? 'bg-accent-cyan' : 'bg-accent-cyan/30'}`}
+                    style={{ width: `${homePercent}%` }}
+                  />
+                  <div
+                    className={`h-full rounded-r-full transition-all duration-500 ${awayLead ? 'bg-accent-blue' : 'bg-accent-blue/30'}`}
+                    style={{ width: `${100 - homePercent}%` }}
+                  />
+                </div>
+                <span className={`w-5 text-left font-bold ${awayLead ? 'text-accent-blue' : 'text-text-secondary'}`}>
+                  {cat.away}
+                </span>
+                <span className="text-text-muted w-[80px] text-[9px] truncate">{cat.label}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Minute context */}
+        {match.fixture?.status?.elapsed && (
+          <div className="text-center pt-2 border-t border-white/8">
+            <span className="text-[10px] text-text-muted">
+              Based on stats at {match.fixture.status.elapsed}&apos; minute
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
