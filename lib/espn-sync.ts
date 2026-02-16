@@ -424,6 +424,57 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
       return { count: 0, duration: Date.now() - startTime };
     }
 
+    // Upsert teams referenced by upcoming matches first to avoid FK violations
+    try {
+      const teamMap: Record<string, any> = {};
+      for (const m of allMatches) {
+        if (m.homeTeam) {
+          const teamId = String(m.homeTeam.id);
+          if (!teamMap[teamId]) {
+            teamMap[teamId] = {
+              id: teamId,
+              name: m.homeTeam.name,
+              display_name: m.homeTeam.displayName,
+              abbreviation: m.homeTeam.abbreviation,
+              logo: m.homeTeam.logo,
+              venue_id: m.homeTeam.venueId,
+              sport: 'soccer',
+              league: (m as any).__league_config?.name || 'Soccer',
+            };
+          }
+        }
+        if (m.awayTeam) {
+          const teamId = String(m.awayTeam.id);
+          if (!teamMap[teamId]) {
+            teamMap[teamId] = {
+              id: teamId,
+              name: m.awayTeam.name,
+              display_name: m.awayTeam.displayName,
+              abbreviation: m.awayTeam.abbreviation,
+              logo: m.awayTeam.logo,
+              venue_id: m.awayTeam.venueId,
+              sport: 'soccer',
+              league: (m as any).__league_config?.name || 'Soccer',
+            };
+          }
+        }
+      }
+
+      const teamRows = Object.values(teamMap);
+      if (teamRows.length > 0) {
+        const { error: teamError } = await supabase
+          .from('espn_teams')
+          .upsert(teamRows, { onConflict: 'id' });
+        if (teamError) {
+          console.warn('⚠️ [ESPN Sync] Upcoming teams upsert failed:', teamError);
+        } else {
+          console.log(`✅ [ESPN Sync] Upserted ${teamRows.length} upcoming teams`);
+        }
+      }
+    } catch (teamUpsertErr) {
+      console.warn('⚠️ [ESPN Sync] Upcoming team upsert threw error:', teamUpsertErr);
+    }
+
     const rows = allMatches.map(match => {
       const leagueConfig = (match as any).__league_config || {};
       return {

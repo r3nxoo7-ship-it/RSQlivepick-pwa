@@ -24,21 +24,21 @@ export async function POST(request: NextRequest) {
     // Main sync: today's matches (happens every call)
     const matchResult = await espnSync.syncAllMatches();
 
-    // Occasional sync: teams (1 in 10 calls = ~every 10 minutes)
+    // Occasional sync: teams (approx 10% of calls)
     let teamResult = { count: 0, duration: 0 };
-    if (Math.random() < 600) {
+    if (Math.random() < 0.1) {
       teamResult = await espnSync.syncAllTeams();
     }
 
-    // Occasional sync: upcoming 7 days (~every 1440 minutes)
+    // Occasional sync: upcoming 7 days (~1% of calls)
     let upcomingResult = { count: 0, duration: 0 };
-    if (Math.random() < 86400) {
+    if (Math.random() < 0.01) {
       upcomingResult = await espnSync.syncUpcomingDays(7);
     }
 
-    // Occasional sync: past 14 days for team form history (~every 10080 minutes)
+    // Occasional sync: past 14 days for team form history (~0.5% of calls)
     let recentResult = { count: 0, duration: 0 };
-    if (Math.random() < 604800) {
+    if (Math.random() < 0.005) {
       recentResult = await espnSync.syncRecentDays(14);
     }
 
