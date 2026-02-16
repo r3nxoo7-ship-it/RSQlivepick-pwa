@@ -6,6 +6,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import * as ESPNAPI from './espn-api';
+import { registry } from './data-sources';
 
 // Use service role for server-side operations (no RLS restrictions)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -20,58 +21,82 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 // ============================================
 
 let lastSyncTime = 0;
-// Per-league failure tracking (in-memory for now)
-export const leagueFailureCounts: Record<string, number> = {};
-const FAILURE_THRESHOLD = 3;
+
+/**
+ * Get aggregated league failure counts across all data sources.
+ * Replaces the old in-memory leagueFailureCounts object.
+ */
+export function getLeagueFailureCounts(): Record<string, number> {
+  const stats = registry.getStats();
+  const counts: Record<string, number> = {};
+  for (const s of Object.values(stats)) {
+    for (const [league, count] of Object.entries(s.leagueFailures)) {
+      if (count > 0) {
+        counts[league] = (counts[league] || 0) + count;
+      }
+    }
+  }
+  return counts;
+}
 
 /**
  * Sync all live matches to Supabase (deduplicated)
  * Fetches from ESPN once, saves to DB, all users read from Supabase
  * Fetches soccer leagues ONLY to avoid duplicates and multi-sport confusion
+ *
+ * Uses the DataSource registry for automatic per-league fallback:
+ * ESPN (primary) → Apify (fallback) → ...additional sources
  */
 export async function syncAllMatches(): Promise<{ count: number; duration: number }> {
   const startTime = Date.now();
-  
+
   try {
     console.log('⚽ [ESPN Sync] Starting soccer match sync (FIFA leagues only)...');
-    
+
     // Use curated sync leagues (top leagues + cups + continental)
     const soccerLeagues = ESPNAPI.SYNC_SOCCER_LEAGUES;
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
+    const sourceCounts: Record<string, number> = {};
 
-    // Fetch all leagues in parallel for speed, with per-league failure handling
+    // Fetch all leagues in parallel, each with independent fallback chain
     const leagueResults = await Promise.allSettled(
       soccerLeagues.map(async (config) => {
-        if ((leagueFailureCounts[config.league] || 0) >= FAILURE_THRESHOLD) {
-          console.warn(`⚠️ [ESPN Sync] Skipping ${config.name} (${config.league}) due to repeated failures (${leagueFailureCounts[config.league]})`);
-          return { config, matches: [] };
-        }
-        try {
-          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league);
-          matches.forEach(m => { (m as any).__league_config = config; });
-          // success -> reset failure count
-          leagueFailureCounts[config.league] = 0;
-          return { config, matches };
-        } catch (err) {
-          leagueFailureCounts[config.league] = (leagueFailureCounts[config.league] || 0) + 1;
-          console.warn(`⚠️ [ESPN Sync] Error fetching ${config.name} (${config.league}):`, err);
-          throw err;
-        }
+        const { matches, source } = await registry.fetchWithFallback(
+          config.sport,
+          config.league,
+          undefined,
+          'syncAllMatches'
+        );
+        // Tag matches with league config and data source
+        matches.forEach(m => {
+          (m as any).__league_config = config;
+          (m as any).__data_source = source;
+        });
+        sourceCounts[source] = (sourceCounts[source] || 0) + matches.length;
+        return { config, matches, source };
       })
     );
+
     for (const r of leagueResults) {
       if (r.status === 'fulfilled') {
-        console.log(`  ⚽ ${r.value.config.name}: ${r.value.matches.length} matches`);
-        allMatches.push(...r.value.matches);
+        const { config, matches, source } = r.value;
+        if (matches.length > 0) {
+          console.log(`  ⚽ ${config.name}: ${matches.length} matches (via ${source})`);
+        }
+        allMatches.push(...matches);
       } else {
-        // r.reason may not contain config; log generically
         console.warn(`⚠️ [ESPN Sync] League fetch rejected:`, r.reason);
       }
     }
-    
+
+    // Log source breakdown
+    if (Object.keys(sourceCounts).length > 0) {
+      console.log(`📊 [ESPN Sync] Source breakdown: ${JSON.stringify(sourceCounts)}`);
+    }
+
     if (allMatches.length === 0) {
-      console.log('⚠️ [ESPN Sync] No soccer matches to sync');
+      console.log('⚠️ [ESPN Sync] No matches fetched from any source');
       return { count: 0, duration: Date.now() - startTime };
     }
 
@@ -411,7 +436,7 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
 
-    // Build all fetch tasks and run in parallel (like syncRecentDays)
+    // Build all fetch tasks and run in parallel, each with fallback chain
     const fetchTasks: Array<{ config: typeof soccerLeagues[0]; dateStr: string }> = [];
     for (let d = 1; d <= days; d++) {
       const futureDate = new Date();
@@ -424,20 +449,14 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
 
     const results = await Promise.allSettled(
       fetchTasks.map(async ({ config, dateStr }) => {
-        if ((leagueFailureCounts[config.league] || 0) >= FAILURE_THRESHOLD) {
-          console.warn(`⚠️ [ESPN Sync] Skipping upcoming fetch for ${config.name} (${config.league}) due to repeated failures (${leagueFailureCounts[config.league]})`);
-          return [] as ESPNAPI.ESPNMatch[];
-        }
-        try {
-          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
-          matches.forEach(m => { (m as any).__league_config = config; });
-          leagueFailureCounts[config.league] = 0;
-          return matches;
-        } catch (err) {
-          leagueFailureCounts[config.league] = (leagueFailureCounts[config.league] || 0) + 1;
-          console.warn(`⚠️ [ESPN Sync] Upcoming fetch error for ${config.name} (${config.league}) ${dateStr}:`, err);
-          return [] as ESPNAPI.ESPNMatch[];
-        }
+        const { matches } = await registry.fetchWithFallback(
+          config.sport,
+          config.league,
+          dateStr,
+          'syncUpcomingDays'
+        );
+        matches.forEach(m => { (m as any).__league_config = config; });
+        return matches;
       })
     );
     for (const result of results) {
@@ -590,11 +609,16 @@ export async function syncRecentDays(days: number = 7): Promise<{ count: number;
       }
     }
 
-    // Execute ALL fetches in parallel (ESPN has no rate limit)
+    // Execute ALL fetches in parallel, each with fallback chain
     const allMatches: ESPNAPI.ESPNMatch[] = [];
     const results = await Promise.allSettled(
       fetchTasks.map(async ({ config, dateStr }) => {
-        const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
+        const { matches } = await registry.fetchWithFallback(
+          config.sport,
+          config.league,
+          dateStr,
+          'syncRecentDays'
+        );
         matches.forEach(m => { (m as any).__league_config = config; });
         return matches;
       })
@@ -836,6 +860,13 @@ function detectLeague(match: ESPNAPI.ESPNMatch): string {
 
 export function getLastSyncTime(): number {
   return lastSyncTime;
+}
+
+/**
+ * Get data source status for debugging
+ */
+export function getDataSourceStatus(): string {
+  return registry.getStatusSummary();
 }
 
 /**

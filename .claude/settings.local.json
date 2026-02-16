@@ -20,7 +20,9 @@
       "WebFetch(domain:sports.core.api.espn.com)",
       "WebFetch(domain:www.goal.com)",
       "Bash(node:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
