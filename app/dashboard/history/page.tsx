@@ -182,14 +182,37 @@ export default function HistoryTriggeredPage() {
           </motion.div>
 
           {/* STATS */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
-          >
-            {/* ... stats rămân neschimbate */}
-          </motion.div>
+          {triggeredMatches.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.15 }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-4"
+            >
+              <div className="glass-card p-4 text-center">
+                <div className="text-xs text-text-muted mb-1">Total Triggered</div>
+                <div className="text-2xl font-bold text-accent-cyan">{triggeredMatches.length}</div>
+              </div>
+              <div className="glass-card p-4 text-center">
+                <div className="text-xs text-text-muted mb-1">Unique Matches</div>
+                <div className="text-2xl font-bold text-accent-green">
+                  {new Set(triggeredMatches.map(m => m.match_id)).size}
+                </div>
+              </div>
+              <div className="glass-card p-4 text-center">
+                <div className="text-xs text-text-muted mb-1">Filters Used</div>
+                <div className="text-2xl font-bold text-accent-purple">
+                  {new Set(triggeredMatches.map(m => m.filter_id)).size}
+                </div>
+              </div>
+              <div className="glass-card p-4 text-center">
+                <div className="text-xs text-text-muted mb-1">Avg Goals</div>
+                <div className="text-2xl font-bold text-accent-amber">
+                  {(triggeredMatches.reduce((sum, m) => sum + (m.score_home || 0) + (m.score_away || 0), 0) / triggeredMatches.length).toFixed(1)}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* LISTA */}
           {loading && triggeredMatches.length === 0 ? (
@@ -212,7 +235,62 @@ export default function HistoryTriggeredPage() {
               transition={{ delay: 0.2 }}
               className="space-y-3"
             >
-              {/* ... lista de meciuri rămâne neschimbată */}
+              {triggeredMatches.map((match) => (
+                <motion.div
+                  key={match.id || `${match.match_id}-${match.filter_id}-${match.created_at}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card p-4 rounded-xl border border-glass-lighter hover:border-accent-cyan/40 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Match info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Zap className="w-4 h-4 text-accent-cyan shrink-0" />
+                        <p className="font-semibold text-white truncate">
+                          {match.home_team} vs {match.away_team}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-text-muted flex-wrap">
+                        {match.league_name && (
+                          <span>{match.league_name}</span>
+                        )}
+                        {match.score_home != null && match.score_away != null && (
+                          <span className="font-bold text-accent-green">
+                            {match.score_home} - {match.score_away}
+                          </span>
+                        )}
+                        {match.match_time != null && (
+                          <span className="bg-accent-cyan/10 text-accent-cyan px-1.5 py-0.5 rounded font-semibold">
+                            {match.match_time}&apos;
+                          </span>
+                        )}
+                        <span className="capitalize text-text-muted">{match.match_status}</span>
+                      </div>
+                    </div>
+
+                    {/* Time */}
+                    <div className="text-right shrink-0">
+                      <div className="text-xs text-accent-blue font-semibold">
+                        {getTimeSinceTriggered(match.triggered_at)}
+                      </div>
+                      <div className="text-[10px] text-text-muted mt-0.5">
+                        {new Date(match.triggered_at).toLocaleDateString('en-GB', {
+                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter info */}
+                  <div className="mt-2 pt-2 border-t border-glass-lighter flex items-center gap-2">
+                    <FilterIcon className="w-3.5 h-3.5 text-accent-purple shrink-0" />
+                    <span className="text-xs text-accent-purple font-semibold truncate">
+                      {match.filter_name}
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
             </motion.div>
           )}
 

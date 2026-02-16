@@ -128,7 +128,6 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
         if (homeRes) setHomeForm({ teamId: homeIdStr || '', matches: homeRes.matches || [], form: homeRes.form });
         if (awayRes) setAwayForm({ teamId: awayIdStr || '', matches: awayRes.matches || [], form: awayRes.form });
         if (h2hRes && h2hRes.matches) setH2HMatches(h2hRes.matches || []);
-        setAwayForm(awayRes);
       } catch (err) {
         console.error('Error fetching team form:', err);
       } finally {
@@ -321,28 +320,112 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
             </div>
           </div>
 
-            {/* Head-to-Head */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-accent-blue" />
-                Head-to-Head (Last 10)
-              </h3>
-              {h2hMatches.length === 0 && (
-                <div className="text-xs text-text-muted">No recent H2H matches found</div>
-              )}
-              {h2hMatches.length > 0 && (
-                <div className="space-y-2">
-                  {h2hMatches.map((m, i) => (
-                    <div key={m.id || i} className="flex items-center justify-between p-2 bg-glass-light rounded">
-                      <div className="text-sm">
-                        <div className="font-semibold">{m.home_team_name} {m.home_score} - {m.away_score} {m.away_team_name}</div>
-                        <div className="text-xs text-text-muted">{new Date(m.date).toLocaleDateString()} • {m.league}</div>
-                      </div>
+          {/* Head-to-Head */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-accent-blue" />
+              Head-to-Head ({h2hMatches.length > 0 ? `Last ${h2hMatches.length}` : 'Recent'})
+            </h3>
+
+            {formLoading && h2hMatches.length === 0 && (
+              <div className="text-xs text-text-muted animate-pulse">Loading H2H data...</div>
+            )}
+
+            {!formLoading && h2hMatches.length === 0 && (
+              <div className="text-xs text-text-muted">No recent H2H matches found</div>
+            )}
+
+            {h2hMatches.length > 0 && (() => {
+              const homeTeamId = String(match.teams?.home?.id || '');
+              const awayTeamId = String(match.teams?.away?.id || '');
+              const homeName = match.teams?.home?.name || 'Home';
+              const awayName = match.teams?.away?.name || 'Away';
+
+              let homeWins = 0, awayWins = 0, draws = 0, totalHomeGoals = 0, totalAwayGoals = 0;
+              h2hMatches.forEach(m => {
+                const hScore = m.home_score;
+                const aScore = m.away_score;
+                // Track goals relative to the current match's home/away team
+                const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
+                totalHomeGoals += isCurrentHomeAtHome ? hScore : aScore;
+                totalAwayGoals += isCurrentHomeAtHome ? aScore : hScore;
+
+                if (hScore > aScore) {
+                  if (isCurrentHomeAtHome) homeWins++; else awayWins++;
+                } else if (aScore > hScore) {
+                  if (isCurrentHomeAtHome) awayWins++; else homeWins++;
+                } else {
+                  draws++;
+                }
+              });
+
+              return (
+                <>
+                  {/* H2H Summary */}
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)]">
+                    <div className="text-center flex-1">
+                      <div className="text-xs text-text-muted mb-1 truncate">{homeName}</div>
+                      <div className="text-2xl font-bold text-accent-cyan">{homeWins}</div>
+                      <div className="text-[10px] text-text-muted">wins</div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <div className="text-center px-4">
+                      <div className="text-xs text-text-muted mb-1">Draws</div>
+                      <div className="text-2xl font-bold text-accent-yellow">{draws}</div>
+                      <div className="text-[10px] text-text-muted">{totalHomeGoals}-{totalAwayGoals} goals</div>
+                    </div>
+                    <div className="text-center flex-1">
+                      <div className="text-xs text-text-muted mb-1 truncate">{awayName}</div>
+                      <div className="text-2xl font-bold text-accent-blue">{awayWins}</div>
+                      <div className="text-[10px] text-text-muted">wins</div>
+                    </div>
+                  </div>
+
+                  {/* H2H Match List */}
+                  <div className="space-y-0 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+                    {h2hMatches.map((m, i) => {
+                      const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
+                      const homeTeamWon = isCurrentHomeAtHome
+                        ? m.home_score > m.away_score
+                        : m.away_score > m.home_score;
+                      const awayTeamWon = isCurrentHomeAtHome
+                        ? m.away_score > m.home_score
+                        : m.home_score > m.away_score;
+                      const isDraw = m.home_score === m.away_score;
+
+                      return (
+                        <div
+                          key={m.id || i}
+                          className="flex items-center gap-2 px-3 py-2.5 text-[11px] border-b border-white/8 last:border-b-0 hover:bg-white/5 transition"
+                        >
+                          <span className="text-text-muted w-[52px] shrink-0 text-[10px]">
+                            {formatDate(m.date)}
+                          </span>
+                          <div className="flex-1 min-w-0 text-right truncate">
+                            <span className={homeTeamWon && isCurrentHomeAtHome || awayTeamWon && !isCurrentHomeAtHome ? 'text-accent-green font-bold' : 'text-white'}>
+                              {m.home_team_name}
+                            </span>
+                          </div>
+                          <span className={`font-bold text-xs px-2 shrink-0 ${
+                            isDraw ? 'text-accent-yellow' : homeTeamWon ? 'text-accent-cyan' : 'text-accent-blue'
+                          }`}>
+                            {m.home_score} - {m.away_score}
+                          </span>
+                          <div className="flex-1 min-w-0 truncate">
+                            <span className={awayTeamWon && isCurrentHomeAtHome || homeTeamWon && !isCurrentHomeAtHome ? 'text-accent-green font-bold' : 'text-white'}>
+                              {m.away_team_name}
+                            </span>
+                          </div>
+                          {m.league && (
+                            <span className="text-[9px] text-text-muted shrink-0 truncate max-w-[60px]">{m.league}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
 
           {/* Time Windows Section */}
           <div className="space-y-4">
