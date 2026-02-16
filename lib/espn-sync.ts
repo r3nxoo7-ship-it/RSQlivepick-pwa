@@ -303,9 +303,10 @@ export async function syncAllTeams(): Promise<{ count: number; duration: number 
  */
 export async function getLiveMatchesFromDB(limit = 100) {
   try {
-    // Calculate time range: now to now + 3 hours (for upcoming matches)
-    const now = new Date();
-    const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    // Include matches from 4 hours ago (live matches that started recently)
+    // through 3 hours ahead (upcoming scheduled matches)
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const threeHoursLater = new Date(Date.now() + 3 * 60 * 60 * 1000);
 
     const { data, error } = await supabase
       .from('espn_matches')
@@ -313,7 +314,7 @@ export async function getLiveMatchesFromDB(limit = 100) {
       .eq('sport', 'soccer') // Only soccer matches
       .neq('league', 'multi') // Filter out multi-sport matches
       .or(`status.eq.in_progress,status.eq.live,status.eq.scheduled`) // Live or scheduled
-      .gte('date', now.toISOString()) // Matches from now onwards
+      .gte('date', fourHoursAgo.toISOString()) // Exclude stale matches
       .lte('date', threeHoursLater.toISOString()) // Up to 3 hours from now
       .order('date', { ascending: true })
       .limit(limit);
@@ -332,22 +333,28 @@ export async function getLiveMatchesFromDB(limit = 100) {
 
 /**
  * Get only currently live matches (in_progress status)
+ * Excludes stale matches: if a match started > 4 hours ago it's almost certainly
+ * finished but the sync didn't update it. Soccer matches are ~2h max including
+ * extra time, so 4h is a safe cutoff.
  */
 export async function getLiveMatchesOnly() {
   try {
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+
     const { data, error } = await supabase
       .from('espn_matches')
       .select('*')
       .eq('sport', 'soccer')
       .neq('league', 'multi')
       .or(`status.eq.in_progress,status.eq.live`) // Only live
+      .gte('date', fourHoursAgo.toISOString()) // Exclude stale matches
       .order('date', { ascending: true });
 
     if (error) {
       console.error('Error fetching live-only matches:', error);
       return [];
     }
-    
+
     return data || [];
   } catch (error) {
     console.error('Error reading from Supabase:', error);

@@ -24,21 +24,32 @@ export async function GET(request: NextRequest) {
     let todayRaw = await espnSync.getUpcomingMatches();
     let scheduledRaw = await espnSync.getScheduledMatchesRange(7);
 
-    // On-demand sync: if ALL are empty, sync everything right now
-    if (liveRaw.length === 0 && todayRaw.length === 0 && scheduledRaw.length === 0) {
-      console.log('📊 [API] No matches found, triggering full on-demand sync...');
+    // On-demand sync: if no live and no upcoming today, sync today's matches
+    // (scheduled future matches may exist from old syncs but today needs fresh data)
+    if (liveRaw.length === 0 && todayRaw.length === 0) {
+      console.log('📊 [API] No live/upcoming matches for today, triggering on-demand sync...');
       try {
-        await espnSync.syncAllMatches(); // This syncs live + today's scheduled
-        await espnSync.syncUpcomingDays(7); // Schedule for next 7 days
-        
-        // Re-fetch after sync
+        await espnSync.syncAllMatches(); // Syncs live + today's scheduled
+
+        // Re-fetch today's data
         liveRaw = await espnSync.getLiveMatchesOnly();
         todayRaw = await espnSync.getUpcomingMatches();
-        scheduledRaw = await espnSync.getScheduledMatchesRange(7);
-        
-        console.log(`✅ Full sync complete: ${liveRaw.length} live, ${todayRaw.length} today, ${scheduledRaw.length} scheduled`);
+
+        console.log(`✅ Today sync complete: ${liveRaw.length} live, ${todayRaw.length} upcoming`);
       } catch (syncErr) {
-        console.error('⚠️ Full on-demand sync failed:', syncErr);
+        console.error('⚠️ On-demand sync failed:', syncErr);
+      }
+    }
+
+    // On-demand sync: if no scheduled matches for next 7 days, fetch them
+    if (scheduledRaw.length === 0) {
+      console.log('📅 [API] No scheduled matches, syncing upcoming 7 days...');
+      try {
+        await espnSync.syncUpcomingDays(7);
+        scheduledRaw = await espnSync.getScheduledMatchesRange(7);
+        console.log(`✅ Upcoming sync complete: ${scheduledRaw.length} scheduled`);
+      } catch (syncErr) {
+        console.error('⚠️ Upcoming sync failed:', syncErr);
       }
     }
 

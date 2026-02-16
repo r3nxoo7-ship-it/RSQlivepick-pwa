@@ -19,11 +19,13 @@ export default function MatchesAnalyticsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string>('');
 
-  const user = authHelpers.getCurrentUser();
+  // Use user ID as stable dependency to avoid infinite re-render loops
+  // (getCurrentUser() returns a new object reference each call)
+  const userId = authHelpers.getCurrentUser()?.id;
 
   const loadData = useCallback(async () => {
     try {
-      if (!user) {
+      if (!userId) {
         console.log('⏸️ Matches page: No user logged in');
         setLoading(false);
         return;
@@ -50,7 +52,7 @@ export default function MatchesAnalyticsPage() {
       }
 
       // Load user filters
-      const filters = await dbHelpers.getUserFilters(user.id);
+      const filters = await dbHelpers.getUserFilters(userId);
       console.log(`🔍 Got ${filters.length} user filters`);
       setUserFilters(filters);
 
@@ -62,7 +64,7 @@ export default function MatchesAnalyticsPage() {
       setLastUpdate('Error loading data');
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     loadData();
