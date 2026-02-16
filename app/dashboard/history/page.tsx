@@ -49,24 +49,19 @@ export default function HistoryTriggeredPage() {
 
       let matches: TriggeredMatch[] = [];
 
-      if (timeRange === 'all') {
-        matches = await dbHelpers.getTriggeredMatchesHistory(
-          currentUser.id,
-          itemsPerPage,
-          page * itemsPerPage
-        );
-      } else {
-        const minutesMap = {
-          '24h': 24 * 60,
-          '7d': 7 * 24 * 60,
-          '30d': 30 * 24 * 60,
-        };
-        
-        matches = await dbHelpers.getTriggeredMatches(
-          currentUser.id,
-          minutesMap[timeRange] || 20,
-          50
-        );
+      try {
+        const params = new URLSearchParams({
+          user_id: currentUser.id,
+          range: timeRange,
+          limit: String(itemsPerPage),
+          offset: String(page * itemsPerPage),
+        });
+        const res = await fetch(`/api/triggered-matches/list?${params}`);
+        const result = await res.json();
+        matches = result.matches || [];
+      } catch (fetchErr) {
+        console.error('Error fetching triggered matches from API:', fetchErr);
+        matches = [];
       }
 
       if (page === 0 || isRefresh) {

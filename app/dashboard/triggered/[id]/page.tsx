@@ -48,15 +48,17 @@ export default function TriggeredMatchDetailsPage() {
           return;
         }
 
-        // Get triggered match from database
-        const triggeredMatches = await dbHelpers.getTriggeredMatches(currentUser.id, 1000, 0);
-        const foundTriggered = triggeredMatches.find(t => t.id === matchId);
+        // Get triggered match from API (uses service role key to bypass RLS)
+        const params = new URLSearchParams({ user_id: currentUser.id, id: matchId });
+        const res = await fetch(`/api/triggered-matches/list?${params}`);
+        const result = await res.json();
 
-        if (!foundTriggered) {
+        if (!res.ok || !result.match) {
           setError('Triggered match not found');
           return;
         }
 
+        const foundTriggered = result.match;
         setTriggered(foundTriggered);
 
         // Fetch live match data

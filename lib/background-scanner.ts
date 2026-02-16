@@ -175,29 +175,39 @@ class BackgroundScannerService {
         matchId: match.fixture!.id,
       };
 
-      // Log to database first to get triggered match ID
+      // Log to database via API route (bypasses RLS)
       let triggeredMatchId: string | undefined;
       const currentUser = authHelpers.getCurrentUser();
       if (currentUser) {
-        // Log triggered match for history/analytics
-        const result = await dbHelpers.logTriggeredMatch({
-          user_id: currentUser.id,
-          match_id: (match.fixture?.id || '').toString(),
-          filter_id: filter.id,
-          filter_name: filter.name,
-          home_team: match.teams?.home?.name || '',
-          away_team: match.teams?.away?.name || '',
-          league_name: match.league?.name || '',
-          triggered_at: new Date().toISOString(),
-          match_time: match.fixture.status.elapsed || null,
-          score_home: match.goals?.home || null,
-          score_away: match.goals?.away || null,
-          match_status: match.fixture?.status?.short || 'ongoing',
-        });
-        triggeredMatchId = result.id;
-
-        // 🔥 UPDATE FILTER COUNTERS (fixes analytics showing zero)
-        await dbHelpers.incrementFilterTriggerCount(filter.id);
+        try {
+          const logResponse = await fetch('/api/triggered-matches/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: currentUser.id,
+              match_id: (match.fixture?.id || '').toString(),
+              filter_id: filter.id,
+              filter_name: filter.name,
+              home_team: match.teams?.home?.name || '',
+              away_team: match.teams?.away?.name || '',
+              league_name: match.league?.name || '',
+              triggered_at: new Date().toISOString(),
+              match_time: match.fixture.status.elapsed || null,
+              score_home: match.goals?.home ?? null,
+              score_away: match.goals?.away ?? null,
+              match_status: match.fixture?.status?.short || 'ongoing',
+            }),
+          });
+          const logResult = await logResponse.json();
+          if (logResult.success && logResult.id) {
+            triggeredMatchId = logResult.id;
+            console.log(`✅ Triggered match logged: ${logResult.id}`);
+          } else {
+            console.error('❌ Failed to log triggered match:', logResult.error);
+          }
+        } catch (logErr) {
+          console.error('❌ Error calling triggered-matches/log API:', logErr);
+        }
       }
 
       // Send web push notification with triggered match ID

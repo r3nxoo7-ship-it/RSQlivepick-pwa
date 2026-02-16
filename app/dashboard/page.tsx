@@ -36,6 +36,7 @@ export default function DashboardPage() {
     todayTriggers: 0,
     successRate: 0,
   });
+  const [recentTriggers, setRecentTriggers] = useState<any[]>([]);
 
   // ============================================
   // LOAD DATA (Optimizat cu useCallback)
@@ -81,6 +82,20 @@ export default function DashboardPage() {
         todayTriggers: totalTriggers,
         successRate: 0,
       });
+
+      // Load recent triggered matches via API
+      try {
+        const params = new URLSearchParams({
+          user_id: currentUser.id,
+          range: '7d',
+          limit: '5',
+        });
+        const trigRes = await fetch(`/api/triggered-matches/list?${params}`);
+        const trigResult = await trigRes.json();
+        setRecentTriggers(trigResult.matches || []);
+      } catch (trigErr) {
+        console.error('Error loading recent triggers:', trigErr);
+      }
       
     } catch (err) {
       console.error('❌ Error loading dashboard:', err);
@@ -216,16 +231,39 @@ export default function DashboardPage() {
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                 <Zap className="text-accent-cyan" size={20} /> Recent Activity
               </h3>
-              <div className="space-y-4">
-                <p className="text-text-secondary italic text-sm text-center py-10">
-                  Live matches are being processed in the background. Last 5 triggers will appear here...
-                </p>
+              <div className="space-y-3">
+                {recentTriggers.length > 0 ? (
+                  recentTriggers.map((t: any) => (
+                    <div
+                      key={t.id}
+                      onClick={() => router.push(`/dashboard/triggered/${t.id}`)}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-glass-light/50 hover:bg-glass-light cursor-pointer transition-colors"
+                    >
+                      <Zap className="w-4 h-4 text-accent-cyan shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {t.home_team} vs {t.away_team}
+                        </p>
+                        <p className="text-xs text-text-muted truncate">
+                          {t.filter_name} {t.score_home != null ? `• ${t.score_home}-${t.score_away}` : ''}
+                        </p>
+                      </div>
+                      <span className="text-xs text-text-muted shrink-0">
+                        {new Date(t.triggered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-text-secondary italic text-sm text-center py-8">
+                    No recent triggers. Triggers appear when live matches meet your filter conditions.
+                  </p>
+                )}
               </div>
-              <button 
-                onClick={() => router.push('/dashboard/analytics')}
+              <button
+                onClick={() => router.push('/dashboard/history')}
                 className="mt-6 w-full btn-secondary"
               >
-                View Full History (30 min)
+                View Full History
               </button>
             </div>
 

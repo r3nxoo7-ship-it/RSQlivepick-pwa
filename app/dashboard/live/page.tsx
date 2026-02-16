@@ -220,8 +220,10 @@ export default function LiveMatchesPage() {
       if (!currentUser) return;
 
       setTriggeredLoading(true);
-      const triggered = await dbHelpers.getTriggeredMatches(currentUser.id, 20, 10);
-      setRecentlyTriggered(triggered);
+      const params = new URLSearchParams({ user_id: currentUser.id, range: '24h', limit: '10' });
+      const res = await fetch(`/api/triggered-matches/list?${params}`);
+      const result = await res.json();
+      setRecentlyTriggered(result.matches || []);
     } catch (err) {
       console.error('Error loading triggered matches:', err);
     } finally {
@@ -238,12 +240,15 @@ export default function LiveMatchesPage() {
       const itemsPerPage = 20;
       let matches: any[] = [];
 
-      if (timeRange === 'all') {
-        matches = await dbHelpers.getTriggeredMatchesHistory(currentUser.id, itemsPerPage, page * itemsPerPage);
-      } else {
-        const minutesMap: Record<string, number> = { '24h': 24 * 60, '7d': 7 * 24 * 60, '30d': 30 * 24 * 60 };
-        matches = await dbHelpers.getTriggeredMatches(currentUser.id, minutesMap[timeRange] || 20, 50);
-      }
+      const params = new URLSearchParams({
+        user_id: currentUser.id,
+        range: timeRange,
+        limit: String(itemsPerPage),
+        offset: String(page * itemsPerPage),
+      });
+      const res = await fetch(`/api/triggered-matches/list?${params}`);
+      const result = await res.json();
+      matches = result.matches || [];
 
       if (reset) {
         setHistoryMatches(matches);

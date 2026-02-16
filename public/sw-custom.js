@@ -13,17 +13,13 @@ self.addEventListener('notificationclick', (event) => {
   // Get data from the notification
   const data = event.notification.data || {};
   const triggeredMatchId = data.triggeredMatchId;
-  const matchId = data.matchId;
 
   // Determine which URL to open
-  let urlToOpen = '/dashboard/history';
+  let urlToOpen = data.url || '/dashboard/live';
 
   if (triggeredMatchId) {
     // If we have a triggered match ID, go directly to that match details
     urlToOpen = `/dashboard/triggered/${triggeredMatchId}`;
-  } else if (matchId) {
-    // If we only have a match ID, go to history
-    urlToOpen = '/dashboard/history';
   }
 
   console.log('🔔 Opening URL:', urlToOpen);
