@@ -449,9 +449,9 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               Match Momentum (Timeline)
             </h3>
-            <div className="bg-glass-light/50 rounded-lg p-4 h-32 flex items-end justify-between">
-              <div className="text-center text-text-secondary text-sm w-full">
-                Momentum data coming from live match feed
+            <div className="rounded-lg p-4 h-32 flex items-center justify-center border border-white/10 bg-[rgba(15,23,42,0.85)]">
+              <div className="text-xs text-text-muted">
+                Momentum data available during live matches
               </div>
             </div>
           </div>
@@ -466,7 +466,6 @@ function StatRow({
   home,
   away,
   unit = '',
-  compare = false,
 }: {
   label: string;
   home: number;
@@ -477,37 +476,30 @@ function StatRow({
   const total = home + away;
   const homePercent = total === 0 ? 50 : Math.round((home / total) * 100);
   const awayPercent = 100 - homePercent;
+  const homeLeads = home > away;
+  const awayLeads = away > home;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-text-secondary">{label}</span>
-        {compare && <span className="text-xs text-text-muted">100% comparison</span>}
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-accent-cyan">{home}</div>
-          <div className="text-xs text-text-muted">Home {unit}</div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
+      <div className="text-center text-xs text-text-muted">{label}</div>
+      <div className="flex items-center gap-3">
+        <div className={`w-12 text-right text-lg font-bold ${homeLeads ? 'text-accent-cyan' : 'text-text-secondary'}`}>
+          {home}{unit}
         </div>
-
-        <div className="flex items-center">
-          <div className="h-2 bg-gradient-to-r from-accent-cyan to-transparent rounded-l" style={{ width: `${homePercent}%` }} />
-          <div className="h-2 bg-gradient-to-l from-accent-blue to-transparent rounded-r" style={{ width: `${awayPercent}%` }} />
+        <div className="flex-1 h-2.5 bg-glass-light rounded-full overflow-hidden flex">
+          <div
+            className={`h-full transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
+            style={{ width: `${homePercent}%` }}
+          />
+          <div
+            className={`h-full transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
+            style={{ width: `${awayPercent}%` }}
+          />
         </div>
-
-        <div className="text-center">
-          <div className="text-2xl font-bold text-accent-blue">{away}</div>
-          <div className="text-xs text-text-muted">Away {unit}</div>
+        <div className={`w-12 text-left text-lg font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>
+          {away}{unit}
         </div>
       </div>
-
-      {compare && (
-        <div className="flex justify-between text-xs text-text-muted px-2">
-          <span>{homePercent}%</span>
-          <span>{awayPercent}%</span>
-        </div>
-      )}
     </motion.div>
   );
 }

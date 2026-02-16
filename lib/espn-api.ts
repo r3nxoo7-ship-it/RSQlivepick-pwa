@@ -258,18 +258,22 @@ export const LEAGUE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
 // FETCH HELPERS
 // ============================================
 
-async function fetchWithRetryRaw(url: string, retries = 2): Promise<any> {
+async function fetchWithRetryRaw(url: string, retries = 2, timeoutMs = 8000): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       const response = await fetch(url, {
         headers: { 'User-Agent': 'LivePick-PWA/1.0' },
         cache: 'no-store',
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
     } catch (error) {
       if (i === retries - 1) throw error;
-      await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Exponential backoff
+      await new Promise(r => setTimeout(r, 800 * (i + 1)));
     }
   }
 }
@@ -338,38 +342,47 @@ export async function getTeamSchedule(
   teamId: string,
   league?: string,
 ): Promise<ESPNMatch[]> {
-  // Always try the specified league first, then all others in parallel
-  const allLeagueCodes = ALL_SOCCER_LEAGUES.map(l => l.code);
-  const leaguesToTry = league
-    ? [league, ...allLeagueCodes.filter(l => l !== league)]
-    : allLeagueCodes;
+  // Smart league selection: only try relevant leagues to avoid Vercel timeouts
+  // Step 1: Primary league (specified or top domestic leagues)
+  // Step 2: UEFA competitions (teams may play in CL/EL/ECL)
+  const uefaComps = ['uefa.champions', 'uefa.europa', 'uefa.europa.conf'];
+  const topDomestic = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'ned.1', 'por.1'];
 
-  // Fetch from ALL leagues in parallel
-  const results = await Promise.allSettled(
-    leaguesToTry.map(async (leagueCode) => {
-        const path = `/soccer/${leagueCode}/teams/${teamId}/schedule`;
-        let data: any;
+  let leaguesToTry: string[];
+  if (league) {
+    // Try specified league + UEFA competitions only (max ~4 requests)
+    leaguesToTry = [league, ...uefaComps.filter(c => c !== league)];
+  } else {
+    // No league specified: try top domestic + UEFA (max ~10 requests)
+    leaguesToTry = [...topDomestic, ...uefaComps];
+  }
+
+  const fetchLeagueSchedule = async (leagueCode: string): Promise<ESPNMatch[]> => {
+    const path = `/soccer/${leagueCode}/teams/${teamId}/schedule`;
+    let data: any;
+    try {
+      // Use reduced retries (1) since 404s for wrong leagues are expected
+      data = await espnFetch(path, 1);
+    } catch (err) {
+      return [];
+    }
+    if (!data?.events?.length) return [];
+    return data.events
+      .filter((e: any) => e.competitions?.[0]?.status?.type?.completed === true)
+      .map((e: any) => {
         try {
-          data = await espnFetch(path);
-        } catch (err) {
-          return [];
-        }
-        if (!data?.events?.length) return [];
-        return data.events
-        .filter((e: any) => e.competitions?.[0]?.status?.type?.completed === true)
-        .map((e: any) => {
-          try {
-            const match = parseESPNMatch(e);
-            // Tag with league info for display
-            (match as any).__league_config = { sport: 'soccer', league: leagueCode, name: getLeagueName(leagueCode) };
-            return match;
-          } catch { return null; }
-        })
-        .filter(Boolean) as ESPNMatch[];
-    })
-  );
+          const match = parseESPNMatch(e);
+          (match as any).__league_config = { sport: 'soccer', league: leagueCode, name: getLeagueName(leagueCode) };
+          return match;
+        } catch { return null; }
+      })
+      .filter(Boolean) as ESPNMatch[];
+  };
 
-  // Merge all matches, deduplicate by id, sort by date descending
+  // Fetch all selected leagues in parallel
+  const results = await Promise.allSettled(leaguesToTry.map(fetchLeagueSchedule));
+
+  // Merge, deduplicate by id, sort by date descending
   const allMatches: ESPNMatch[] = [];
   const seen = new Set<string>();
   for (const r of results) {
@@ -384,7 +397,7 @@ export async function getTeamSchedule(
   }
 
   allMatches.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  console.log(`[ESPN] Team ${teamId} schedule: ${allMatches.length} completed matches across all competitions`);
+  console.log(`[ESPN] Team ${teamId} schedule: ${allMatches.length} completed matches (tried ${leaguesToTry.length} leagues)`);
   return allMatches;
 }
 

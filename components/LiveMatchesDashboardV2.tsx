@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, AlertCircle, BarChart3, Search, X } from 'lucide-react';
+import { TrendingUp, AlertCircle, BarChart3, Search, X, ChevronDown, Check } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
 import { Filter } from '@/lib/supabase';
 import { getMatchingFiltersForMatch, calculateMatchPredictability, FilterMatchDetails } from '@/lib/live-filter-matcher';

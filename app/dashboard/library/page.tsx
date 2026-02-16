@@ -15,21 +15,22 @@ export default function PublicFiltersPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const user = authHelpers.getCurrentUser();
+  const userId = user?.id;
 
   const loadFilters = useCallback(async () => {
     try {
       setLoading(true);
       console.log('📚 Loading public filters...');
-      
+
       const publicList = await dbHelpers.getPublicFilters();
       console.log('✅ Public filters loaded:', publicList.length);
-      
-      const userList = user ? await dbHelpers.getUserFilters(user.id) : [];
+
+      const userList = userId ? await dbHelpers.getUserFilters(userId) : [];
       console.log('✅ User filters loaded:', userList.length);
 
       setPublicFilters(publicList);
       setUserFilters(userList);
-      
+
       if (publicList.length === 0) {
         console.warn('⚠️ No public filters available');
       }
@@ -39,7 +40,7 @@ export default function PublicFiltersPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     loadFilters();
