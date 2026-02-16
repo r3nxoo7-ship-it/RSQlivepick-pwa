@@ -82,7 +82,11 @@ export const LEAGUES = {
   'nhl': { sport: 'hockey', league: 'nhl', name: 'NHL' },
 };
 
-const BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports';
+const BASE_URLS = [
+  'https://site.api.espn.com/apis/site/v2/sports',
+  'https://sports.core.api.espn.com/apis/site/v2/sports',
+  'https://sports.core.api.espn.com/apis/v1/sports',
+];
 
 // ============================================
 // ALL VALID ESPN SOCCER LEAGUE CODES (127 verified)
@@ -254,11 +258,12 @@ export const LEAGUE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
 // FETCH HELPERS
 // ============================================
 
-async function fetchWithRetry(url: string, retries = 2): Promise<any> {
+async function fetchWithRetryRaw(url: string, retries = 2): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, {
         headers: { 'User-Agent': 'LivePick-PWA/1.0' },
+        cache: 'no-store',
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
@@ -267,6 +272,22 @@ async function fetchWithRetry(url: string, retries = 2): Promise<any> {
       await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Exponential backoff
     }
   }
+}
+
+async function espnFetch(path: string, retriesPerHost = 2): Promise<any> {
+  let lastErr: any = null;
+  for (const base of BASE_URLS) {
+    const url = `${base}${path}`;
+    try {
+      const json = await fetchWithRetryRaw(url, retriesPerHost);
+      return json;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[ESPN API] Host ${base} failed for ${path}:`, err instanceof Error ? err.message : err);
+      continue;
+    }
+  }
+  throw lastErr;
 }
 
 // ============================================
@@ -284,18 +305,25 @@ export async function getLeagueMatches(
   date?: string // Format: YYYYMMDD - fetches specific date instead of today
 ): Promise<ESPNMatch[]> {
   try {
-    let url = `${BASE_URL}/${sport}/${league}/scoreboard`;
-    if (date) url += `?dates=${date}`;
+    const pathBase = `/${sport}/${league}/scoreboard`;
+    const path = date ? `${pathBase}?dates=${date}` : pathBase;
     console.log(`📡 Fetching ${league} matches from ESPN${date ? ` for ${date}` : ''}...`);
-    
-    const data = await fetchWithRetry(url);
-    
-    if (!data.events) {
+
+    let data: any;
+    try {
+      data = await espnFetch(path);
+    } catch (err) {
+      console.error(`Error fetching ${league}:`, err instanceof Error ? err.message : err);
+      return [];
+    }
+
+    const events = data.events || data.items || [];
+    if (!events || events.length === 0) {
       console.warn(`No events found for ${league}`);
       return [];
     }
 
-    return data.events.map((event: any) => parseESPNMatch(event));
+    return events.map((event: any) => parseESPNMatch(event));
   } catch (error) {
     console.error(`Error fetching ${league}:`, error);
     return [];
@@ -319,10 +347,15 @@ export async function getTeamSchedule(
   // Fetch from ALL leagues in parallel
   const results = await Promise.allSettled(
     leaguesToTry.map(async (leagueCode) => {
-      const url = `${BASE_URL}/soccer/${leagueCode}/teams/${teamId}/schedule`;
-      const data = await fetchWithRetry(url);
-      if (!data?.events?.length) return [];
-      return data.events
+        const path = `/soccer/${leagueCode}/teams/${teamId}/schedule`;
+        let data: any;
+        try {
+          data = await espnFetch(path);
+        } catch (err) {
+          return [];
+        }
+        if (!data?.events?.length) return [];
+        return data.events
         .filter((e: any) => e.competitions?.[0]?.status?.type?.completed === true)
         .map((e: any) => {
           try {
@@ -386,26 +419,38 @@ export async function getLeagueTeams(
   league: string
 ): Promise<ESPNTeam[]> {
   try {
-    const url = `${BASE_URL}/${sport}/${league}/teams`;
+    const path = `/${sport}/${league}/teams`;
     console.log(`📡 Fetching ${league} teams from ESPN...`);
-    
-    const data = await fetchWithRetry(url);
-    
-    if (!data.teams) {
+
+    let data: any;
+    try {
+      data = await espnFetch(path);
+    } catch (err) {
+      console.error(`Error fetching ${league} teams:`, err instanceof Error ? err.message : err);
+      return [];
+    }
+
+    const teamsArray = data.teams || (data.sports?.[0]?.leagues?.[0]?.teams) || data.items || [];
+    if (!teamsArray || teamsArray.length === 0) {
       console.warn(`No teams found for ${league}`);
       return [];
     }
 
-    return data.teams.map((team: any) => ({
-      id: String(team.id),
-      name: team.name,
-      displayName: team.displayName,
-      abbreviation: team.abbreviation,
-      logo: team.logos?.[0]?.href,
-      color: team.color,
-      alternateColor: team.alternateColor,
-      venueId: team.venue?.id,
-    }));
+    return teamsArray.map((t: any) => {
+      const team = t.team || t;
+      const logos = team.logos || team.team?.logos || [];
+      const logo = logos?.[0]?.href || logos?.[0]?.url || null;
+      return {
+        id: String(team.id || team.uid || team.teamId || team.team?.id),
+        name: team.displayName || team.name || team.team?.displayName || 'Unknown',
+        displayName: team.displayName || team.name || team.team?.displayName || 'Unknown',
+        abbreviation: team.abbreviation || team.team?.abbreviation,
+        logo,
+        color: team.color || team.team?.color,
+        alternateColor: team.alternateColor || team.team?.alternateColor,
+        venueId: team.venue?.id || team.team?.venueId || null,
+      } as ESPNTeam;
+    });
   } catch (error) {
     console.error(`Error fetching ${league} teams:`, error);
     return [];
@@ -423,9 +468,13 @@ export async function getMatchSummary(
   eventId: string
 ): Promise<Record<string, any> | null> {
   try {
-    const url = `${BASE_URL}/${sport}/${league}/summary?event=${eventId}`;
-    const data = await fetchWithRetry(url);
-    return data;
+    const path = `/${sport}/${league}/summary?event=${eventId}`;
+    try {
+      const data = await espnFetch(path);
+      return data;
+    } catch (err) {
+      return null;
+    }
   } catch (error) {
     // Summary might not be available for all matches (e.g. scheduled ones)
     return null;
@@ -525,18 +574,18 @@ function parseESPNMatch(event: any): ESPNMatch {
     date: event.date,
     status: normalizeStatus(event.status),
     homeTeam: {
-      id: homeCompetitor.team?.id || 'unknown',
+      id: String(homeCompetitor.team?.id || homeCompetitor.team?.uid || homeCompetitor.id || 'unknown'),
       name: homeCompetitor.team?.displayName || homeCompetitor.team?.name || homeCompetitor.displayName || 'Unknown',
       displayName: homeCompetitor.team?.displayName || homeCompetitor.team?.name || homeCompetitor.displayName || 'Unknown',
-      abbreviation: homeCompetitor.team?.abbreviation,
-      logo: homeCompetitor.team?.logo,
+      abbreviation: homeCompetitor.team?.abbreviation || homeCompetitor.team?.abbr,
+      logo: homeCompetitor.team?.logo || homeCompetitor.team?.logos?.[0]?.href || homeCompetitor.team?.logos?.[0]?.url,
     },
     awayTeam: {
-      id: awayCompetitor.team?.id || 'unknown',
+      id: String(awayCompetitor.team?.id || awayCompetitor.team?.uid || awayCompetitor.id || 'unknown'),
       name: awayCompetitor.team?.displayName || awayCompetitor.team?.name || awayCompetitor.displayName || 'Unknown',
       displayName: awayCompetitor.team?.displayName || awayCompetitor.team?.name || awayCompetitor.displayName || 'Unknown',
-      abbreviation: awayCompetitor.team?.abbreviation,
-      logo: awayCompetitor.team?.logo,
+      abbreviation: awayCompetitor.team?.abbreviation || awayCompetitor.team?.abbr,
+      logo: awayCompetitor.team?.logo || awayCompetitor.team?.logos?.[0]?.href || awayCompetitor.team?.logos?.[0]?.url,
     },
     // Score can be a string ("2") on scoreboard or an object ({value: 2.0, displayValue: "2"}) on schedule
     homeScore: parseScore(homeCompetitor.score),
