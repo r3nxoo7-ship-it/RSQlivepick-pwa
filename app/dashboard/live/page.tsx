@@ -469,7 +469,13 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                   ⚽ Live Matches
                 </h1>
                 <p className="text-xs sm:text-sm md:text-base text-text-secondary line-clamp-2">
-                  Real-time: <span className="text-accent-cyan font-semibold">{matches.length} matches</span>
+                  {(() => {
+                    const live = matches.filter(m => { const s = m.fixture?.status?.short; return s === 'LIVE' || s === '1H' || s === '2H' || s === 'HT'; });
+                    const upcoming = matches.length - live.length;
+                    return <>
+                      {live.length > 0 ? <><span className="text-accent-green font-semibold">{live.length} live</span>{upcoming > 0 && <> + <span className="text-text-muted">{upcoming} upcoming</span></>}</> : <span className="text-text-muted">{matches.length} upcoming</span>}
+                    </>;
+                  })()}
                   {lastUpdate && (
                     <> • <span className="text-accent-cyan">{lastUpdate.toLocaleTimeString()}</span></>
                   )}
@@ -497,7 +503,7 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
               <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-cyan-900/5 border border-accent-cyan/20">
                 <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Live</div>
-                <div className="stat-value text-lg sm:text-2xl md:text-3xl font-bold text-accent-cyan">{matches.length}</div>
+                <div className="stat-value text-lg sm:text-2xl md:text-3xl font-bold text-accent-cyan">{matches.filter(m => { const s = m.fixture?.status?.short; return s === 'LIVE' || s === '1H' || s === '2H' || s === 'HT'; }).length}</div>
               </div>
               <div className="text-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-accent-green/10 to-green-900/5 border border-accent-green/20">
                 <div className="stat-label text-xs text-text-secondary font-semibold mb-0.5 sm:mb-1">Scanned</div>

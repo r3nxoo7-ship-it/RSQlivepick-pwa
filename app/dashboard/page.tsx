@@ -62,19 +62,24 @@ export default function DashboardPage() {
       } catch (err) {
         console.error('Error loading matches:', err);
       }
-      
-      // Calculează statistici reale
+
+      // Count only actually live matches (in progress), not upcoming/scheduled
+      const actuallyLive = matches.filter(m => {
+        const status = m.fixture?.status?.short;
+        return status === 'LIVE' || status === '1H' || status === '2H' || status === 'HT';
+      });
+
       const activeFilters = userFilters.filter(f => f.is_active);
       const withNotifications = userFilters.filter(f => f.is_active && f.notification_enabled);
       const totalTriggers = userFilters.reduce((sum, f) => sum + (f.trigger_count || 0), 0);
-      
+
       setStats({
         totalFilters: userFilters.length,
         activeFilters: activeFilters.length,
         withNotifications: withNotifications.length,
-        liveMatches: matches.length,
+        liveMatches: actuallyLive.length,
         todayTriggers: totalTriggers,
-        successRate: 0, // Removed - use analytics page instead
+        successRate: 0,
       });
       
     } catch (err) {

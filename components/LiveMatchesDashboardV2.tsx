@@ -82,11 +82,26 @@ export default function LiveMatchesDashboardV2({
   loading = false,
 }: LiveMatchesDashboardProps) {
   const [selectedDay, setSelectedDay] = useState<string>('');
-  const [selectedLeague, setSelectedLeague] = useState<string>('All');
+  const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set());
+  const [leagueDropdownOpen, setLeagueDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMatch, setSelectedMatch] = useState<MatchWithPredictions | null>(null);
+  const leagueDropdownRef = useRef<HTMLDivElement>(null);
 
   const dayTabs = useMemo(() => buildDayTabs(), []);
+
+  // Close league dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (leagueDropdownRef.current && !leagueDropdownRef.current.contains(e.target as Node)) {
+        setLeagueDropdownOpen(false);
+      }
+    }
+    if (leagueDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [leagueDropdownOpen]);
 
   // Set default day to today on mount
   useEffect(() => {
@@ -162,9 +177,9 @@ export default function LiveMatchesDashboardV2({
     // Enhance with predictions
     let enhanced = raw.map(enhanceMatch);
 
-    // Apply league filter
-    if (selectedLeague !== 'All') {
-      enhanced = enhanced.filter(m => m.league?.name === selectedLeague);
+    // Apply league filter (multi-select: empty set = all leagues)
+    if (selectedLeagues.size > 0) {
+      enhanced = enhanced.filter(m => m.league?.name && selectedLeagues.has(m.league.name));
     }
 
     // Apply search filter
@@ -177,7 +192,7 @@ export default function LiveMatchesDashboardV2({
     }
 
     return enhanced;
-  }, [selectedDay, dayTabs, liveMatches, upcomingMatches, scheduledMatches, matches, userFilters, selectedLeague, searchQuery]);
+  }, [selectedDay, dayTabs, liveMatches, upcomingMatches, scheduledMatches, matches, userFilters, selectedLeagues, searchQuery]);
 
   // Count matches per day (for tab badges)
   const dayMatchCounts = useMemo(() => {
@@ -238,33 +253,82 @@ export default function LiveMatchesDashboardV2({
         })}
       </div>
 
-      {/* Filter Bar: League chips + Search */}
-      <div className="space-y-2">
-        {/* League chips */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-          {leagues.map(league => (
-            <button
-              key={league}
-              onClick={() => setSelectedLeague(league)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
-                selectedLeague === league
-                  ? 'bg-accent-blue/20 text-accent-blue border border-accent-blue/40'
-                  : 'bg-glass-light/30 text-text-muted hover:text-white hover:bg-glass-light/50 border border-transparent'
-              }`}
-            >
-              {league}
-            </button>
-          ))}
+      {/* Filter Bar: League dropdown + Search */}
+      <div className="flex gap-2 items-center">
+        {/* League multi-select dropdown */}
+        <div ref={leagueDropdownRef} className="relative shrink-0">
+          <button
+            onClick={() => setLeagueDropdownOpen(!leagueDropdownOpen)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition border ${
+              selectedLeagues.size > 0
+                ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/40'
+                : 'bg-glass-light/30 text-text-muted border-glass-light hover:text-white hover:bg-glass-light/50'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            {selectedLeagues.size === 0
+              ? 'All Leagues'
+              : selectedLeagues.size === 1
+                ? Array.from(selectedLeagues)[0]
+                : `${selectedLeagues.size} Leagues`}
+            <ChevronDown className={`w-3 h-3 transition ${leagueDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {leagueDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 w-56 max-h-72 overflow-y-auto rounded-lg border border-glass-light bg-background/95 backdrop-blur-md shadow-xl">
+              {/* Select All / Clear */}
+              <div className="sticky top-0 bg-background/95 backdrop-blur-md border-b border-glass-light px-3 py-2 flex justify-between">
+                <button
+                  onClick={() => setSelectedLeagues(new Set())}
+                  className={`text-[10px] font-semibold transition ${selectedLeagues.size === 0 ? 'text-accent-cyan' : 'text-text-muted hover:text-white'}`}
+                >
+                  All
+                </button>
+                {selectedLeagues.size > 0 && (
+                  <button
+                    onClick={() => setSelectedLeagues(new Set())}
+                    className="text-[10px] text-text-muted hover:text-accent-red transition"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {leagues.filter(l => l !== 'All').map(league => {
+                const isSelected = selectedLeagues.has(league);
+                return (
+                  <button
+                    key={league}
+                    onClick={() => {
+                      setSelectedLeagues(prev => {
+                        const next = new Set(prev);
+                        if (isSelected) next.delete(league);
+                        else next.add(league);
+                        return next;
+                      });
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-glass-light/50 transition text-left"
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition ${
+                      isSelected ? 'bg-accent-blue border-accent-blue' : 'border-glass-light'
+                    }`}>
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className={isSelected ? 'text-white font-semibold' : 'text-text-secondary'}>{league}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Search */}
-        <div className="relative">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search team name..."
+            placeholder="Search team..."
             className="w-full pl-9 pr-8 py-2 rounded-lg bg-glass-light/30 border border-glass-light text-sm text-white placeholder-text-muted focus:outline-none focus:border-accent-cyan/50 transition"
           />
           {searchQuery && (
@@ -284,7 +348,7 @@ export default function LiveMatchesDashboardV2({
         {selectedDay === todayKey && liveCount > 0 && (
           <span className="text-accent-red ml-1">({liveCount} live)</span>
         )}
-        {selectedLeague !== 'All' && <span> in {selectedLeague}</span>}
+        {selectedLeagues.size > 0 && <span> in {selectedLeagues.size === 1 ? Array.from(selectedLeagues)[0] : `${selectedLeagues.size} leagues`}</span>}
         {searchQuery && <span> matching &quot;{searchQuery}&quot;</span>}
       </div>
 
@@ -316,8 +380,8 @@ export default function LiveMatchesDashboardV2({
               Clear search
             </button>
           )}
-          {selectedLeague !== 'All' && (
-            <button onClick={() => setSelectedLeague('All')} className="text-accent-cyan text-sm mt-2 hover:underline block mx-auto">
+          {selectedLeagues.size > 0 && (
+            <button onClick={() => setSelectedLeagues(new Set())} className="text-accent-cyan text-sm mt-2 hover:underline block mx-auto">
               Show all leagues
             </button>
           )}
