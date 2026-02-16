@@ -20,6 +20,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 // ============================================
 
 let lastSyncTime = 0;
+// Per-league failure tracking (in-memory for now)
+export const leagueFailureCounts: Record<string, number> = {};
+const FAILURE_THRESHOLD = 3;
 
 /**
  * Sync all live matches to Supabase (deduplicated)
@@ -37,12 +40,24 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
 
-    // Fetch all leagues in parallel for speed
+    // Fetch all leagues in parallel for speed, with per-league failure handling
     const leagueResults = await Promise.allSettled(
       soccerLeagues.map(async (config) => {
-        const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league);
-        matches.forEach(m => { (m as any).__league_config = config; });
-        return { config, matches };
+        if ((leagueFailureCounts[config.league] || 0) >= FAILURE_THRESHOLD) {
+          console.warn(`⚠️ [ESPN Sync] Skipping ${config.name} (${config.league}) due to repeated failures (${leagueFailureCounts[config.league]})`);
+          return { config, matches: [] };
+        }
+        try {
+          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league);
+          matches.forEach(m => { (m as any).__league_config = config; });
+          // success -> reset failure count
+          leagueFailureCounts[config.league] = 0;
+          return { config, matches };
+        } catch (err) {
+          leagueFailureCounts[config.league] = (leagueFailureCounts[config.league] || 0) + 1;
+          console.warn(`⚠️ [ESPN Sync] Error fetching ${config.name} (${config.league}):`, err);
+          throw err;
+        }
       })
     );
     for (const r of leagueResults) {
@@ -50,7 +65,8 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
         console.log(`  ⚽ ${r.value.config.name}: ${r.value.matches.length} matches`);
         allMatches.push(...r.value.matches);
       } else {
-        console.warn(`⚠️ [ESPN Sync] Failed to fetch a league:`, r.reason);
+        // r.reason may not contain config; log generically
+        console.warn(`⚠️ [ESPN Sync] League fetch rejected:`, r.reason);
       }
     }
     
@@ -408,9 +424,20 @@ export async function syncUpcomingDays(days: number = 7): Promise<{ count: numbe
 
     const results = await Promise.allSettled(
       fetchTasks.map(async ({ config, dateStr }) => {
-        const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
-        matches.forEach(m => { (m as any).__league_config = config; });
-        return matches;
+        if ((leagueFailureCounts[config.league] || 0) >= FAILURE_THRESHOLD) {
+          console.warn(`⚠️ [ESPN Sync] Skipping upcoming fetch for ${config.name} (${config.league}) due to repeated failures (${leagueFailureCounts[config.league]})`);
+          return [] as ESPNAPI.ESPNMatch[];
+        }
+        try {
+          const matches = await ESPNAPI.getLeagueMatches(config.sport, config.league, dateStr);
+          matches.forEach(m => { (m as any).__league_config = config; });
+          leagueFailureCounts[config.league] = 0;
+          return matches;
+        } catch (err) {
+          leagueFailureCounts[config.league] = (leagueFailureCounts[config.league] || 0) + 1;
+          console.warn(`⚠️ [ESPN Sync] Upcoming fetch error for ${config.name} (${config.league}) ${dateStr}:`, err);
+          return [] as ESPNAPI.ESPNMatch[];
+        }
       })
     );
     for (const result of results) {
@@ -809,6 +836,30 @@ function detectLeague(match: ESPNAPI.ESPNMatch): string {
 
 export function getLastSyncTime(): number {
   return lastSyncTime;
+}
+
+/**
+ * Helper: return current counts of matches grouped by league (for debugging)
+ */
+export async function getMatchCountsByLeague(): Promise<Record<string, number>> {
+  try {
+    const { data, error } = await supabase
+      .from('espn_matches')
+      .select('league');
+    if (error) {
+      console.error('Error fetching matches for counts:', error);
+      return {};
+    }
+    const counts: Record<string, number> = {};
+    for (const row of data || []) {
+      const league = row.league || 'unknown';
+      counts[league] = (counts[league] || 0) + 1;
+    }
+    return counts;
+  } catch (err) {
+    console.error('Error reading matches for counts:', err);
+    return {};
+  }
 }
 
 /**

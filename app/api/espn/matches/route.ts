@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     // Limit to the curated league codes (same as SYNC_SOCCER_LEAGUES)
     const allowedLeagues = new Set([
       'eng.1','ger.1','ita.1','esp.1','uefa.champions','uefa.europa','uefa.europa.conf',
-      'por.1','ned.1','pol.1','bel.1','fra.1','tur.1','aut.1'
+      'por.1','ned.1','bel.1','fra.1','tur.1','aut.1'
     ]);
 
     const filterByAllowed = (row: any) => validFilter(row) && (!row.league || allowedLeagues.has(row.league) || allowedLeagues.has((row.__league_config || {}).league));

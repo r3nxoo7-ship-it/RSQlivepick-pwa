@@ -242,7 +242,7 @@ export const SYNC_SOCCER_LEAGUES = [
   { sport: 'soccer', league: 'uefa.europa.conf', name: 'Conference League' },
   { sport: 'soccer', league: 'por.1', name: 'Primeira Liga' },
   { sport: 'soccer', league: 'ned.1', name: 'Eredivisie' },
-  { sport: 'soccer', league: 'pol.1', name: 'Poland Ekstraklasa' },
+  // Poland Ekstraklasa removed due to recurring 4xx from ESPN
   { sport: 'soccer', league: 'bel.1', name: 'Belgian Pro League' },
   { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
   { sport: 'soccer', league: 'tur.1', name: 'Turkish Super Lig' },
