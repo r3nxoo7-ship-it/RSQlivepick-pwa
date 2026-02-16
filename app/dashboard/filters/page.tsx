@@ -39,6 +39,8 @@ export default function FiltersPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingNotifications, setUpdatingNotifications] = useState<string[]>([]);
   const [lastApiDebug, setLastApiDebug] = useState<any>(null);
+  // Multi-select state for mobile bulk actions
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
   // ============================================
   // LOAD FILTERS
@@ -284,6 +286,52 @@ export default function FiltersPage() {
     
     return preview.slice(0, 3).join(' • ') + (preview.length > 3 ? '...' : '');
   };
+
+  // ===== Multi-select handlers =====
+  const toggleSelect = (filterId: string) => {
+    setSelectedIds(prev => prev.includes(filterId) ? prev.filter(id => id !== filterId) : [...prev, filterId]);
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const handleBulkToggleActive = async (activate: boolean) => {
+    if (selectedIds.length === 0) return;
+    const confirmMsg = activate ? 'Activate selected filters?' : 'Deactivate selected filters?';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      // Parallelize toggles
+      await Promise.all(selectedIds.map(id => dbHelpers.toggleFilterActive(id, !activate === false ? false : true)));
+      await loadFilters();
+      clearSelection();
+      alert('Bulk update completed');
+    } catch (err) {
+      console.error('Bulk toggle error:', err);
+      alert('Error performing bulk update');
+      await loadFilters();
+      clearSelection();
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = confirm(`Are you sure you want to delete ${selectedIds.length} filters? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      // Optimistic UI removal
+      setFilters(prev => prev.filter(f => !selectedIds.includes(f.id)));
+      await Promise.all(selectedIds.map(id => dbHelpers.deleteFilter(id)));
+      await loadFilters();
+      clearSelection();
+      alert('Selected filters deleted');
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      alert('Error deleting filters');
+      await loadFilters();
+      clearSelection();
+    }
+  };
   
   // ============================================
   // RENDER
@@ -400,8 +448,15 @@ export default function FiltersPage() {
                   >
                     <div className="p-4 sm:p-6">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => setOpenFilterId(isOpen ? null : filter.id)} role="button" tabIndex={0} aria-expanded={isOpen ? 'true' : 'false'}>
-                          <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1 w-4 h-4 text-accent-cyan"
+                            checked={selectedIds.includes(filter.id)}
+                            onChange={() => toggleSelect(filter.id)}
+                            aria-label={`Select filter ${filter.name}`}
+                          />
+                          <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => setOpenFilterId(isOpen ? null : filter.id)} role="button" tabIndex={0} aria-expanded={isOpen ? 'true' : 'false'}>
                             <div className="flex flex-wrap items-center gap-3 mb-2">
                               <h3 className="text-lg sm:text-xl font-display font-semibold break-words">
                                 {filter.name}
@@ -541,6 +596,19 @@ export default function FiltersPage() {
               <li>• Success rate is calculated automatically from history</li>
             </ul>
           </div>
+
+          {/* ========== MOBILE BULK ACTIONS TOOLBAR ========== */}
+          {selectedIds.length > 0 && (
+            <div className="fixed bottom-3 left-3 right-3 z-50 md:hidden">
+              <div className="flex items-center gap-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-lg border border-glass-medium">
+                <div className="flex-1 text-sm text-text-muted">{selectedIds.length} selected</div>
+                <button onClick={() => handleBulkToggleActive(true)} className="px-3 py-2 rounded bg-accent-green text-white text-sm">Activate</button>
+                <button onClick={() => handleBulkToggleActive(false)} className="px-3 py-2 rounded bg-glass-medium text-sm">Deactivate</button>
+                <button onClick={handleBulkDelete} className="px-3 py-2 rounded bg-accent-red text-white text-sm">Delete</button>
+                <button onClick={clearSelection} className="px-2 py-2 rounded bg-transparent text-sm text-text-muted">Clear</button>
+              </div>
+            </div>
+          )}
           
           {/* ========== DEBUG INFO (pentru testing) ========== */}
           <div className="glass-card p-4 text-xs text-text-muted">
