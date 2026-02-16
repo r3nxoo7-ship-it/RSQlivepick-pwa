@@ -22,7 +22,8 @@
       "Bash(node:*)",
       "Bash(git checkout:*)",
       "Bash(ls:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:rs-qlivepick-pwa.vercel.app)"
     ]
   }
 }

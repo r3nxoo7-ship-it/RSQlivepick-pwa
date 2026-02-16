@@ -63,13 +63,15 @@ export async function GET(request: NextRequest) {
       row.away_team_name !== 'Unknown' &&
       row.id;
 
-    // Limit to the curated league codes (same as SYNC_SOCCER_LEAGUES)
+    // Limit to the curated leagues (using display names as stored in DB)
     const allowedLeagues = new Set([
-      'eng.1','ger.1','ita.1','esp.1','uefa.champions','uefa.europa','uefa.europa.conf',
-      'por.1','ned.1','bel.1','fra.1','tur.1','aut.1'
+      'Premier League', 'Bundesliga', 'Serie A', 'La Liga',
+      'Champions League', 'Europa League', 'Conference League',
+      'Primeira Liga', 'Eredivisie', 'Belgian Pro League',
+      'Ligue 1', 'Turkish Super Lig', 'Austrian Bundesliga',
     ]);
 
-    const filterByAllowed = (row: any) => validFilter(row) && (!row.league || allowedLeagues.has(row.league) || allowedLeagues.has((row.__league_config || {}).league));
+    const filterByAllowed = (row: any) => validFilter(row) && (!row.league || allowedLeagues.has(row.league));
 
     const liveMatches = liveRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
     const todayMatches = todayRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
