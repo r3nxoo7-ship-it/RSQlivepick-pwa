@@ -3,66 +3,105 @@
 // ============================================
 // TRIGGERED MATCHES HISTORY PAGE
 // ============================================
-// Shows all triggered matches with detailed history
-// Displays which filters matched which games and when
+// Groups triggers by match, expandable cards with inline ESPN stats
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  Clock, 
+import {
+  ArrowLeft,
+  Clock,
   Filter as FilterIcon,
   Zap,
   Trophy,
-  TrendingUp,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  BarChart3,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import AuthWrapper from '@/components/AuthWrapper';
-import { authHelpers, dbHelpers } from '@/lib/supabase';
+import { authHelpers } from '@/lib/supabase';
 import type { TriggeredMatch } from '@/lib/supabase';
+
+// Group triggers by match_id
+interface MatchGroup {
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  leagueName: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  matchStatus: string;
+  latestTriggerAt: string;
+  triggers: TriggeredMatch[];
+}
+
+function groupByMatch(matches: TriggeredMatch[]): MatchGroup[] {
+  const map = new Map<string, MatchGroup>();
+
+  for (const m of matches) {
+    const key = m.match_id;
+    if (!map.has(key)) {
+      map.set(key, {
+        matchId: key,
+        homeTeam: m.home_team,
+        awayTeam: m.away_team,
+        leagueName: m.league_name || '',
+        scoreHome: m.score_home,
+        scoreAway: m.score_away,
+        matchStatus: m.match_status || '',
+        latestTriggerAt: m.triggered_at,
+        triggers: [],
+      });
+    }
+    const group = map.get(key)!;
+    group.triggers.push(m);
+    // Keep latest score/status
+    if (new Date(m.triggered_at) > new Date(group.latestTriggerAt)) {
+      group.latestTriggerAt = m.triggered_at;
+      if (m.score_home != null) group.scoreHome = m.score_home;
+      if (m.score_away != null) group.scoreAway = m.score_away;
+      if (m.match_status) group.matchStatus = m.match_status;
+    }
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.latestTriggerAt).getTime() - new Date(a.latestTriggerAt).getTime()
+  );
+}
 
 export default function HistoryTriggeredPage() {
   const router = useRouter();
-  
+
   const [triggeredMatches, setTriggeredMatches] = useState<TriggeredMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [timeRange, setTimeRange] = useState<'all' | '24h' | '7d' | '30d'>('7d');
-  const [refreshing, setRefreshing] = useState(false); // pentru butonul Refresh
-  
-  const itemsPerPage = 20;
+  const [refreshing, setRefreshing] = useState(false);
+  const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
 
-  // Load triggered matches (folosită atât la mount, cât și la refresh)
+  const itemsPerPage = 50;
+
   const loadTriggeredMatches = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
-
     setError(null);
 
     try {
       const currentUser = authHelpers.getCurrentUser();
       if (!currentUser) return;
 
-      let matches: TriggeredMatch[] = [];
-
-      try {
-        const params = new URLSearchParams({
-          user_id: currentUser.id,
-          range: timeRange,
-          limit: String(itemsPerPage),
-          offset: String(page * itemsPerPage),
-        });
-        const res = await fetch(`/api/triggered-matches/list?${params}`);
-        const result = await res.json();
-        matches = result.matches || [];
-      } catch (fetchErr) {
-        console.error('Error fetching triggered matches from API:', fetchErr);
-        matches = [];
-      }
+      const params = new URLSearchParams({
+        user_id: currentUser.id,
+        range: timeRange,
+        limit: String(itemsPerPage),
+        offset: String(page * itemsPerPage),
+      });
+      const res = await fetch(`/api/triggered-matches/list?${params}`);
+      const result = await res.json();
+      const matches: TriggeredMatch[] = result.matches || [];
 
       if (page === 0 || isRefresh) {
         setTriggeredMatches(matches);
@@ -80,238 +119,383 @@ export default function HistoryTriggeredPage() {
     }
   }, [page, timeRange]);
 
-  // Load inițial la mount (o singură dată)
   useEffect(() => {
     loadTriggeredMatches();
   }, [loadTriggeredMatches]);
 
-  // Handle time range change → reset page și reload
   const handleTimeRangeChange = (range: typeof timeRange) => {
     setTimeRange(range);
     setPage(0);
-    loadTriggeredMatches(true); // reload imediat
+    setExpandedMatch(null);
   };
 
-  // Handle manual refresh
   const handleRefresh = () => {
     setPage(0);
+    setExpandedMatch(null);
     loadTriggeredMatches(true);
   };
 
-  // Format time since triggered
-  const getTimeSinceTriggered = (triggeredAt: string): string => {
-    const now = new Date();
-    const then = new Date(triggeredAt);
-    const diffMs = now.getTime() - then.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
+  const getTimeSince = (triggeredAt: string): string => {
+    const diffMs = Date.now() - new Date(triggeredAt).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(diffMs / 3600000);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(diffMs / 86400000)}d ago`;
   };
+
+  const matchGroups = groupByMatch(triggeredMatches);
 
   return (
     <AuthWrapper>
-      <div className="min-h-screen p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
-          
+      <div className="min-h-screen p-4 sm:p-6">
+        <div className="max-w-3xl mx-auto space-y-4">
+
           {/* HEADER */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between mb-8"
-          >
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-glass-light rounded-lg transition-colors"
-                title="Go back"
+                className="p-2 hover:bg-glass-light rounded-lg transition shrink-0"
               >
                 <ArrowLeft className="w-5 h-5 text-text-secondary" />
               </button>
-              <div>
-                <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent mb-2">
-                  📊 Triggered Matches History
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
+                  Triggered History
                 </h1>
-                <p className="text-text-secondary">Track all matches that triggered your filters</p>
+                <p className="text-xs text-text-muted">Matches that triggered your filters</p>
               </div>
             </div>
 
-            {/* Buton Refresh manual */}
             <button
               onClick={handleRefresh}
               disabled={refreshing || loading}
-              className="flex items-center gap-2 px-4 py-2 glass-card rounded-lg hover:bg-glass-medium transition-all disabled:opacity-50"
+              className="p-2 rounded-lg hover:bg-glass-light transition disabled:opacity-50 shrink-0"
+              title="Refresh"
             >
-              <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              <RefreshCw className={`w-5 h-5 text-text-secondary ${refreshing ? 'animate-spin' : ''}`} />
             </button>
-          </motion.div>
+          </div>
 
-          {/* TIME FILTER */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="glass-card p-4 flex gap-2 flex-wrap"
-          >
+          {/* TIME FILTER - compact pills */}
+          <div className="flex gap-1.5 flex-wrap">
             {(['24h', '7d', '30d', 'all'] as const).map((range) => (
               <button
                 key={range}
                 onClick={() => handleTimeRangeChange(range)}
-                className={`
-                  px-4 py-2 rounded-lg font-semibold transition-all text-sm
-                  ${timeRange === range
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                  timeRange === range
                     ? 'bg-accent-cyan text-black'
-                    : 'bg-glass-light text-text-secondary hover:bg-glass-medium'
-                  }
-                `}
+                    : 'bg-glass-light text-text-muted hover:text-white'
+                }`}
               >
-                <Calendar className="w-4 h-4 inline mr-2" />
-                {range === 'all' ? 'All Time' : 'Last ' + range}
+                {range === 'all' ? 'All' : range}
               </button>
             ))}
-          </motion.div>
+          </div>
 
-          {/* STATS */}
-          {triggeredMatches.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.15 }}
-              className="grid grid-cols-2 md:grid-cols-4 gap-4"
-            >
-              <div className="glass-card p-4 text-center">
-                <div className="text-xs text-text-muted mb-1">Total Triggered</div>
-                <div className="text-2xl font-bold text-accent-cyan">{triggeredMatches.length}</div>
+          {/* QUICK STATS */}
+          {matchGroups.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg p-2.5 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+                <div className="text-[10px] text-text-muted">Matches</div>
+                <div className="text-lg font-bold text-accent-cyan">{matchGroups.length}</div>
               </div>
-              <div className="glass-card p-4 text-center">
-                <div className="text-xs text-text-muted mb-1">Unique Matches</div>
-                <div className="text-2xl font-bold text-accent-green">
-                  {new Set(triggeredMatches.map(m => m.match_id)).size}
-                </div>
+              <div className="rounded-lg p-2.5 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+                <div className="text-[10px] text-text-muted">Triggers</div>
+                <div className="text-lg font-bold text-accent-green">{triggeredMatches.length}</div>
               </div>
-              <div className="glass-card p-4 text-center">
-                <div className="text-xs text-text-muted mb-1">Filters Used</div>
-                <div className="text-2xl font-bold text-accent-purple">
+              <div className="rounded-lg p-2.5 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+                <div className="text-[10px] text-text-muted">Filters</div>
+                <div className="text-lg font-bold text-accent-purple">
                   {new Set(triggeredMatches.map(m => m.filter_id)).size}
                 </div>
               </div>
-              <div className="glass-card p-4 text-center">
-                <div className="text-xs text-text-muted mb-1">Avg Goals</div>
-                <div className="text-2xl font-bold text-accent-amber">
-                  {(triggeredMatches.reduce((sum, m) => sum + (m.score_home || 0) + (m.score_away || 0), 0) / triggeredMatches.length).toFixed(1)}
-                </div>
-              </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* LISTA */}
+          {/* MATCH LIST */}
           {loading && triggeredMatches.length === 0 ? (
-            <div className="glass-card p-12 text-center">
-              <div className="inline-block animate-spin mb-4">
-                <Zap className="w-8 h-8 text-accent-cyan" />
-              </div>
-              <p className="text-text-secondary">Loading triggered matches...</p>
+            <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+              <Zap className="w-6 h-6 text-accent-cyan mx-auto mb-2 animate-pulse" />
+              <p className="text-sm text-text-muted">Loading...</p>
             </div>
-          ) : triggeredMatches.length === 0 ? (
-            <div className="glass-card p-12 text-center">
-              <Trophy className="w-12 h-12 text-text-muted mx-auto mb-4 opacity-50" />
-              <p className="text-text-secondary">No triggered matches {timeRange !== 'all' ? `in the last ${timeRange}` : ''}</p>
-              <p className="text-xs text-text-muted mt-2 max-w-sm mx-auto">
-                Triggers are logged when live matches meet your filter conditions while you have the app open. Keep the app open during match times to see results here.
+          ) : matchGroups.length === 0 ? (
+            <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+              <Trophy className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
+              <p className="text-sm text-text-secondary">
+                No triggered matches {timeRange !== 'all' ? `in the last ${timeRange}` : ''}
+              </p>
+              <p className="text-[11px] text-text-muted mt-1.5 max-w-xs mx-auto">
+                Keep the app open during match times. Your active filters will trigger automatically.
               </p>
               {timeRange !== 'all' && (
                 <button
                   onClick={() => handleTimeRangeChange('all')}
                   className="text-accent-cyan text-xs mt-3 hover:underline"
                 >
-                  Try All Time
+                  Show All Time
                 </button>
               )}
             </div>
           ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="space-y-3"
-            >
-              {triggeredMatches.map((match) => (
-                <motion.div
-                  key={match.id || `${match.match_id}-${match.filter_id}-${match.created_at}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass-card p-4 rounded-xl border border-glass-lighter hover:border-accent-cyan/40 transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    {/* Match info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Zap className="w-4 h-4 text-accent-cyan shrink-0" />
-                        <p className="font-semibold text-white truncate">
-                          {match.home_team} vs {match.away_team}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-text-muted flex-wrap">
-                        {match.league_name && (
-                          <span>{match.league_name}</span>
-                        )}
-                        {match.score_home != null && match.score_away != null && (
-                          <span className="font-bold text-accent-green">
-                            {match.score_home} - {match.score_away}
-                          </span>
-                        )}
-                        {match.match_time != null && (
-                          <span className="bg-accent-cyan/10 text-accent-cyan px-1.5 py-0.5 rounded font-semibold">
-                            {match.match_time}&apos;
-                          </span>
-                        )}
-                        <span className="capitalize text-text-muted">{match.match_status}</span>
-                      </div>
-                    </div>
-
-                    {/* Time */}
-                    <div className="text-right shrink-0">
-                      <div className="text-xs text-accent-blue font-semibold">
-                        {getTimeSinceTriggered(match.triggered_at)}
-                      </div>
-                      <div className="text-[10px] text-text-muted mt-0.5">
-                        {new Date(match.triggered_at).toLocaleDateString('en-GB', {
-                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Filter info */}
-                  <div className="mt-2 pt-2 border-t border-glass-lighter flex items-center gap-2">
-                    <FilterIcon className="w-3.5 h-3.5 text-accent-purple shrink-0" />
-                    <span className="text-xs text-accent-purple font-semibold truncate">
-                      {match.filter_name}
-                    </span>
-                  </div>
-                </motion.div>
+            <div className="space-y-2">
+              {matchGroups.map((group) => (
+                <MatchGroupCard
+                  key={group.matchId}
+                  group={group}
+                  isExpanded={expandedMatch === group.matchId}
+                  onToggle={() => setExpandedMatch(
+                    expandedMatch === group.matchId ? null : group.matchId
+                  )}
+                  getTimeSince={getTimeSince}
+                />
               ))}
-            </motion.div>
+            </div>
           )}
 
           {/* LOAD MORE */}
           {hasMore && !loading && (
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+            <button
               onClick={() => setPage(prev => prev + 1)}
-              className="w-full py-3 glass-card rounded-lg font-semibold text-accent-cyan hover:bg-glass-light transition-all"
+              className="w-full py-2.5 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)] text-sm font-semibold text-accent-cyan hover:bg-glass-light transition"
             >
               Load More
-            </motion.button>
+            </button>
           )}
         </div>
       </div>
     </AuthWrapper>
+  );
+}
+
+// ============================================
+// MATCH GROUP CARD (expandable)
+// ============================================
+
+function MatchGroupCard({
+  group,
+  isExpanded,
+  onToggle,
+  getTimeSince,
+}: {
+  group: MatchGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+  getTimeSince: (t: string) => string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+      {/* Collapsed card header */}
+      <button
+        onClick={onToggle}
+        className="w-full text-left p-3 sm:p-4 hover:bg-white/5 transition"
+      >
+        <div className="flex items-center gap-3">
+          {/* Score */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-lg font-bold text-accent-cyan">{group.scoreHome ?? 0}</span>
+            <span className="text-xs text-text-muted">-</span>
+            <span className="text-lg font-bold text-accent-blue">{group.scoreAway ?? 0}</span>
+          </div>
+
+          {/* Teams + League */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-sm text-white truncate">
+                {group.homeTeam}
+              </span>
+              <span className="text-[10px] text-text-muted shrink-0">vs</span>
+              <span className="font-semibold text-sm text-white truncate">
+                {group.awayTeam}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-text-muted truncate">{group.leagueName}</span>
+              <span className="text-[10px] text-accent-blue">{getTimeSince(group.latestTriggerAt)}</span>
+            </div>
+          </div>
+
+          {/* Filter count badge + chevron */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="bg-accent-purple/20 text-accent-purple text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {group.triggers.length} {group.triggers.length === 1 ? 'filter' : 'filters'}
+            </span>
+            <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          </div>
+        </div>
+      </button>
+
+      {/* Expanded content */}
+      {isExpanded && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="border-t border-white/8"
+        >
+          {/* Triggered filters list */}
+          <div className="px-3 sm:px-4 py-2 space-y-1.5">
+            <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1">
+              Triggered Filters
+            </div>
+            {group.triggers.map((trigger, i) => (
+              <div
+                key={trigger.id || i}
+                className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-white/3"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <FilterIcon className="w-3 h-3 text-accent-purple shrink-0" />
+                  <span className="text-xs text-white font-medium truncate">
+                    {trigger.filter_name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 text-[10px] text-text-muted">
+                  {trigger.match_time != null && (
+                    <span className="bg-accent-cyan/10 text-accent-cyan px-1.5 py-0.5 rounded font-semibold">
+                      {trigger.match_time}&apos;
+                    </span>
+                  )}
+                  <span>
+                    {new Date(trigger.triggered_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Inline ESPN stats */}
+          <InlineMatchStats matchId={group.matchId} leagueName={group.leagueName} />
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// INLINE MATCH STATS (fetched on expand)
+// ============================================
+
+interface ESPNStats {
+  homePoss: number;
+  awayPoss: number;
+  homeSoT: number;
+  awaySoT: number;
+  homeShots: number;
+  awayShots: number;
+  homeCorners: number;
+  awayCorners: number;
+  homeYellow: number;
+  awayYellow: number;
+  homeRed: number;
+  awayRed: number;
+  homeFouls: number;
+  awayFouls: number;
+  homeOffsides: number;
+  awayOffsides: number;
+}
+
+const LEAGUE_MAP: Record<string, string> = {
+  'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
+  'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
+  'Champions League': 'uefa.champions', 'Europa League': 'uefa.europa',
+  'Turkish Super Lig': 'tur.1', 'Super Lig': 'tur.1',
+  'Eredivisie': 'ned.1', 'Primeira Liga': 'por.1', 'Scottish Premiership': 'sco.1',
+};
+
+function InlineMatchStats({ matchId, leagueName }: { matchId: string; leagueName: string }) {
+  const [stats, setStats] = useState<ESPNStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const leagueCode = LEAGUE_MAP[leagueName] || '';
+    const leagueParam = leagueCode ? `&league=${leagueCode}` : '';
+
+    fetch(`/api/espn/match-stats?eventId=${matchId}${leagueParam}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled) return;
+        if (data?.stats) setStats(data.stats);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [matchId, leagueName]);
+
+  if (loading) {
+    return (
+      <div className="px-3 sm:px-4 py-3 border-t border-white/5">
+        <div className="text-[10px] text-text-muted animate-pulse">Loading statistics...</div>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="px-3 sm:px-4 py-3 border-t border-white/5">
+        <div className="text-[10px] text-text-muted">Statistics not available</div>
+      </div>
+    );
+  }
+
+  const rows: { label: string; home: number; away: number; unit?: string }[] = [];
+  if (stats.homePoss > 0) rows.push({ label: 'Possession', home: stats.homePoss, away: stats.awayPoss, unit: '%' });
+  if (stats.homeSoT + stats.awaySoT > 0) rows.push({ label: 'Shots on Target', home: stats.homeSoT, away: stats.awaySoT });
+  if (stats.homeShots + stats.awayShots > 0) rows.push({ label: 'Total Shots', home: stats.homeShots, away: stats.awayShots });
+  if (stats.homeCorners + stats.awayCorners > 0) rows.push({ label: 'Corners', home: stats.homeCorners, away: stats.awayCorners });
+  if (stats.homeYellow + stats.awayYellow > 0) rows.push({ label: 'Yellow Cards', home: stats.homeYellow, away: stats.awayYellow });
+  if (stats.homeRed + stats.awayRed > 0) rows.push({ label: 'Red Cards', home: stats.homeRed, away: stats.awayRed });
+  if (stats.homeFouls + stats.awayFouls > 0) rows.push({ label: 'Fouls', home: stats.homeFouls, away: stats.awayFouls });
+  if (stats.homeOffsides + stats.awayOffsides > 0) rows.push({ label: 'Offsides', home: stats.homeOffsides, away: stats.awayOffsides });
+
+  if (rows.length === 0) {
+    return (
+      <div className="px-3 sm:px-4 py-3 border-t border-white/5">
+        <div className="text-[10px] text-text-muted">No statistics recorded</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 sm:px-4 py-3 border-t border-white/5 space-y-2">
+      <div className="flex items-center gap-1.5 mb-1">
+        <BarChart3 className="w-3 h-3 text-accent-cyan" />
+        <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Match Statistics</span>
+      </div>
+      {rows.map(row => {
+        const total = row.home + row.away;
+        const homeP = total > 0 ? Math.round((row.home / total) * 100) : 50;
+        const homeLeads = row.home > row.away;
+        const awayLeads = row.away > row.home;
+
+        return (
+          <div key={row.label} className="flex items-center gap-2 text-[11px]">
+            <span className={`w-7 text-right font-bold ${homeLeads ? 'text-accent-cyan' : 'text-text-secondary'}`}>
+              {row.home}{row.unit || ''}
+            </span>
+            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex">
+              <div
+                className={`h-full rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/30'}`}
+                style={{ width: `${homeP}%` }}
+              />
+              <div
+                className={`h-full rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/30'}`}
+                style={{ width: `${100 - homeP}%` }}
+              />
+            </div>
+            <span className={`w-7 text-left font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>
+              {row.away}{row.unit || ''}
+            </span>
+            <span className="text-text-muted w-[72px] text-[9px] truncate">{row.label}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }

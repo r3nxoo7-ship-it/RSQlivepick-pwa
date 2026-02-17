@@ -252,22 +252,59 @@ class BackgroundScannerService {
   }
 
   /**
-   * Check if notification already sent
+   * Check if notification already sent - checks both in-memory and localStorage
    */
   private hasNotificationBeenSent(key: string): boolean {
+    // Check in-memory first
     const lastSent = this.notificationsSent.get(key);
-    if (!lastSent) return false;
+    if (lastSent) {
+      const hoursSince = (Date.now() - lastSent.getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 24) return true;
+    }
 
-    // Consider notification "already sent" for 24 hours
-    const hoursSinceLastNotification = (Date.now() - lastSent.getTime()) / (1000 * 60 * 60);
-    return hoursSinceLastNotification < 24;
+    // Check localStorage (persists across page refreshes/reconnects)
+    try {
+      const stored = localStorage.getItem('rsq_notif_sent');
+      if (stored) {
+        const sentMap: Record<string, number> = JSON.parse(stored);
+        const sentTime = sentMap[key];
+        if (sentTime) {
+          const hoursSince = (Date.now() - sentTime) / (1000 * 60 * 60);
+          if (hoursSince < 24) {
+            // Re-populate in-memory map
+            this.notificationsSent.set(key, new Date(sentTime));
+            return true;
+          }
+        }
+      }
+    } catch { /* localStorage not available */ }
+
+    return false;
   }
 
   /**
-   * Mark notification as sent
+   * Mark notification as sent - persists to localStorage
    */
   private markNotificationAsSent(key: string) {
-    this.notificationsSent.set(key, new Date());
+    const now = new Date();
+    this.notificationsSent.set(key, now);
+
+    // Persist to localStorage
+    try {
+      const stored = localStorage.getItem('rsq_notif_sent');
+      const sentMap: Record<string, number> = stored ? JSON.parse(stored) : {};
+
+      // Add new key
+      sentMap[key] = now.getTime();
+
+      // Cleanup entries older than 24 hours
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      for (const k of Object.keys(sentMap)) {
+        if (sentMap[k] < cutoff) delete sentMap[k];
+      }
+
+      localStorage.setItem('rsq_notif_sent', JSON.stringify(sentMap));
+    } catch { /* localStorage not available */ }
   }
 
   /**
@@ -275,6 +312,7 @@ class BackgroundScannerService {
    */
   public resetNotifications() {
     this.notificationsSent.clear();
+    try { localStorage.removeItem('rsq_notif_sent'); } catch { /* ignore */ }
     console.log('🔄 Background Scanner: Notifications reset');
   }
 
