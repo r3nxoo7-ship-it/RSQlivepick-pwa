@@ -40,6 +40,16 @@ interface MatchGroup {
   triggers: TriggeredMatch[];
 }
 
+interface FinalResult {
+  homeTeam: string;
+  awayTeam: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  status: string;
+  statusLong: string;
+  loaded: boolean;
+}
+
 interface ESPNStats {
   homePoss: number; awayPoss: number;
   homeSoT: number; awaySoT: number;
@@ -294,6 +304,60 @@ function MatchGroupCard({
 }) {
   // Expanded filter detail (clickable filter name)
   const [expandedFilter, setExpandedFilter] = useState<string | null>(null);
+  const [finalResult, setFinalResult] = useState<FinalResult | null>(null);
+  const [loadingResult, setLoadingResult] = useState(false);
+
+  // Fetch final result when card is expanded
+  useEffect(() => {
+    if (isExpanded && !finalResult && !loadingResult) {
+      setLoadingResult(true);
+      fetch(`/api/match-result?match_id=${group.matchId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.scoreHome !== undefined && data.scoreAway !== undefined) {
+            setFinalResult({
+              homeTeam: data.homeTeam || group.homeTeam,
+              awayTeam: data.awayTeam || group.awayTeam,
+              scoreHome: data.scoreHome,
+              scoreAway: data.scoreAway,
+              status: data.status || '',
+              statusLong: data.statusLong || '',
+              loaded: true,
+            });
+          } else {
+            // Use group's current data if no update available
+            setFinalResult({
+              homeTeam: group.homeTeam,
+              awayTeam: group.awayTeam,
+              scoreHome: group.scoreHome,
+              scoreAway: group.scoreAway,
+              status: group.matchStatus,
+              statusLong: '',
+              loaded: true,
+            });
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching final result:', err);
+          // Fallback to group's data
+          setFinalResult({
+            homeTeam: group.homeTeam,
+            awayTeam: group.awayTeam,
+            scoreHome: group.scoreHome,
+            scoreAway: group.scoreAway,
+            status: group.matchStatus,
+            statusLong: '',
+            loaded: true,
+          });
+        })
+        .finally(() => setLoadingResult(false));
+    }
+  }, [isExpanded, group.matchId, group.homeTeam, group.awayTeam, group.scoreHome, group.scoreAway, group.matchStatus, finalResult, loadingResult]);
+
+  // Determine if match is finished
+  const isFinished = finalResult?.status?.toLowerCase() === 'ft' || 
+                     finalResult?.statusLong?.toLowerCase().includes('finished') ||
+                     group.matchStatus?.toLowerCase() === 'finished';
 
   return (
     <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
@@ -308,6 +372,11 @@ function MatchGroupCard({
             <span className="text-lg font-bold text-accent-cyan">{group.scoreHome ?? 0}</span>
             <span className="text-xs text-text-muted">-</span>
             <span className="text-lg font-bold text-accent-blue">{group.scoreAway ?? 0}</span>
+            {isFinished && (
+              <span className="text-[10px] bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded font-semibold ml-1">
+                FT
+              </span>
+            )}
           </div>
 
           {/* Teams + meta */}
@@ -334,6 +403,23 @@ function MatchGroupCard({
       {/* Expanded content */}
       {isExpanded && (
         <div className="border-t border-white/8">
+          {/* Final Result Display */}
+          {finalResult && isFinished && (
+            <div className="px-3 py-2.5 bg-accent-green/5 border-b border-accent-green/20">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-text-muted">Final Result:</span>
+                <span className="font-bold text-accent-green">
+                  {finalResult.scoreHome} - {finalResult.scoreAway}
+                </span>
+              </div>
+              {group.scoreHome !== finalResult.scoreHome || group.scoreAway !== finalResult.scoreAway ? (
+                <div className="text-[10px] text-accent-cyan mt-1">
+                  Changed from {group.scoreHome ?? 0}-{group.scoreAway ?? 0} when triggered
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Triggered filters - clickable */}
           <div className="px-3 py-2 space-y-1">
             {group.triggers.map((trigger, i) => {
