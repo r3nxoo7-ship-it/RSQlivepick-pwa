@@ -67,10 +67,11 @@ export async function GET(request: NextRequest) {
       awayTeam: match.away_team_name,
       scoreHome: match.home_score,
       scoreAway: match.away_score,
-      status: match.status_short,
-      statusLong: match.status_long,
+      status: match.status === 'completed' ? 'FT' : match.status,
+      statusLong: match.status === 'completed' ? 'Match Finished' : 
+                  match.status === 'in_progress' ? 'In Progress' : 'Scheduled',
       league: match.league,
-      date: match.dt_event,
+      date: match.date,
       source: 'espn_synced',
     };
 
