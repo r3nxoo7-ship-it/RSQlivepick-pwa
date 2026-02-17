@@ -22,20 +22,6 @@ import AuthWrapper from '@/components/AuthWrapper';
 import { LiveMatch, getMatchById } from '@/lib/unified-api';
 import Link from 'next/link';
 
-// ============================================
-// TYPES
-// ============================================
-
-interface FinalResult {
-  homeTeam: string;
-  awayTeam: string;
-  scoreHome: number;
-  scoreAway: number;
-  status: string;
-  statusLong: string;
-  loaded: boolean;
-}
-
 export default function TriggeredMatchDetailsPage() {
   const router = useRouter();
   const params = useParams();
@@ -46,8 +32,6 @@ export default function TriggeredMatchDetailsPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [finalResult, setFinalResult] = useState<FinalResult | null>(null);
-  const [loadingResult, setLoadingResult] = useState(false);
 
   // Load triggered match data from database
   useEffect(() => {
@@ -112,53 +96,7 @@ export default function TriggeredMatchDetailsPage() {
     loadTriggeredMatch();
   }, [matchId]);
 
-  // Fetch final result from ESPN database
-  useEffect(() => {
-    if (!matchId || !triggered) return;
-
-    setLoadingResult(true);
-    fetch(`/api/match-result?match_id=${matchId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.scoreHome !== undefined && data.scoreAway !== undefined) {
-          setFinalResult({
-            homeTeam: data.homeTeam || triggered.home_team,
-            awayTeam: data.awayTeam || triggered.away_team,
-            scoreHome: data.scoreHome,
-            scoreAway: data.scoreAway,
-            status: data.status || '',
-            statusLong: data.statusLong || '',
-            loaded: true,
-          });
-        } else {
-          // Use trigger data as fallback
-          setFinalResult({
-            homeTeam: triggered.home_team,
-            awayTeam: triggered.away_team,
-            scoreHome: triggered.score_home,
-            scoreAway: triggered.score_away,
-            status: triggered.match_status,
-            statusLong: '',
-            loaded: true,
-          });
-        }
-      })
-      .catch(err => {
-        console.error('Error fetching final result:', err);
-        // Fallback to trigger data
-        setFinalResult({
-          homeTeam: triggered.home_team,
-          awayTeam: triggered.away_team,
-          scoreHome: triggered.score_home,
-          scoreAway: triggered.score_away,
-          status: triggered.match_status,
-          statusLong: '',
-          loaded: true,
-        });
-      })
-      .finally(() => setLoadingResult(false));
-  }, [matchId, triggered]);
-    return (
+  return (
       <AuthWrapper>
         <div className="min-h-screen p-4 sm:p-6 flex items-center justify-center">
           <div className="text-center">
@@ -320,45 +258,6 @@ export default function TriggeredMatchDetailsPage() {
               </div>
             </div>
           </motion.div>
-
-          {/* ========== FINAL RESULT (if match finished) ========== */}
-          {finalResult && (finalResult.status === 'FT' || finalResult.statusLong?.toLowerCase().includes('finished')) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="p-6 sm:p-8 rounded-lg bg-accent-green/5 border border-accent-green/30"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-accent-green">Final Result</h3>
-                <span className="text-[11px] bg-accent-green/20 text-accent-green px-2.5 py-1 rounded font-semibold">
-                  FT
-                </span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mb-4">
-                <div className="text-center flex-1">
-                  <p className="text-lg font-bold text-accent-green">
-                    {finalResult.scoreHome}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl text-text-secondary font-semibold">-</p>
-                </div>
-                <div className="text-center flex-1">
-                  <p className="text-lg font-bold text-accent-green">
-                    {finalResult.scoreAway}
-                  </p>
-                </div>
-              </div>
-
-              {(homeScore !== finalResult.scoreHome || awayScore !== finalResult.scoreAway) && (
-                <p className="text-[12px] text-accent-cyan text-center">
-                  Changed from {homeScore}-{awayScore} when triggered
-                </p>
-              )}
-            </motion.div>
-          )}
 
           {/* ========== MATCH STATISTICS (ESPN) ========== */}
           <motion.div
