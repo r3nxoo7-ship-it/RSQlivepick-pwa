@@ -3,27 +3,30 @@
 // ============================================
 // TRIGGERED MATCHES HISTORY PAGE
 // ============================================
-// Groups triggers by match, expandable cards with inline ESPN stats
+// Groups triggers by match, expandable cards with LivePick-style stats
+// Clickable filters show trigger context (score at trigger time, minute)
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
-  Clock,
   Filter as FilterIcon,
   Zap,
   Trophy,
-  Calendar,
   RefreshCw,
   ChevronDown,
   BarChart3,
+  Clock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers } from '@/lib/supabase';
 import type { TriggeredMatch } from '@/lib/supabase';
 
-// Group triggers by match_id
+// ============================================
+// TYPES
+// ============================================
+
 interface MatchGroup {
   matchId: string;
   homeTeam: string;
@@ -33,8 +36,32 @@ interface MatchGroup {
   scoreAway: number | null;
   matchStatus: string;
   latestTriggerAt: string;
+  // Deduplicated: one entry per filter_id
   triggers: TriggeredMatch[];
 }
+
+interface ESPNStats {
+  homePoss: number; awayPoss: number;
+  homeSoT: number; awaySoT: number;
+  homeShots: number; awayShots: number;
+  homeCorners: number; awayCorners: number;
+  homeYellow: number; awayYellow: number;
+  homeRed: number; awayRed: number;
+  homeFouls: number; awayFouls: number;
+  homeOffsides: number; awayOffsides: number;
+}
+
+// ============================================
+// HELPERS
+// ============================================
+
+const LEAGUE_MAP: Record<string, string> = {
+  'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
+  'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
+  'Champions League': 'uefa.champions', 'Europa League': 'uefa.europa',
+  'Turkish Super Lig': 'tur.1', 'Super Lig': 'tur.1',
+  'Eredivisie': 'ned.1', 'Primeira Liga': 'por.1', 'Scottish Premiership': 'sco.1',
+};
 
 function groupByMatch(matches: TriggeredMatch[]): MatchGroup[] {
   const map = new Map<string, MatchGroup>();
@@ -55,7 +82,13 @@ function groupByMatch(matches: TriggeredMatch[]): MatchGroup[] {
       });
     }
     const group = map.get(key)!;
-    group.triggers.push(m);
+
+    // Deduplicate: only keep first trigger per filter_id
+    const alreadyHasFilter = group.triggers.some(t => t.filter_id === m.filter_id);
+    if (!alreadyHasFilter) {
+      group.triggers.push(m);
+    }
+
     // Keep latest score/status
     if (new Date(m.triggered_at) > new Date(group.latestTriggerAt)) {
       group.latestTriggerAt = m.triggered_at;
@@ -70,12 +103,25 @@ function groupByMatch(matches: TriggeredMatch[]): MatchGroup[] {
   );
 }
 
+function getTimeSince(triggeredAt: string): string {
+  const diffMs = Date.now() - new Date(triggeredAt).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(diffMs / 3600000);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(diffMs / 86400000)}d ago`;
+}
+
+// ============================================
+// MAIN PAGE
+// ============================================
+
 export default function HistoryTriggeredPage() {
   const router = useRouter();
 
   const [triggeredMatches, setTriggeredMatches] = useState<TriggeredMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [timeRange, setTimeRange] = useState<'all' | '24h' | '7d' | '30d'>('7d');
@@ -87,7 +133,6 @@ export default function HistoryTriggeredPage() {
   const loadTriggeredMatches = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
-    setError(null);
 
     try {
       const currentUser = authHelpers.getCurrentUser();
@@ -108,11 +153,9 @@ export default function HistoryTriggeredPage() {
       } else {
         setTriggeredMatches(prev => [...prev, ...matches]);
       }
-
       setHasMore(matches.length === itemsPerPage);
     } catch (err) {
       console.error('Error loading triggered matches:', err);
-      setError('Failed to load triggered matches');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -129,28 +172,13 @@ export default function HistoryTriggeredPage() {
     setExpandedMatch(null);
   };
 
-  const handleRefresh = () => {
-    setPage(0);
-    setExpandedMatch(null);
-    loadTriggeredMatches(true);
-  };
-
-  const getTimeSince = (triggeredAt: string): string => {
-    const diffMs = Date.now() - new Date(triggeredAt).getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(diffMs / 3600000);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(diffMs / 86400000)}d ago`;
-  };
-
   const matchGroups = groupByMatch(triggeredMatches);
+  const uniqueFilters = new Set(triggeredMatches.map(m => m.filter_id)).size;
 
   return (
     <AuthWrapper>
       <div className="min-h-screen p-4 sm:p-6">
-        <div className="max-w-3xl mx-auto space-y-4">
+        <div className="max-w-3xl mx-auto space-y-3">
 
           {/* HEADER */}
           <div className="flex items-center justify-between">
@@ -162,25 +190,21 @@ export default function HistoryTriggeredPage() {
                 <ArrowLeft className="w-5 h-5 text-text-secondary" />
               </button>
               <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
-                  Triggered History
-                </h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">Triggered History</h1>
                 <p className="text-xs text-text-muted">Matches that triggered your filters</p>
               </div>
             </div>
-
             <button
-              onClick={handleRefresh}
+              onClick={() => { setPage(0); setExpandedMatch(null); loadTriggeredMatches(true); }}
               disabled={refreshing || loading}
               className="p-2 rounded-lg hover:bg-glass-light transition disabled:opacity-50 shrink-0"
-              title="Refresh"
             >
               <RefreshCw className={`w-5 h-5 text-text-secondary ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          {/* TIME FILTER - compact pills */}
-          <div className="flex gap-1.5 flex-wrap">
+          {/* TIME PILLS + STATS inline */}
+          <div className="flex items-center gap-2 flex-wrap">
             {(['24h', '7d', '30d', 'all'] as const).map((range) => (
               <button
                 key={range}
@@ -194,27 +218,12 @@ export default function HistoryTriggeredPage() {
                 {range === 'all' ? 'All' : range}
               </button>
             ))}
+            {matchGroups.length > 0 && (
+              <span className="text-[10px] text-text-muted ml-auto">
+                {matchGroups.length} matches {'\u00B7'} {uniqueFilters} filters
+              </span>
+            )}
           </div>
-
-          {/* QUICK STATS */}
-          {matchGroups.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg p-2.5 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
-                <div className="text-[10px] text-text-muted">Matches</div>
-                <div className="text-lg font-bold text-accent-cyan">{matchGroups.length}</div>
-              </div>
-              <div className="rounded-lg p-2.5 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
-                <div className="text-[10px] text-text-muted">Triggers</div>
-                <div className="text-lg font-bold text-accent-green">{triggeredMatches.length}</div>
-              </div>
-              <div className="rounded-lg p-2.5 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
-                <div className="text-[10px] text-text-muted">Filters</div>
-                <div className="text-lg font-bold text-accent-purple">
-                  {new Set(triggeredMatches.map(m => m.filter_id)).size}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* MATCH LIST */}
           {loading && triggeredMatches.length === 0 ? (
@@ -250,7 +259,6 @@ export default function HistoryTriggeredPage() {
                   onToggle={() => setExpandedMatch(
                     expandedMatch === group.matchId ? null : group.matchId
                   )}
-                  getTimeSince={getTimeSince}
                 />
               ))}
             </div>
@@ -272,26 +280,27 @@ export default function HistoryTriggeredPage() {
 }
 
 // ============================================
-// MATCH GROUP CARD (expandable)
+// MATCH GROUP CARD
 // ============================================
 
 function MatchGroupCard({
   group,
   isExpanded,
   onToggle,
-  getTimeSince,
 }: {
   group: MatchGroup;
   isExpanded: boolean;
   onToggle: () => void;
-  getTimeSince: (t: string) => string;
 }) {
+  // Expanded filter detail (clickable filter name)
+  const [expandedFilter, setExpandedFilter] = useState<string | null>(null);
+
   return (
     <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
-      {/* Collapsed card header */}
+      {/* Card header - always visible */}
       <button
         onClick={onToggle}
-        className="w-full text-left p-3 sm:p-4 hover:bg-white/5 transition"
+        className="w-full text-left p-3 hover:bg-white/5 transition"
       >
         <div className="flex items-center gap-3">
           {/* Score */}
@@ -301,27 +310,21 @@ function MatchGroupCard({
             <span className="text-lg font-bold text-accent-blue">{group.scoreAway ?? 0}</span>
           </div>
 
-          {/* Teams + League */}
+          {/* Teams + meta */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-sm text-white truncate">
-                {group.homeTeam}
-              </span>
-              <span className="text-[10px] text-text-muted shrink-0">vs</span>
-              <span className="font-semibold text-sm text-white truncate">
-                {group.awayTeam}
-              </span>
+            <div className="text-sm font-semibold text-white truncate">
+              {group.homeTeam} vs {group.awayTeam}
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-text-muted truncate">{group.leagueName}</span>
-              <span className="text-[10px] text-accent-blue">{getTimeSince(group.latestTriggerAt)}</span>
+            <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+              <span className="text-text-muted truncate">{group.leagueName}</span>
+              <span className="text-accent-blue">{getTimeSince(group.latestTriggerAt)}</span>
             </div>
           </div>
 
-          {/* Filter count badge + chevron */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Filter count + chevron */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <span className="bg-accent-purple/20 text-accent-purple text-[10px] font-bold px-2 py-0.5 rounded-full">
-              {group.triggers.length} {group.triggers.length === 1 ? 'filter' : 'filters'}
+              {group.triggers.length}
             </span>
             <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           </div>
@@ -330,86 +333,103 @@ function MatchGroupCard({
 
       {/* Expanded content */}
       {isExpanded && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="border-t border-white/8"
-        >
-          {/* Triggered filters list */}
-          <div className="px-3 sm:px-4 py-2 space-y-1.5">
-            <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mb-1">
-              Triggered Filters
-            </div>
-            {group.triggers.map((trigger, i) => (
-              <div
-                key={trigger.id || i}
-                className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-white/3"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <FilterIcon className="w-3 h-3 text-accent-purple shrink-0" />
-                  <span className="text-xs text-white font-medium truncate">
-                    {trigger.filter_name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 text-[10px] text-text-muted">
-                  {trigger.match_time != null && (
-                    <span className="bg-accent-cyan/10 text-accent-cyan px-1.5 py-0.5 rounded font-semibold">
-                      {trigger.match_time}&apos;
-                    </span>
+        <div className="border-t border-white/8">
+          {/* Triggered filters - clickable */}
+          <div className="px-3 py-2 space-y-1">
+            {group.triggers.map((trigger, i) => {
+              const isFilterExpanded = expandedFilter === (trigger.id || String(i));
+              const triggerScore = `${trigger.score_home ?? '?'}-${trigger.score_away ?? '?'}`;
+
+              return (
+                <div key={trigger.id || i}>
+                  {/* Filter row - clickable */}
+                  <button
+                    onClick={() => setExpandedFilter(
+                      isFilterExpanded ? null : (trigger.id || String(i))
+                    )}
+                    className="w-full flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg hover:bg-white/5 transition text-left"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FilterIcon className="w-3 h-3 text-accent-purple shrink-0" />
+                      <span className="text-xs text-white font-medium truncate">
+                        {trigger.filter_name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {trigger.match_time != null && (
+                        <span className="bg-accent-cyan/10 text-accent-cyan text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                          {trigger.match_time}&apos;
+                        </span>
+                      )}
+                      <span className="text-[10px] text-text-muted font-medium">
+                        {triggerScore}
+                      </span>
+                      <ChevronDown className={`w-3 h-3 text-text-muted transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  {/* Filter detail - trigger context */}
+                  {isFilterExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="mx-2 mb-1.5 px-3 py-2.5 rounded-lg bg-white/3 border border-white/5"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="w-3 h-3 text-accent-blue shrink-0" />
+                        <span className="text-[11px] text-text-secondary">
+                          Picked <span className="text-accent-cyan font-semibold">{getTimeSince(trigger.triggered_at)}</span>
+                          {trigger.match_time != null && (
+                            <> at <span className="text-white font-semibold">{trigger.match_time}&apos;</span> minute</>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-text-muted">Score when triggered:</span>
+                        <span className="font-bold text-white">{triggerScore}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] mt-1">
+                        <span className="text-text-muted">Time:</span>
+                        <span className="text-text-secondary">
+                          {new Date(trigger.triggered_at).toLocaleString([], {
+                            day: '2-digit', month: 'short',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </motion.div>
                   )}
-                  <span>
-                    {new Date(trigger.triggered_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Inline ESPN stats */}
-          <InlineMatchStats matchId={group.matchId} leagueName={group.leagueName} />
-        </motion.div>
+          {/* LivePick-style stats */}
+          <LivePickStats matchId={group.matchId} leagueName={group.leagueName} homeName={group.homeTeam} awayName={group.awayTeam} />
+        </div>
       )}
     </div>
   );
 }
 
 // ============================================
-// INLINE MATCH STATS (fetched on expand)
+// LIVEPICK-STYLE STATS (circular gauges + bars)
 // ============================================
 
-interface ESPNStats {
-  homePoss: number;
-  awayPoss: number;
-  homeSoT: number;
-  awaySoT: number;
-  homeShots: number;
-  awayShots: number;
-  homeCorners: number;
-  awayCorners: number;
-  homeYellow: number;
-  awayYellow: number;
-  homeRed: number;
-  awayRed: number;
-  homeFouls: number;
-  awayFouls: number;
-  homeOffsides: number;
-  awayOffsides: number;
-}
-
-const LEAGUE_MAP: Record<string, string> = {
-  'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
-  'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
-  'Champions League': 'uefa.champions', 'Europa League': 'uefa.europa',
-  'Turkish Super Lig': 'tur.1', 'Super Lig': 'tur.1',
-  'Eredivisie': 'ned.1', 'Primeira Liga': 'por.1', 'Scottish Premiership': 'sco.1',
-};
-
-function InlineMatchStats({ matchId, leagueName }: { matchId: string; leagueName: string }) {
+function LivePickStats({
+  matchId,
+  leagueName,
+  homeName,
+  awayName,
+}: {
+  matchId: string;
+  leagueName: string;
+  homeName: string;
+  awayName: string;
+}) {
   const [stats, setStats] = useState<ESPNStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -430,7 +450,7 @@ function InlineMatchStats({ matchId, leagueName }: { matchId: string; leagueName
 
   if (loading) {
     return (
-      <div className="px-3 sm:px-4 py-3 border-t border-white/5">
+      <div className="px-3 py-3 border-t border-white/5">
         <div className="text-[10px] text-text-muted animate-pulse">Loading statistics...</div>
       </div>
     );
@@ -438,64 +458,187 @@ function InlineMatchStats({ matchId, leagueName }: { matchId: string; leagueName
 
   if (!stats) {
     return (
-      <div className="px-3 sm:px-4 py-3 border-t border-white/5">
+      <div className="px-3 py-3 border-t border-white/5">
         <div className="text-[10px] text-text-muted">Statistics not available</div>
       </div>
     );
   }
 
-  const rows: { label: string; home: number; away: number; unit?: string }[] = [];
-  if (stats.homePoss > 0) rows.push({ label: 'Possession', home: stats.homePoss, away: stats.awayPoss, unit: '%' });
-  if (stats.homeSoT + stats.awaySoT > 0) rows.push({ label: 'Shots on Target', home: stats.homeSoT, away: stats.awaySoT });
-  if (stats.homeShots + stats.awayShots > 0) rows.push({ label: 'Total Shots', home: stats.homeShots, away: stats.awayShots });
-  if (stats.homeCorners + stats.awayCorners > 0) rows.push({ label: 'Corners', home: stats.homeCorners, away: stats.awayCorners });
-  if (stats.homeYellow + stats.awayYellow > 0) rows.push({ label: 'Yellow Cards', home: stats.homeYellow, away: stats.awayYellow });
-  if (stats.homeRed + stats.awayRed > 0) rows.push({ label: 'Red Cards', home: stats.homeRed, away: stats.awayRed });
-  if (stats.homeFouls + stats.awayFouls > 0) rows.push({ label: 'Fouls', home: stats.homeFouls, away: stats.awayFouls });
-  if (stats.homeOffsides + stats.awayOffsides > 0) rows.push({ label: 'Offsides', home: stats.homeOffsides, away: stats.awayOffsides });
+  // Key gauges (LivePick-style circular)
+  const gauges: { label: string; home: number; away: number }[] = [];
+  if (stats.homeShots + stats.awayShots > 0) gauges.push({ label: 'Shots', home: stats.homeShots, away: stats.awayShots });
+  if (stats.homeCorners + stats.awayCorners > 0) gauges.push({ label: 'Corners', home: stats.homeCorners, away: stats.awayCorners });
+  if (stats.homePoss > 0) gauges.push({ label: 'Possession', home: stats.homePoss, away: stats.awayPoss });
 
-  if (rows.length === 0) {
+  // Bar stats
+  const bars: { label: string; home: number; away: number; unit?: string }[] = [];
+  if (stats.homeSoT + stats.awaySoT > 0) bars.push({ label: 'On Target', home: stats.homeSoT, away: stats.awaySoT });
+  if (stats.homeShots + stats.awayShots - stats.homeSoT - stats.awaySoT > 0) {
+    bars.push({ label: 'Off Target', home: stats.homeShots - stats.homeSoT, away: stats.awayShots - stats.awaySoT });
+  }
+
+  // Card stats
+  const hasCards = stats.homeYellow + stats.awayYellow + stats.homeRed + stats.awayRed > 0;
+
+  if (gauges.length === 0 && bars.length === 0) {
     return (
-      <div className="px-3 sm:px-4 py-3 border-t border-white/5">
+      <div className="px-3 py-3 border-t border-white/5">
         <div className="text-[10px] text-text-muted">No statistics recorded</div>
       </div>
     );
   }
 
   return (
-    <div className="px-3 sm:px-4 py-3 border-t border-white/5 space-y-2">
-      <div className="flex items-center gap-1.5 mb-1">
-        <BarChart3 className="w-3 h-3 text-accent-cyan" />
-        <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Match Statistics</span>
-      </div>
-      {rows.map(row => {
-        const total = row.home + row.away;
-        const homeP = total > 0 ? Math.round((row.home / total) * 100) : 50;
-        const homeLeads = row.home > row.away;
-        const awayLeads = row.away > row.home;
+    <div className="px-3 py-3 border-t border-white/5 space-y-3">
+      {/* Circular gauges row */}
+      {gauges.length > 0 && (
+        <div className="flex justify-around">
+          {gauges.map(g => (
+            <CircleGauge key={g.label} label={g.label} home={g.home} away={g.away} />
+          ))}
+        </div>
+      )}
 
-        return (
-          <div key={row.label} className="flex items-center gap-2 text-[11px]">
-            <span className={`w-7 text-right font-bold ${homeLeads ? 'text-accent-cyan' : 'text-text-secondary'}`}>
-              {row.home}{row.unit || ''}
-            </span>
-            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex">
-              <div
-                className={`h-full rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/30'}`}
-                style={{ width: `${homeP}%` }}
-              />
-              <div
-                className={`h-full rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/30'}`}
-                style={{ width: `${100 - homeP}%` }}
-              />
-            </div>
-            <span className={`w-7 text-left font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>
-              {row.away}{row.unit || ''}
-            </span>
-            <span className="text-text-muted w-[72px] text-[9px] truncate">{row.label}</span>
+      {/* On Target / Off Target bars */}
+      {bars.length > 0 && (
+        <div className="space-y-1.5">
+          {bars.map(bar => (
+            <StatBar key={bar.label} label={bar.label} home={bar.home} away={bar.away} />
+          ))}
+        </div>
+      )}
+
+      {/* Cards row */}
+      {hasCards && (
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-1.5">
+            {stats.homeYellow > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px]">
+                <span className="w-2 h-2.5 rounded-[1px] bg-yellow-400 inline-block" />
+                <span className="text-text-secondary font-bold">{stats.homeYellow}</span>
+              </span>
+            )}
+            {stats.homeRed > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px]">
+                <span className="w-2 h-2.5 rounded-[1px] bg-red-500 inline-block" />
+                <span className="text-text-secondary font-bold">{stats.homeRed}</span>
+              </span>
+            )}
           </div>
-        );
-      })}
+          <span className="text-[9px] text-text-muted">Cards</span>
+          <div className="flex items-center gap-1.5">
+            {stats.awayYellow > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px]">
+                <span className="text-text-secondary font-bold">{stats.awayYellow}</span>
+                <span className="w-2 h-2.5 rounded-[1px] bg-yellow-400 inline-block" />
+              </span>
+            )}
+            {stats.awayRed > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px]">
+                <span className="text-text-secondary font-bold">{stats.awayRed}</span>
+                <span className="w-2 h-2.5 rounded-[1px] bg-red-500 inline-block" />
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Fouls + Offsides compact row */}
+      {(stats.homeFouls + stats.awayFouls > 0 || stats.homeOffsides + stats.awayOffsides > 0) && (
+        <div className="flex items-center justify-center gap-4 text-[10px] text-text-muted pt-1 border-t border-white/5">
+          {stats.homeFouls + stats.awayFouls > 0 && (
+            <span>{stats.homeFouls} Fouls {stats.awayFouls}</span>
+          )}
+          {stats.homeOffsides + stats.awayOffsides > 0 && (
+            <span>{stats.homeOffsides} Offsides {stats.awayOffsides}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// CIRCLE GAUGE (LivePick-style)
+// ============================================
+
+function CircleGauge({ label, home, away }: { label: string; home: number; away: number }) {
+  const total = home + away;
+  const homePercent = total > 0 ? (home / total) * 100 : 50;
+  const awayPercent = 100 - homePercent;
+
+  // SVG circle
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const homeArc = (homePercent / 100) * circumference;
+  const awayArc = circumference - homeArc;
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-[9px] text-text-muted font-semibold">{label}</span>
+      <div className="relative w-[64px] h-[64px]">
+        <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90">
+          {/* Away arc (background) */}
+          <circle
+            cx="32" cy="32" r={radius}
+            fill="none"
+            stroke="rgba(59,130,246,0.4)"
+            strokeWidth="5"
+            strokeDasharray={`${awayArc} ${homeArc}`}
+            strokeDashoffset={-homeArc}
+          />
+          {/* Home arc */}
+          <circle
+            cx="32" cy="32" r={radius}
+            fill="none"
+            stroke="rgb(34,211,238)"
+            strokeWidth="5"
+            strokeDasharray={`${homeArc} ${awayArc}`}
+            strokeLinecap="round"
+          />
+        </svg>
+        {/* Center values */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center leading-tight">
+            <span className="text-[11px] font-bold text-accent-cyan">{home}</span>
+            <span className="text-[8px] text-text-muted mx-0.5">/</span>
+            <span className="text-[11px] font-bold text-accent-blue">{away}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// STAT BAR (On Target / Off Target style)
+// ============================================
+
+function StatBar({ label, home, away }: { label: string; home: number; away: number }) {
+  const total = home + away;
+  const homeP = total > 0 ? Math.round((home / total) * 100) : 50;
+
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="font-bold text-accent-cyan w-5 text-center">{home}</span>
+        <span className="text-text-muted text-[9px]">{label}</span>
+        <span className="font-bold text-accent-blue w-5 text-center">{away}</span>
+      </div>
+      <div className="flex gap-0.5 h-1.5">
+        <div className="flex-1 flex justify-end">
+          <div
+            className="h-full rounded-l-full bg-accent-cyan transition-all"
+            style={{ width: `${homeP}%` }}
+          />
+        </div>
+        <div className="flex-1 flex justify-start">
+          <div
+            className="h-full rounded-r-full bg-accent-blue transition-all"
+            style={{ width: `${100 - homeP}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

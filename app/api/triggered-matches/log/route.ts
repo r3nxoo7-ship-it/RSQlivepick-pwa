@@ -42,6 +42,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Server-side dedup: check if this match+filter combo already exists for this user
+    const { data: existing } = await supabaseAdmin
+      .from('triggered_matches')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('match_id', String(match_id))
+      .eq('filter_id', filter_id)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      // Already logged - return existing ID without inserting duplicate
+      return NextResponse.json({
+        success: true,
+        id: existing[0].id,
+        duplicate: true,
+      });
+    }
+
     // Insert triggered match
     const { data, error } = await supabaseAdmin
       .from('triggered_matches')
