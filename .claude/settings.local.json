@@ -24,7 +24,10 @@
       "Bash(ls:*)",
       "Bash(npx tsc:*)",
       "WebFetch(domain:rs-qlivepick-pwa.vercel.app)",
-      "WebFetch(domain:www.dfl.de)"
+      "WebFetch(domain:www.dfl.de)",
+      "Bash(python3:*)",
+      "Bash(node -e:*)",
+      "Bash(npx next build:*)"
     ]
   }
 }

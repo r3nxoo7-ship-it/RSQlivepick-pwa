@@ -11,20 +11,15 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   Clock,
-  Target,
   Trophy,
   BarChart3,
-  Users,
   Zap,
   AlertCircle,
-  Layers,
-  PieChart,
-  TrendingUp,
 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import AuthWrapper from '@/components/AuthWrapper';
-import { getMatchStatistics, LiveMatch, getMatchById } from '@/lib/unified-api';
+import { LiveMatch, getMatchById } from '@/lib/unified-api';
 import Link from 'next/link';
 
 export default function TriggeredMatchDetailsPage() {
@@ -61,17 +56,32 @@ export default function TriggeredMatchDetailsPage() {
         const foundTriggered = result.match;
         setTriggered(foundTriggered);
 
-        // Fetch live match data
+        // Fetch live match data and ESPN statistics
         try {
           const matchData = await getMatchById(foundTriggered.match_id);
           setMatch(matchData);
+        } catch (matchError) {
+          console.error('Error fetching match data:', matchError);
+        }
 
-          // Fetch detailed statistics
-          const statsData = await getMatchStatistics(parseInt(foundTriggered.match_id));
-          setStats(statsData);
+        // Fetch stats from ESPN summary endpoint
+        try {
+          const leagueMap: Record<string, string> = {
+            'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
+            'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
+            'Champions League': 'uefa.champions', 'Europa League': 'uefa.europa',
+            'Turkish Super Lig': 'tur.1', 'Super Lig': 'tur.1',
+            'Eredivisie': 'ned.1', 'Primeira Liga': 'por.1', 'Scottish Premiership': 'sco.1',
+          };
+          const leagueCode = leagueMap[foundTriggered.league_name || ''] || '';
+          const leagueParam = leagueCode ? `&league=${leagueCode}` : '';
+          const statsRes = await fetch(`/api/espn/match-stats?eventId=${foundTriggered.match_id}${leagueParam}`);
+          if (statsRes.ok) {
+            const statsData = await statsRes.json();
+            if (statsData.stats) setStats(statsData.stats);
+          }
         } catch (statsError) {
-          console.error('Error fetching match data:', statsError);
-          // Still continue - we have triggered match data
+          console.error('Error fetching match stats:', statsError);
         }
 
         setError(null);
@@ -131,10 +141,6 @@ export default function TriggeredMatchDetailsPage() {
   const homeScore = triggered.score_home || 0;
   const awayScore = triggered.score_away || 0;
 
-  // Get statistics for each team
-  const homeStats = stats?.statistics?.[0];
-  const awayStats = stats?.statistics?.[1];
-
   return (
     <AuthWrapper>
       <div className="min-h-screen p-4 sm:p-6 bg-gradient-to-b from-background to-background-secondary">
@@ -153,7 +159,7 @@ export default function TriggeredMatchDetailsPage() {
               <span className="hidden sm:inline">Back</span>
             </button>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-center flex-1">
-              🎯 Triggered Match Details
+              Triggered Match Details
             </h1>
             <div className="w-9" /> {/* Spacer for alignment */}
           </motion.div>
@@ -203,20 +209,19 @@ export default function TriggeredMatchDetailsPage() {
             className="p-6 sm:p-8 rounded-lg bg-gradient-to-br from-accent-cyan/10 to-accent-blue/10 border border-glass-light"
           >
             <p className="text-center text-sm sm:text-base text-text-secondary mb-4">
-              {triggered.league_name} • {triggered.match_status?.toUpperCase()}
+              {triggered.league_name} {'\u2022'} {triggered.match_status?.toUpperCase()}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
               {/* Home Team */}
               <div className="flex flex-col items-center gap-3 flex-1">
-                <img
-                  src={match?.teams?.home?.logo || `https://via.placeholder.com/64?text=${homeTeam}`}
-                  alt={homeTeam}
-                  className="w-16 h-16 object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://via.placeholder.com/64?text=${homeTeam}`;
-                  }}
-                />
+                {match?.teams?.home?.logo && (
+                  <img
+                    src={match.teams.home.logo}
+                    alt={homeTeam}
+                    className="w-16 h-16 object-contain"
+                  />
+                )}
                 <p className="font-semibold text-center line-clamp-2 text-sm sm:text-base">
                   {homeTeam}
                 </p>
@@ -241,14 +246,13 @@ export default function TriggeredMatchDetailsPage() {
 
               {/* Away Team */}
               <div className="flex flex-col items-center gap-3 flex-1">
-                <img
-                  src={match?.teams?.away?.logo || `https://via.placeholder.com/64?text=${awayTeam}`}
-                  alt={awayTeam}
-                  className="w-16 h-16 object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://via.placeholder.com/64?text=${awayTeam}`;
-                  }}
-                />
+                {match?.teams?.away?.logo && (
+                  <img
+                    src={match.teams.away.logo}
+                    alt={awayTeam}
+                    className="w-16 h-16 object-contain"
+                  />
+                )}
                 <p className="font-semibold text-center line-clamp-2 text-sm sm:text-base">
                   {awayTeam}
                 </p>
@@ -256,85 +260,51 @@ export default function TriggeredMatchDetailsPage() {
             </div>
           </motion.div>
 
-          {/* ========== MATCH STATISTICS ========== */}
-          {stats && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="space-y-4"
-            >
-              <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-accent-cyan" />
-                Match Statistics
-              </h2>
+          {/* ========== MATCH STATISTICS (ESPN) ========== */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-4"
+          >
+            <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-accent-cyan" />
+              Match Statistics
+            </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Possession */}
-                {homeStats?.statistics && (
-                  <StatCard
-                    icon={PieChart}
-                    title="Possession"
-                    homeValue={homeStats.statistics.find((s: any) => s.type === 'Ball Possession')?.value}
-                    awayValue={awayStats?.statistics?.find((s: any) => s.type === 'Ball Possession')?.value}
-                    unit="%"
-                  />
+            {stats ? (
+              <div className="space-y-3 p-4 rounded-lg bg-glass-dark border border-glass-light">
+                {stats.homePoss > 0 && (
+                  <TriggeredStatRow label="Possession" home={stats.homePoss} away={stats.awayPoss} unit="%" />
                 )}
-
-                {/* Shots */}
-                {homeStats?.statistics && (
-                  <StatCard
-                    icon={TrendingUp}
-                    title="Total Shots"
-                    homeValue={homeStats.statistics.find((s: any) => s.type === 'Total Shots')?.value}
-                    awayValue={awayStats?.statistics?.find((s: any) => s.type === 'Total Shots')?.value}
-                  />
+                {(stats.homeSoT > 0 || stats.awaySoT > 0) && (
+                  <TriggeredStatRow label="Shots on Target" home={stats.homeSoT} away={stats.awaySoT} />
                 )}
-
-                {/* Shots on Target */}
-                {homeStats?.statistics && (
-                  <StatCard
-                    icon={Target}
-                    title="Shots on Target"
-                    homeValue={homeStats.statistics.find((s: any) => s.type === 'Shots on Goal')?.value}
-                    awayValue={awayStats?.statistics?.find((s: any) => s.type === 'Shots on Goal')?.value}
-                  />
+                {(stats.homeShots > 0 || stats.awayShots > 0) && (
+                  <TriggeredStatRow label="Total Shots" home={stats.homeShots} away={stats.awayShots} />
                 )}
-
-                {/* Corners */}
-                {homeStats?.statistics && (
-                  <StatCard
-                    icon={Layers}
-                    title="Corners"
-                    homeValue={homeStats.statistics.find((s: any) => s.type === 'Corner Kicks')?.value}
-                    awayValue={awayStats?.statistics?.find((s: any) => s.type === 'Corner Kicks')?.value}
-                  />
+                {(stats.homeCorners > 0 || stats.awayCorners > 0) && (
+                  <TriggeredStatRow label="Corners" home={stats.homeCorners} away={stats.awayCorners} />
                 )}
-
-                {/* Yellow Cards */}
-                {homeStats?.statistics && (
-                  <StatCard
-                    icon={Layers}
-                    title="Yellow Cards"
-                    homeValue={homeStats.statistics.find((s: any) => s.type === 'Yellow Cards')?.value}
-                    awayValue={awayStats?.statistics?.find((s: any) => s.type === 'Yellow Cards')?.value}
-                    color="yellow"
-                  />
+                {(stats.homeYellow > 0 || stats.awayYellow > 0) && (
+                  <TriggeredStatRow label="Yellow Cards" home={stats.homeYellow} away={stats.awayYellow} />
                 )}
-
-                {/* Red Cards */}
-                {homeStats?.statistics && (
-                  <StatCard
-                    icon={Layers}
-                    title="Red Cards"
-                    homeValue={homeStats.statistics.find((s: any) => s.type === 'Red Cards')?.value}
-                    awayValue={awayStats?.statistics?.find((s: any) => s.type === 'Red Cards')?.value}
-                    color="red"
-                  />
+                {(stats.homeRed > 0 || stats.awayRed > 0) && (
+                  <TriggeredStatRow label="Red Cards" home={stats.homeRed} away={stats.awayRed} />
+                )}
+                {(stats.homeFouls > 0 || stats.awayFouls > 0) && (
+                  <TriggeredStatRow label="Fouls" home={stats.homeFouls} away={stats.awayFouls} />
+                )}
+                {(stats.homeOffsides > 0 || stats.awayOffsides > 0) && (
+                  <TriggeredStatRow label="Offsides" home={stats.homeOffsides} away={stats.awayOffsides} />
                 )}
               </div>
-            </motion.div>
-          )}
+            ) : (
+              <div className="p-4 rounded-lg bg-glass-dark border border-glass-light text-center">
+                <p className="text-sm text-text-muted">Statistics not available for this match</p>
+              </div>
+            )}
+          </motion.div>
 
           {/* ========== MATCH INFO ========== */}
           <motion.div
@@ -386,49 +356,31 @@ export default function TriggeredMatchDetailsPage() {
 // HELPER COMPONENTS
 // ============================================
 
-interface StatCardProps {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  homeValue: any;
-  awayValue: any;
-  unit?: string;
-  color?: 'cyan' | 'yellow' | 'red';
-}
-
-function StatCard({ icon: Icon, title, homeValue, awayValue, unit = '', color = 'cyan' }: StatCardProps) {
-  const colorClasses = {
-    cyan: 'accent-cyan',
-    yellow: 'accent-amber',
-    red: 'text-red-400',
-  };
-
-  const colorClass = colorClasses[color];
+function TriggeredStatRow({ label, home, away, unit = '' }: { label: string; home: number; away: number; unit?: string }) {
+  const total = home + away;
+  const homePercent = total === 0 ? 50 : Math.round((home / total) * 100);
+  const homeLeads = home > away;
+  const awayLeads = away > home;
 
   return (
-    <div className="p-4 rounded-lg bg-glass-dark border border-glass-light">
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className={`w-4 h-4 text-${colorClass}`} />
-        <p className="text-sm font-semibold text-text-secondary">{title}</p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 items-end">
-        {/* Home value */}
-        <div className="text-center">
-          <p className={`text-2xl font-bold text-${colorClass}`}>
-            {homeValue ?? '-'}
-          </p>
+    <div className="space-y-1">
+      <div className="text-center text-xs text-text-muted">{label}</div>
+      <div className="flex items-center gap-3">
+        <div className={`w-10 text-right text-base font-bold ${homeLeads ? 'text-accent-cyan' : 'text-text-secondary'}`}>
+          {home}{unit}
         </div>
-
-        {/* Divider */}
-        <div className="flex justify-center">
-          <p className="text-text-tertiary">vs</p>
+        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden flex">
+          <div
+            className={`h-full transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
+            style={{ width: `${homePercent}%` }}
+          />
+          <div
+            className={`h-full transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
+            style={{ width: `${100 - homePercent}%` }}
+          />
         </div>
-
-        {/* Away value */}
-        <div className="text-center">
-          <p className={`text-2xl font-bold text-${colorClass}`}>
-            {awayValue ?? '-'}
-          </p>
+        <div className={`w-10 text-left text-base font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>
+          {away}{unit}
         </div>
       </div>
     </div>
