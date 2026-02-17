@@ -35,6 +35,52 @@ import { checkNotificationStatus, requestNotificationPermission } from '@/lib/no
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Group triggers by match_id, dedup by filter_id
+interface TriggeredMatchGroup {
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  leagueName: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  matchStatus: string;
+  latestTriggerAt: string;
+  triggers: TriggeredMatch[];
+}
+
+function groupTriggeredByMatch(matches: TriggeredMatch[]): TriggeredMatchGroup[] {
+  const map = new Map<string, TriggeredMatchGroup>();
+  for (const m of matches) {
+    const key = m.match_id;
+    if (!map.has(key)) {
+      map.set(key, {
+        matchId: key,
+        homeTeam: m.home_team,
+        awayTeam: m.away_team,
+        leagueName: m.league_name || '',
+        scoreHome: m.score_home,
+        scoreAway: m.score_away,
+        matchStatus: m.match_status || '',
+        latestTriggerAt: m.triggered_at,
+        triggers: [],
+      });
+    }
+    const group = map.get(key)!;
+    if (!group.triggers.some(t => t.filter_id === m.filter_id)) {
+      group.triggers.push(m);
+    }
+    if (new Date(m.triggered_at) > new Date(group.latestTriggerAt)) {
+      group.latestTriggerAt = m.triggered_at;
+      if (m.score_home != null) group.scoreHome = m.score_home;
+      if (m.score_away != null) group.scoreAway = m.score_away;
+      if (m.match_status) group.matchStatus = m.match_status;
+    }
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.latestTriggerAt).getTime() - new Date(a.latestTriggerAt).getTime()
+  );
+}
+
 // ============================================
 // COMPONENTA PRINCIPALĂ
 // ============================================
@@ -73,6 +119,10 @@ export default function LiveMatchesPage() {
   // Triggered matches state (last 20 minutes)
   const [recentlyTriggered, setRecentlyTriggered] = useState<any[]>([]);
   const [triggeredLoading, setTriggeredLoading] = useState(false);
+
+  // Expanded match group state
+  const [expandedTriggered, setExpandedTriggered] = useState<string | null>(null);
+  const [expandedHistory, setExpandedHistory] = useState<string | null>(null);
 
   // Full history state
   const [showFullHistory, setShowFullHistory] = useState(false);
@@ -240,15 +290,12 @@ export default function LiveMatchesPage() {
       const itemsPerPage = 20;
       let matches: any[] = [];
 
-      const params = new URLSearchParams({
-        user_id: currentUser.id,
-        range: timeRange,
-        limit: String(itemsPerPage),
-        offset: String(page * itemsPerPage),
-      });
-      const res = await fetch(`/api/triggered-matches/list?${params}`);
-      const result = await res.json();
-      matches = result.matches || [];
+      if (timeRange === 'all') {
+        matches = await dbHelpers.getTriggeredMatchesHistory(currentUser.id, itemsPerPage, page * itemsPerPage);
+      } else {
+        const minutesMap: Record<string, number> = { '24h': 24 * 60, '7d': 7 * 24 * 60, '30d': 30 * 24 * 60 };
+        matches = await dbHelpers.getTriggeredMatches(currentUser.id, minutesMap[timeRange] || 20, 50);
+      }
 
       if (reset) {
         setHistoryMatches(matches);
@@ -590,74 +637,105 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
             {/* ... rest of stats ... */}
           </div>
           
-          {/* ========== RECENTLY TRIGGERED (Last 20 min) ========== */}
-          {recentlyTriggered.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card p-4 sm:p-6 border-l-4 border-accent-cyan"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-accent-cyan animate-pulse" />
-                  Recently Triggered
-                  <span className="text-sm text-accent-cyan ml-2">({recentlyTriggered.length})</span>
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowFullHistory(!showFullHistory);
-                    if (!showFullHistory && historyMatches.length === 0) {
-                      loadFullHistory(0, historyTimeRange, true);
-                    }
-                  }}
-                  className="text-sm text-accent-cyan hover:text-accent-blue transition-colors flex items-center gap-1"
-                >
-                  {showFullHistory ? 'Hide' : 'Full'} History
-                  {showFullHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-              </div>
-              
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {recentlyTriggered.map((match) => {
-                  const timeSinceTriggered = (() => {
-                    const now = new Date();
-                    const triggered = new Date(match.triggered_at);
-                    const diffMs = now.getTime() - triggered.getTime();
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                    if (diffMins < 1) return `${diffSecs}s ago`;
-                    return `${diffMins}m ago`;
-                  })();
+          {/* ========== RECENTLY TRIGGERED (Grouped by match) ========== */}
+          {recentlyTriggered.length > 0 && (() => {
+            const groups = groupTriggeredByMatch(recentlyTriggered);
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card p-4 sm:p-6 border-l-4 border-accent-cyan"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-accent-cyan animate-pulse" />
+                    Recently Triggered
+                    <span className="text-sm text-accent-cyan ml-2">({groups.length} match{groups.length !== 1 ? 'es' : ''})</span>
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowFullHistory(!showFullHistory);
+                      if (!showFullHistory && historyMatches.length === 0) {
+                        loadFullHistory(0, historyTimeRange, true);
+                      }
+                    }}
+                    className="text-sm text-accent-cyan hover:text-accent-blue transition-colors flex items-center gap-1"
+                  >
+                    {showFullHistory ? 'Hide' : 'Full'} History
+                    {showFullHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
 
-                  return (
-                    <Link
-                      key={match.id || `${match.match_id}-${match.filter_id}-${match.created_at}`}
-                      href={`/dashboard/triggered/${match.id}`}
-                      className="flex items-center justify-between p-3 rounded-lg bg-glass-light border border-accent-cyan/30 hover:border-accent-cyan/60 hover:bg-glass-light/80 transition-all text-sm cursor-pointer group"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-accent-cyan truncate group-hover:text-accent-blue transition-colors">
-                          {match.home_team} vs {match.away_team}
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          <FilterIcon className="w-3 h-3 inline mr-1" />
-                          {match.filter_name}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                        {match.match_time && (
-                          <span className="text-xs bg-accent-green/20 text-accent-green px-2 py-1 rounded font-semibold">
-                            {match.match_time}&apos;
-                          </span>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {groups.map((group) => {
+                    const isExpanded = expandedTriggered === group.matchId;
+                    const timeSince = (() => {
+                      const diffMs = Date.now() - new Date(group.latestTriggerAt).getTime();
+                      const mins = Math.floor(diffMs / 60000);
+                      const secs = Math.floor((diffMs % 60000) / 1000);
+                      if (mins < 1) return `${secs}s ago`;
+                      return `${mins}m ago`;
+                    })();
+
+                    return (
+                      <div key={group.matchId} className="rounded-lg bg-glass-light border border-accent-cyan/30 overflow-hidden">
+                        {/* Match header */}
+                        <div
+                          onClick={() => setExpandedTriggered(isExpanded ? null : group.matchId)}
+                          className="flex items-center justify-between p-3 hover:bg-glass-light/80 cursor-pointer transition-all text-sm group"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-accent-cyan truncate group-hover:text-accent-blue transition-colors">
+                              {group.homeTeam} vs {group.awayTeam}
+                              {group.scoreHome != null && (
+                                <span className="text-accent-green ml-2 font-bold">{group.scoreHome}-{group.scoreAway}</span>
+                              )}
+                            </p>
+                            <p className="text-xs text-text-muted">
+                              {group.triggers.length} filter{group.triggers.length > 1 ? 's' : ''} triggered
+                              {group.leagueName && <span className="ml-1">• {group.leagueName}</span>}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                            <span className="text-xs text-accent-blue whitespace-nowrap">{timeSince}</span>
+                            <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          </div>
+                        </div>
+
+                        {/* Expanded: filter list */}
+                        {isExpanded && (
+                          <div className="border-t border-glass-medium px-3 pb-3 space-y-1.5 pt-2">
+                            {group.triggers.map((t) => (
+                              <Link
+                                key={t.id}
+                                href={`/dashboard/triggered/${t.id}`}
+                                className="flex items-center gap-2 p-2 rounded-md bg-glass-dark/50 hover:bg-glass-dark transition-colors text-xs"
+                              >
+                                <FilterIcon className="w-3 h-3 text-accent-cyan shrink-0" />
+                                <span className="text-accent-cyan font-semibold truncate flex-1">{t.filter_name}</span>
+                                <div className="flex items-center gap-2 shrink-0 text-text-muted">
+                                  {t.match_time && (
+                                    <span className="bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded font-semibold">
+                                      {t.match_time}&apos;
+                                    </span>
+                                  )}
+                                  {t.score_home != null && (
+                                    <span className="text-text-secondary">{t.score_home}-{t.score_away}</span>
+                                  )}
+                                  <Clock className="w-3 h-3" />
+                                  <span>{new Date(t.triggered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
                         )}
-                        <span className="text-xs text-accent-blue whitespace-nowrap">{timeSinceTriggered}</span>
                       </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
+                    );
+                  })}
+                </div>
+              </motion.div>
+            );
+          })()}
           
           {/* ========== LOADING ========== */}
           {loading && matches.length === 0 && (
@@ -885,7 +963,7 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                 </div>
               </div>
 
-              {/* History list */}
+              {/* History list (grouped by match) */}
               {historyLoading && historyMatches.length === 0 ? (
                 <div className="text-center py-6">
                   <div className="inline-block animate-spin mb-2">
@@ -898,44 +976,78 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                   <Trophy className="w-10 h-10 text-text-muted mx-auto mb-2 opacity-50" />
                   <p className="text-text-secondary text-sm">No triggered matches found</p>
                 </div>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {historyMatches.map((match) => {
-                    const timeSince = (() => {
-                      const diffMs = Date.now() - new Date(match.triggered_at).getTime();
-                      const mins = Math.floor(diffMs / 60000);
-                      const hours = Math.floor(diffMs / 3600000);
-                      const days = Math.floor(diffMs / 86400000);
-                      if (mins < 1) return 'Just now';
-                      if (mins < 60) return `${mins}m ago`;
-                      if (hours < 24) return `${hours}h ago`;
-                      return `${days}d ago`;
-                    })();
+              ) : (() => {
+                const historyGroups = groupTriggeredByMatch(historyMatches);
+                return (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {historyGroups.map((group) => {
+                      const isExpanded = expandedHistory === group.matchId;
+                      const timeSince = (() => {
+                        const diffMs = Date.now() - new Date(group.latestTriggerAt).getTime();
+                        const mins = Math.floor(diffMs / 60000);
+                        const hours = Math.floor(diffMs / 3600000);
+                        const days = Math.floor(diffMs / 86400000);
+                        if (mins < 1) return 'Just now';
+                        if (mins < 60) return `${mins}m ago`;
+                        if (hours < 24) return `${hours}h ago`;
+                        return `${days}d ago`;
+                      })();
 
-                    return (
-                      <Link
-                        key={match.id || `${match.match_id}-${match.filter_id}-${match.created_at}`}
-                        href={`/dashboard/triggered/${match.id}`}
-                        className="flex items-center justify-between p-3 rounded-lg bg-glass-light/50 border border-glass-lighter hover:border-accent-cyan/40 transition-all text-sm group"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-white truncate group-hover:text-accent-cyan transition-colors">
-                            {match.home_team} vs {match.away_team}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
-                            <FilterIcon className="w-3 h-3 inline" />
-                            <span className="truncate">{match.filter_name}</span>
-                            {match.score_home != null && (
-                              <span className="text-accent-green font-semibold">{match.score_home}-{match.score_away}</span>
-                            )}
+                      return (
+                        <div key={group.matchId} className="rounded-lg bg-glass-light/50 border border-glass-lighter overflow-hidden">
+                          <div
+                            onClick={() => setExpandedHistory(isExpanded ? null : group.matchId)}
+                            className="flex items-center justify-between p-3 hover:border-accent-cyan/40 cursor-pointer transition-all text-sm group"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-white truncate group-hover:text-accent-cyan transition-colors">
+                                {group.homeTeam} vs {group.awayTeam}
+                                {group.scoreHome != null && (
+                                  <span className="text-accent-green ml-2 font-bold">{group.scoreHome}-{group.scoreAway}</span>
+                                )}
+                              </p>
+                              <p className="text-xs text-text-muted mt-0.5">
+                                {group.triggers.length} filter{group.triggers.length > 1 ? 's' : ''}
+                                {group.leagueName && <span className="ml-1">• {group.leagueName}</span>}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                              <span className="text-xs text-text-muted whitespace-nowrap">{timeSince}</span>
+                              <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            </div>
                           </div>
+
+                          {isExpanded && (
+                            <div className="border-t border-glass-medium px-3 pb-3 space-y-1.5 pt-2">
+                              {group.triggers.map((t) => (
+                                <Link
+                                  key={t.id}
+                                  href={`/dashboard/triggered/${t.id}`}
+                                  className="flex items-center gap-2 p-2 rounded-md bg-glass-dark/50 hover:bg-glass-dark transition-colors text-xs"
+                                >
+                                  <FilterIcon className="w-3 h-3 text-accent-cyan shrink-0" />
+                                  <span className="text-accent-cyan font-semibold truncate flex-1">{t.filter_name}</span>
+                                  <div className="flex items-center gap-2 shrink-0 text-text-muted">
+                                    {t.match_time && (
+                                      <span className="bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded font-semibold">
+                                        {t.match_time}&apos;
+                                      </span>
+                                    )}
+                                    {t.score_home != null && (
+                                      <span className="text-text-secondary">{t.score_home}-{t.score_away}</span>
+                                    )}
+                                    <span>{new Date(t.triggered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <span className="text-xs text-text-muted whitespace-nowrap ml-2">{timeSince}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* Load more */}
               {historyHasMore && !historyLoading && historyTimeRange === 'all' && (

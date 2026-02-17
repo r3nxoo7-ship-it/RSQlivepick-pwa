@@ -7,6 +7,7 @@ import { LiveMatch } from '@/lib/unified-api';
 import { Filter } from '@/lib/supabase';
 import { getMatchingFiltersForMatch, calculateMatchPredictability, FilterMatchDetails } from '@/lib/live-filter-matcher';
 import AdvancedMatchDetail from './AdvancedMatchDetail';
+import MatchPredictionsWrapper from './MatchPredictionsWrapper';
 
 interface LiveMatchesDashboardProps {
   matches?: LiveMatch[];
@@ -508,6 +509,9 @@ function MatchCard({
             <span>Corners: {getStatValue(match.statistics, 'corner')}</span>
           </div>
         )}
+
+        {/* AI Predictions */}
+        <MatchPredictionsWrapper match={match} />
 
         {/* Prediction badge */}
         {match.matchingCount! > 0 && (

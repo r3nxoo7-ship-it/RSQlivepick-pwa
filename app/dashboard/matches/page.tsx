@@ -1,5 +1,6 @@
 'use client';
-
+import MatchPredictionCard from '@/components/MatchPredictionCard';
+import type { FullPredictions } from '@/lib/prediction-engine';
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, TrendingUp, Activity } from 'lucide-react';

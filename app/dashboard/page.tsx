@@ -11,11 +11,56 @@ import {
   Zap,
   CheckCircle,
   AlertCircle,
+  ChevronDown,
+  Clock,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
-import type { Filter } from '@/lib/supabase';
+import type { Filter, TriggeredMatch } from '@/lib/supabase';
 import { getLiveMatches, type LiveMatch } from '@/lib/unified-api';
+
+// Group triggers by match_id, dedup by filter_id
+interface RecentMatchGroup {
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  latestTriggerAt: string;
+  triggers: TriggeredMatch[];
+}
+
+function groupRecentByMatch(matches: TriggeredMatch[]): RecentMatchGroup[] {
+  const map = new Map<string, RecentMatchGroup>();
+  for (const m of matches) {
+    const key = m.match_id;
+    if (!map.has(key)) {
+      map.set(key, {
+        matchId: key,
+        homeTeam: m.home_team,
+        awayTeam: m.away_team,
+        scoreHome: m.score_home,
+        scoreAway: m.score_away,
+        latestTriggerAt: m.triggered_at,
+        triggers: [],
+      });
+    }
+    const group = map.get(key)!;
+    // Dedup by filter_id
+    if (!group.triggers.some(t => t.filter_id === m.filter_id)) {
+      group.triggers.push(m);
+    }
+    // Keep latest score
+    if (new Date(m.triggered_at) > new Date(group.latestTriggerAt)) {
+      group.latestTriggerAt = m.triggered_at;
+      if (m.score_home != null) group.scoreHome = m.score_home;
+      if (m.score_away != null) group.scoreAway = m.score_away;
+    }
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.latestTriggerAt).getTime() - new Date(a.latestTriggerAt).getTime()
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -36,7 +81,8 @@ export default function DashboardPage() {
     todayTriggers: 0,
     successRate: 0,
   });
-  const [recentTriggers, setRecentTriggers] = useState<any[]>([]);
+  const [recentTriggers, setRecentTriggers] = useState<TriggeredMatch[]>([]);
+  const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
 
   // ============================================
   // LOAD DATA (Optimizat cu useCallback)
@@ -232,32 +278,82 @@ export default function DashboardPage() {
                 <Zap className="text-accent-cyan" size={20} /> Recent Activity
               </h3>
               <div className="space-y-3">
-                {recentTriggers.length > 0 ? (
-                  recentTriggers.map((t: any) => (
-                    <div
-                      key={t.id}
-                      onClick={() => router.push(`/dashboard/triggered/${t.id}`)}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-glass-light/50 hover:bg-glass-light cursor-pointer transition-colors"
-                    >
-                      <Zap className="w-4 h-4 text-accent-cyan shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">
-                          {t.home_team} vs {t.away_team}
-                        </p>
-                        <p className="text-xs text-text-muted truncate">
-                          {t.filter_name} {t.score_home != null ? `• ${t.score_home}-${t.score_away}` : ''}
-                        </p>
+                {(() => {
+                  const groups = groupRecentByMatch(recentTriggers);
+                  if (groups.length === 0) {
+                    return (
+                      <p className="text-text-secondary italic text-sm text-center py-8">
+                        No recent triggers. Triggers appear when live matches meet your filter conditions.
+                      </p>
+                    );
+                  }
+                  return groups.map((group) => {
+                    const isExpanded = expandedMatch === group.matchId;
+                    const timeSince = (() => {
+                      const diffMs = Date.now() - new Date(group.latestTriggerAt).getTime();
+                      const mins = Math.floor(diffMs / 60000);
+                      const hours = Math.floor(diffMs / 3600000);
+                      if (mins < 1) return 'Just now';
+                      if (mins < 60) return `${mins}m ago`;
+                      return `${hours}h ago`;
+                    })();
+
+                    return (
+                      <div key={group.matchId} className="rounded-lg bg-glass-light/50 overflow-hidden">
+                        {/* Match header - clickable to expand */}
+                        <div
+                          onClick={() => setExpandedMatch(isExpanded ? null : group.matchId)}
+                          className="flex items-center gap-3 p-3 hover:bg-glass-light cursor-pointer transition-colors"
+                        >
+                          <Zap className="w-4 h-4 text-accent-cyan shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {group.homeTeam} vs {group.awayTeam}
+                              {group.scoreHome != null && (
+                                <span className="text-accent-green ml-2 font-bold">
+                                  {group.scoreHome}-{group.scoreAway}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-text-muted">
+                              {group.triggers.length} filter{group.triggers.length > 1 ? 's' : ''} triggered
+                            </p>
+                          </div>
+                          <span className="text-xs text-text-muted shrink-0">{timeSince}</span>
+                          <ChevronDown className={`w-4 h-4 text-text-muted shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </div>
+
+                        {/* Expanded: show filters with trigger context */}
+                        {isExpanded && (
+                          <div className="border-t border-glass-medium px-3 pb-3 space-y-2 pt-2">
+                            {group.triggers.map((t) => (
+                              <div
+                                key={t.id}
+                                onClick={() => router.push(`/dashboard/triggered/${t.id}`)}
+                                className="flex items-center gap-2 p-2 rounded-md bg-glass-dark/50 hover:bg-glass-dark cursor-pointer transition-colors text-xs"
+                              >
+                                <FilterIcon className="w-3 h-3 text-accent-cyan shrink-0" />
+                                <span className="text-accent-cyan font-semibold truncate flex-1">{t.filter_name}</span>
+                                <div className="flex items-center gap-2 shrink-0 text-text-muted">
+                                  {t.match_time && (
+                                    <span className="bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded font-semibold">
+                                      {t.match_time}&apos;
+                                    </span>
+                                  )}
+                                  {t.score_home != null && (
+                                    <span className="text-text-secondary">{t.score_home}-{t.score_away}</span>
+                                  )}
+                                  <Clock className="w-3 h-3" />
+                                  <span>{new Date(t.triggered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <span className="text-xs text-text-muted shrink-0">
-                        {new Date(t.triggered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-text-secondary italic text-sm text-center py-8">
-                    No recent triggers. Triggers appear when live matches meet your filter conditions.
-                  </p>
-                )}
+                    );
+                  });
+                })()}
               </div>
               <button
                 onClick={() => router.push('/dashboard/history')}
