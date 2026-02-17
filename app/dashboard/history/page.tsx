@@ -309,37 +309,24 @@ function MatchGroupCard({
 
   // Fetch final result when card is expanded
   useEffect(() => {
-    if (isExpanded && !finalResult && !loadingResult) {
-      setLoadingResult(true);
-      fetch(`/api/match-result?match_id=${group.matchId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.scoreHome !== undefined && data.scoreAway !== undefined) {
-            setFinalResult({
-              homeTeam: data.homeTeam || group.homeTeam,
-              awayTeam: data.awayTeam || group.awayTeam,
-              scoreHome: data.scoreHome,
-              scoreAway: data.scoreAway,
-              status: data.status || '',
-              statusLong: data.statusLong || '',
-              loaded: true,
-            });
-          } else {
-            // Use group's current data if no update available
-            setFinalResult({
-              homeTeam: group.homeTeam,
-              awayTeam: group.awayTeam,
-              scoreHome: group.scoreHome,
-              scoreAway: group.scoreAway,
-              status: group.matchStatus,
-              statusLong: '',
-              loaded: true,
-            });
-          }
-        })
-        .catch(err => {
-          console.error('Error fetching final result:', err);
-          // Fallback to group's data
+    if (!isExpanded || finalResult) return;
+    
+    setLoadingResult(true);
+    fetch(`/api/match-result?match_id=${group.matchId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.scoreHome !== undefined && data.scoreAway !== undefined) {
+          setFinalResult({
+            homeTeam: data.homeTeam || group.homeTeam,
+            awayTeam: data.awayTeam || group.awayTeam,
+            scoreHome: data.scoreHome,
+            scoreAway: data.scoreAway,
+            status: data.status || '',
+            statusLong: data.statusLong || '',
+            loaded: true,
+          });
+        } else {
+          // Use group's current data if no update available
           setFinalResult({
             homeTeam: group.homeTeam,
             awayTeam: group.awayTeam,
@@ -349,10 +336,23 @@ function MatchGroupCard({
             statusLong: '',
             loaded: true,
           });
-        })
-        .finally(() => setLoadingResult(false));
-    }
-  }, [isExpanded, group.matchId, group.homeTeam, group.awayTeam, group.scoreHome, group.scoreAway, group.matchStatus, finalResult, loadingResult]);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching final result:', err);
+        // Fallback to group's data
+        setFinalResult({
+          homeTeam: group.homeTeam,
+          awayTeam: group.awayTeam,
+          scoreHome: group.scoreHome,
+          scoreAway: group.scoreAway,
+          status: group.matchStatus,
+          statusLong: '',
+          loaded: true,
+        });
+      })
+      .finally(() => setLoadingResult(false));
+  }, [isExpanded]);
 
   // Determine if match is finished
   const isFinished = finalResult?.status?.toLowerCase() === 'ft' || 
