@@ -921,20 +921,8 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                       </div>
                     )}
 
-                    {/* Betting Odds Analyzer */}
-                    <BettingOddsAnalyzer
-                      match={selectedMatch}
-                      stats={{
-                        homeTeamAvgCorners: selectedMatch.statistics?.[0]?.statistics?.find(s => s.type === 'Corners')?.value ? parseFloat(String(selectedMatch.statistics[0].statistics.find(s => s.type === 'Corners')?.value || 0)) : 5,
-                        awayTeamAvgCorners: selectedMatch.statistics?.[1]?.statistics?.find(s => s.type === 'Corners')?.value ? parseFloat(String(selectedMatch.statistics[1].statistics.find(s => s.type === 'Corners')?.value || 0)) : 5,
-                        homeTeamAvgGoals: selectedMatch.goals?.home ?? 0,
-                        awayTeamAvgGoals: selectedMatch.goals?.away ?? 0,
-                        homeTeamGoalsAllowed: 1.5,
-                        awayTeamGoalsAllowed: 1.5,
-                        h2hAvgGoals: ((selectedMatch.goals?.home ?? 0) + (selectedMatch.goals?.away ?? 0)) / 2,
-                        h2hAvgCorners: 10,
-                      }}
-                    />
+                    {/* Betting Odds Analyzer - self-fetches real ESPN data */}
+                    <BettingOddsAnalyzer match={selectedMatch} />
                   </div>
                 </div>
               </motion.div>
