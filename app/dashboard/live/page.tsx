@@ -26,6 +26,7 @@ import {
 import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
 import MatchStatsDisplay from '@/components/MatchStatsDisplay';
+import BettingOddsAnalyzer from '@/components/BettingOddsAnalyzer';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
@@ -761,29 +762,64 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
           
           {/* ========== MECIURI ========== */}
 {!loading && !error && filteredMatches.length > 0 && (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
-  >
-    {filteredMatches.map((match, index) => (
-      <motion.div
-        key={match.fixture?.id || index}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.05 }}
-      >
-        <MatchCard
-          match={match}
-          onClick={() => setSelectedMatch(match)}
-          showStatistics={true}
-          filterResults={
-            match.fixture?.id ? filterResults.get(match.fixture.id) : undefined
-          }
-        />
-      </motion.div>
-    ))}
-  </motion.div>
+  <>
+    {/* Betting Insights Summary */}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="glass-card p-6 rounded-xl border border-glass-light/20 mb-6"
+    >
+      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-glass-light/20">
+        <span className="text-2xl">💡</span>
+        <div>
+          <h3 className="text-lg font-semibold text-white">Today's Best Bets</h3>
+          <p className="text-xs text-text-muted">AI-powered predictions for popular betting markets</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-green-400">High Value</div>
+          <p className="text-xs text-text-muted mt-2">Bets with +5% odds advantage</p>
+        </div>
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-amber-400">Fair Value</div>
+          <p className="text-xs text-text-muted mt-2">Balanced risk/reward bets</p>
+        </div>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-red-400">Skip</div>
+          <p className="text-xs text-text-muted mt-2">Poor odds, pass on these</p>
+        </div>
+      </div>
+      <p className="text-xs text-text-muted mt-4 italic">
+        Click on any match to see detailed betting predictions and odds analysis
+      </p>
+    </motion.div>
+
+    {/* Main matches grid */}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+    >
+      {filteredMatches.map((match, index) => (
+        <motion.div
+          key={match.fixture?.id || index}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.05 }}
+        >
+          <MatchCard
+            match={match}
+            onClick={() => setSelectedMatch(match)}
+            showStatistics={true}
+            filterResults={
+              match.fixture?.id ? filterResults.get(match.fixture.id) : undefined
+            }
+          />
+        </motion.div>
+      ))}
+    </motion.div>
+  </>
 )}
 
 
@@ -884,6 +920,21 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                         ))}
                       </div>
                     )}
+
+                    {/* Betting Odds Analyzer */}
+                    <BettingOddsAnalyzer
+                      match={selectedMatch}
+                      stats={{
+                        homeTeamAvgCorners: selectedMatch.statistics?.[0]?.statistics?.find(s => s.type === 'Corners')?.value ? parseFloat(String(selectedMatch.statistics[0].statistics.find(s => s.type === 'Corners')?.value || 0)) : 5,
+                        awayTeamAvgCorners: selectedMatch.statistics?.[1]?.statistics?.find(s => s.type === 'Corners')?.value ? parseFloat(String(selectedMatch.statistics[1].statistics.find(s => s.type === 'Corners')?.value || 0)) : 5,
+                        homeTeamAvgGoals: selectedMatch.goals?.home ?? 0,
+                        awayTeamAvgGoals: selectedMatch.goals?.away ?? 0,
+                        homeTeamGoalsAllowed: 1.5,
+                        awayTeamGoalsAllowed: 1.5,
+                        h2hAvgGoals: ((selectedMatch.goals?.home ?? 0) + (selectedMatch.goals?.away ?? 0)) / 2,
+                        h2hAvgCorners: 10,
+                      }}
+                    />
                   </div>
                 </div>
               </motion.div>
