@@ -373,7 +373,9 @@ export const IMPROVED_LIVEPICK_TEMPLATES: ImprovedFilterTemplate[] = [
 // Convert all improved templates to legacy format for export
 export const LEGACY_FORMAT_TEMPLATES = IMPROVED_LIVEPICK_TEMPLATES.map(convertToLegacyFormat);
 
-export default {
+const filterTemplatesImproved = {
   improved: IMPROVED_LIVEPICK_TEMPLATES,
   legacy: LEGACY_FORMAT_TEMPLATES,
 };
+
+export default filterTemplatesImproved;

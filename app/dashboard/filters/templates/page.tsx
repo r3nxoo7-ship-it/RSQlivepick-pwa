@@ -366,7 +366,6 @@ export default function FilterTemplatesPage() {
                       {/* Background Image */}
                       {template.backgroundImage && (
                         <>
-                          {/* eslint-disable-next-line */}
                           <div
                             className="absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-30 transition duration-300 bg-cover bg-center"
                             style={{ backgroundImage: `url(${template.backgroundImage})` } as React.CSSProperties}

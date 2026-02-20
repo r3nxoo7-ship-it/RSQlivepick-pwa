@@ -354,7 +354,7 @@ function MatchGroupCard({
         });
       })
       .finally(() => setLoadingResult(false));
-  }, [isExpanded]);
+  }, [isExpanded, group, finalResult]);
 
   // Determine if match is finished
   const isFinished = finalResult?.status?.toLowerCase() === 'ft' || 
@@ -715,14 +715,12 @@ function StatBar({ label, home, away }: { label: string; home: number; away: num
       </div>
       <div className="flex gap-0.5 h-1.5">
         <div className="flex-1 flex justify-end">
-          {/* eslint-disable-next-line */}
           <div
             className="h-full rounded-l-full bg-accent-cyan transition-all"
             style={{ width: `${homeP}%` } as React.CSSProperties}
           />
         </div>
         <div className="flex-1 flex justify-start">
-          {/* eslint-disable-next-line */}
           <div
             className="h-full rounded-r-full bg-accent-blue transition-all"
             style={{ width: `${100 - homeP}%` } as React.CSSProperties}

@@ -772,7 +772,7 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
       <div className="flex items-center gap-3 mb-4 pb-4 border-b border-glass-light/20">
         <span className="text-2xl">💡</span>
         <div>
-          <h3 className="text-lg font-semibold text-white">Today's Best Bets</h3>
+          <h3 className="text-lg font-semibold text-white">Today&apos;s Best Bets</h3>
           <p className="text-xs text-text-muted">AI-powered predictions for popular betting markets</p>
         </div>
       </div>

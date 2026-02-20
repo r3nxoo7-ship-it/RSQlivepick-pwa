@@ -252,12 +252,14 @@ function CompactBar({ label, home, away }: { label: string; home: number; away: 
     <div className="flex items-center gap-2 text-[10px]">
       <span className={`w-5 text-right font-bold ${homeLeads ? 'text-accent-cyan' : 'text-text-secondary'}`}>{home}</span>
       <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex">
-        {/* eslint-disable-next-line */}
-        <div className={`h-full rounded-l-full transition-all ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
-          style={{ width: `${homePercent}%` } as React.CSSProperties} />
-        {/* eslint-disable-next-line */}
-        <div className={`h-full rounded-r-full transition-all ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
-          style={{ width: `${100 - homePercent}%` } as React.CSSProperties} />
+        <div
+          className={`h-full rounded-l-full transition-all ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
+          style={{ width: `${homePercent}%` } as React.CSSProperties}
+        />
+        <div
+          className={`h-full rounded-r-full transition-all ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
+          style={{ width: `${100 - homePercent}%` } as React.CSSProperties}
+        />
       </div>
       <span className={`w-5 text-left font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>{away}</span>
       <span className="text-text-muted w-[52px] text-[9px] truncate">{label}</span>

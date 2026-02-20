@@ -140,8 +140,8 @@ export default function TriggeredMatchDetailsPage() {
   const filterName = triggered.filter_name;
   const triggeredAt = new Date(triggered.triggered_at);
   // Use final/current match scores from live API, not triggered scores
-  const homeScore = match?.score?.home ?? triggered.score_home ?? 0;
-  const awayScore = match?.score?.away ?? triggered.score_away ?? 0;
+  const homeScore = match?.score?.fulltime?.home ?? triggered.score_home ?? 0;
+  const awayScore = match?.score?.fulltime?.away ?? triggered.score_away ?? 0;
   // Show triggered scores for context
   const triggeredHomeScore = triggered.score_home || 0;
   const triggeredAwayScore = triggered.score_away || 0;
@@ -387,12 +387,10 @@ function TriggeredStatRow({ label, home, away, unit = '' }: { label: string; hom
           {home}{unit}
         </div>
         <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden flex">
-          {/* eslint-disable-next-line */}
           <div
             className={`h-full transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
             style={{ width: `${homePercent}%` } as React.CSSProperties}
           />
-          {/* eslint-disable-next-line */}
           <div
             className={`h-full transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
             style={{ width: `${100 - homePercent}%` } as React.CSSProperties}

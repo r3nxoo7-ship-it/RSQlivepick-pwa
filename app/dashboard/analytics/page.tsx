@@ -333,7 +333,6 @@ export default function AnalyticsPage() {
                       {day.successRate}%
                     </div>
                     <div className="w-full bg-glass-light rounded-t-lg relative group">
-                      {/* eslint-disable-next-line */}
                       <div
                         className="bg-gradient-to-t from-accent-cyan to-accent-green rounded-t-lg transition-all duration-300 group-hover:opacity-80"
                         style={{ height: `${(day.successRate / 100) * 200}px` } as React.CSSProperties}
@@ -433,7 +432,6 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.corners}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-cyan"
                         style={{ 
@@ -449,7 +447,6 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.shots}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-green"
                         style={{ 
@@ -465,7 +462,6 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.cards}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-amber"
                         style={{ 
@@ -481,7 +477,6 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.mixed}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-purple"
                         style={{ 

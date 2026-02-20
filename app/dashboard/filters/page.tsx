@@ -82,7 +82,7 @@ export default function FiltersPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, filters.length]);
 
   useEffect(() => {
     loadFilters();
@@ -456,8 +456,8 @@ export default function FiltersPage() {
                             onChange={() => toggleSelect(filter.id)}
                             aria-label={`Select filter ${filter.name}`}
                           />
-                          {/* eslint-disable-next-line jsx-a11y/aria-role */}
-                          <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => setOpenFilterId(isOpen ? null : filter.id)} role="button" tabIndex={0} aria-expanded={isOpen ? 'true' : 'false'}>
+                          {/* eslint-disable-next-line jsx-a11y/aria-role, jsx-a11y/aria-proptypes */}
+                          <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => setOpenFilterId(isOpen ? null : filter.id)} role="button" tabIndex={0} aria-expanded={isOpen}>
                             <div className="flex flex-wrap items-center gap-3 mb-2">
                               <h3 className="text-lg sm:text-xl font-display font-semibold break-words">
                                 {filter.name}

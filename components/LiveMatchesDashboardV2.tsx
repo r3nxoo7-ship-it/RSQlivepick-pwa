@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, AlertCircle, BarChart3, Search, X, ChevronDown, Check } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
@@ -127,7 +127,7 @@ export default function LiveMatchesDashboardV2({
   }, [allMatches]);
 
   // Enhance matches with predictions
-  const enhanceMatch = (match: LiveMatch): MatchWithPredictions => {
+  const enhanceMatch = useCallback((match: LiveMatch): MatchWithPredictions => {
     if (userFilters.length === 0) return { ...match, matchingCount: 0, predictability: 0 };
     const matching = getMatchingFiltersForMatch(match, userFilters);
     const predictability = calculateMatchPredictability(match, matching);
@@ -137,7 +137,7 @@ export default function LiveMatchesDashboardV2({
       matchingCount: matching.filter(m => m.isMatching).length,
       predictability,
     };
-  };
+  }, [userFilters]);
 
   // Get matches for the selected day
   const dayMatches = useMemo((): MatchWithPredictions[] => {
@@ -193,7 +193,7 @@ export default function LiveMatchesDashboardV2({
     }
 
     return enhanced;
-  }, [selectedDay, dayTabs, liveMatches, upcomingMatches, scheduledMatches, matches, userFilters, selectedLeagues, searchQuery]);
+  }, [selectedDay, dayTabs, liveMatches, upcomingMatches, scheduledMatches, matches, selectedLeagues, searchQuery, enhanceMatch]);
 
   // Count matches per day (for tab badges)
   const dayMatchCounts = useMemo(() => {
@@ -519,7 +519,6 @@ function MatchCard({
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-glass-light/30">
             <TrendingUp className="w-3.5 h-3.5 text-accent-cyan shrink-0" />
             <div className="flex-1 h-1 bg-glass-light rounded-full overflow-hidden">
-              {/* eslint-disable-next-line */}
               <div
                 className="h-full bg-gradient-to-r from-accent-cyan to-accent-blue rounded-full"
                 style={{ width: `${match.predictability}%` } as React.CSSProperties}
