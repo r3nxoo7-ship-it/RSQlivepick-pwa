@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp, BarChart3, Clock, Activity } from 'lucide-react';
+import { X, TrendingUp, BarChart3, Clock, Activity, Filter as FilterIcon, Target, ChevronDown } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
 import MatchPredictionsWrapper from '@/components/MatchPredictionsWrapper';
+import type { FilterMatchResult } from '@/lib/filter-engine';
 
 interface AdvancedMatchDetailProps {
   match: LiveMatch;
   onClose: () => void;
+  filterResults?: FilterMatchResult[];
 }
 
 interface RecentMatchData {
@@ -97,7 +99,9 @@ function getSecondHalfGoals(match: LiveMatch, team: 'home' | 'away'): number {
   return Math.max(0, fulltime - halftime);
 }
 
-export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDetailProps) {
+export default function AdvancedMatchDetail({ match, onClose, filterResults }: AdvancedMatchDetailProps) {
+  const [activeTab, setActiveTab] = useState<'stats' | 'history'>('stats');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [homeForm, setHomeForm] = useState<TeamRecentFormResult | null>(null);
   const [awayForm, setAwayForm] = useState<TeamRecentFormResult | null>(null);
   const [formLoading, setFormLoading] = useState(true);
@@ -215,241 +219,246 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-8">
-          {/* Live Statistics */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-5 h-5 text-accent-cyan" />
-              <h3 className="text-lg font-bold text-white">Live Statistics</h3>
-            </div>
-
-            <StatRow
-              label="Possession"
-              home={homeStats.possession}
-              away={awayStats.possession}
-              unit="%"
-              compare={true}
-            />
-
-            <StatRow
-              label="Shots on Target"
-              home={homeStats.shotsOnTarget}
-              away={awayStats.shotsOnTarget}
-              compare={true}
-            />
-
-            <StatRow
-              label="Shots Off Target"
-              home={homeStats.shotsOffTarget}
-              away={awayStats.shotsOffTarget}
-              compare={true}
-            />
-
-            <StatRow
-              label="Total Shots"
-              home={homeStats.shotsOnTarget + homeStats.shotsOffTarget}
-              away={awayStats.shotsOnTarget + awayStats.shotsOffTarget}
-              compare={true}
-            />
-
-            <StatRow
-              label="Attacks"
-              home={homeStats.attacks}
-              away={awayStats.attacks}
-              compare={true}
-            />
-
-            <StatRow
-              label="Dangerous Attacks"
-              home={homeStats.dangerousAttacks}
-              away={awayStats.dangerousAttacks}
-              compare={true}
-            />
-
-            <StatRow
-              label="Corners"
-              home={homeStats.corners}
-              away={awayStats.corners}
-              compare={true}
-            />
-
-            <StatRow
-              label="Yellow Cards"
-              home={homeStats.yellowCards}
-              away={awayStats.yellowCards}
-              compare={true}
-            />
-
-            <StatRow
-              label="Red Cards"
-              home={homeStats.redCards}
-              away={awayStats.redCards}
-              compare={false}
-            />
-          </div>
-
-          {/* Odds Section */}
-          {(match as any).odds && (
-            <BettingOddsSection
-              odds={(match as any).odds}
-              homeName={match.teams?.home?.name || 'Home'}
-              awayName={match.teams?.away?.name || 'Away'}
-            />
-          )}
-
-          {/* Recent Form - History (moved up for visibility) */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-accent-green" />
-              Team History (Last 10 Matches)
-            </h3>
-            <p className="text-xs text-text-muted -mt-2">Click any match to see detailed stats</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TeamFormBox
-                team={match.teams?.home?.name || 'Home'}
-                teamId={String(match.teams?.home?.id || '')}
-                recentData={homeForm}
-                loading={formLoading}
-              />
-              <TeamFormBox
-                team={match.teams?.away?.name || 'Away'}
-                teamId={String(match.teams?.away?.id || '')}
-                recentData={awayForm}
-                loading={formLoading}
-              />
-            </div>
-          </div>
-
-          {/* Head-to-Head */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-accent-blue" />
-              Head-to-Head ({h2hMatches.length > 0 ? `Last ${h2hMatches.length}` : 'Recent'})
-            </h3>
-
-            {formLoading && h2hMatches.length === 0 && (
-              <div className="text-xs text-text-muted animate-pulse">Loading H2H data...</div>
-            )}
-
-            {!formLoading && h2hMatches.length === 0 && (
-              <div className="text-xs text-text-muted">No recent H2H matches found</div>
-            )}
-
-            {h2hMatches.length > 0 && (() => {
-              const homeTeamId = String(match.teams?.home?.id || '');
-              const awayTeamId = String(match.teams?.away?.id || '');
-              const homeName = match.teams?.home?.name || 'Home';
-              const awayName = match.teams?.away?.name || 'Away';
-
-              let homeWins = 0, awayWins = 0, draws = 0, totalHomeGoals = 0, totalAwayGoals = 0;
-              h2hMatches.forEach(m => {
-                const hScore = m.home_score;
-                const aScore = m.away_score;
-                // Track goals relative to the current match's home/away team
-                const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
-                totalHomeGoals += isCurrentHomeAtHome ? hScore : aScore;
-                totalAwayGoals += isCurrentHomeAtHome ? aScore : hScore;
-
-                if (hScore > aScore) {
-                  if (isCurrentHomeAtHome) homeWins++; else awayWins++;
-                } else if (aScore > hScore) {
-                  if (isCurrentHomeAtHome) awayWins++; else homeWins++;
-                } else {
-                  draws++;
-                }
-              });
-
-              return (
-                <>
-                  {/* H2H Summary */}
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)]">
-                    <div className="text-center flex-1">
-                      <div className="text-xs text-text-muted mb-1 truncate">{homeName}</div>
-                      <div className="text-2xl font-bold text-accent-cyan">{homeWins}</div>
-                      <div className="text-[10px] text-text-muted">wins</div>
-                    </div>
-                    <div className="text-center px-4">
-                      <div className="text-xs text-text-muted mb-1">Draws</div>
-                      <div className="text-2xl font-bold text-accent-yellow">{draws}</div>
-                      <div className="text-[10px] text-text-muted">{totalHomeGoals}-{totalAwayGoals} goals</div>
-                    </div>
-                    <div className="text-center flex-1">
-                      <div className="text-xs text-text-muted mb-1 truncate">{awayName}</div>
-                      <div className="text-2xl font-bold text-accent-blue">{awayWins}</div>
-                      <div className="text-[10px] text-text-muted">wins</div>
+        {/* Collapsible Triggered Filters */}
+        {filterResults && filterResults.length > 0 && (
+          <div className="mx-6 mt-4">
+            <button
+              onClick={() => setFiltersExpanded(!filtersExpanded)}
+              className="w-full flex items-center justify-between p-3 rounded-lg border border-accent-green/30 bg-accent-green/5 hover:bg-accent-green/10 transition-colors"
+            >
+              <span className="text-sm font-semibold text-accent-green flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                {filterResults.length} Filter{filterResults.length > 1 ? 's' : ''} Triggered
+              </span>
+              <ChevronDown className={`w-4 h-4 text-accent-green transition-transform ${filtersExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            {filtersExpanded && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-1 space-y-1 px-1"
+              >
+                {filterResults.map((result, idx) => (
+                  <div key={idx} className="flex items-start gap-2 p-2 rounded-md bg-glass-light/50 text-xs">
+                    <FilterIcon className="w-3 h-3 text-accent-cyan mt-0.5 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-accent-cyan">{result.filter.name}</span>
+                      <p className="text-text-muted mt-0.5">{result.matchedConditions.join(', ')}</p>
                     </div>
                   </div>
+                ))}
+              </motion.div>
+            )}
+          </div>
+        )}
 
-                  {/* H2H Match List */}
-                  <div className="space-y-0 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
-                    {h2hMatches.map((m, i) => {
-                      const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
-                      const homeTeamWon = isCurrentHomeAtHome
-                        ? m.home_score > m.away_score
-                        : m.away_score > m.home_score;
-                      const awayTeamWon = isCurrentHomeAtHome
-                        ? m.away_score > m.home_score
-                        : m.home_score > m.away_score;
-                      const isDraw = m.home_score === m.away_score;
+        {/* Tab Navigation */}
+        <div className="sticky top-[88px] z-10 bg-background/95 backdrop-blur-sm border-b border-accent-cyan/20 px-6 pt-4 pb-0 flex gap-1">
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
+              activeTab === 'stats'
+                ? 'bg-accent-cyan/10 text-accent-cyan border-b-2 border-accent-cyan'
+                : 'text-text-muted hover:text-white hover:bg-glass-light'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+            Statistics
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
+              activeTab === 'history'
+                ? 'bg-accent-cyan/10 text-accent-cyan border-b-2 border-accent-cyan'
+                : 'text-text-muted hover:text-white hover:bg-glass-light'
+            }`}
+          >
+            <Clock className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+            Previous Games
+          </button>
+        </div>
 
-                      return (
-                        <div
-                          key={m.id || i}
-                          className="flex items-center gap-2 px-3 py-2.5 text-[11px] border-b border-white/8 last:border-b-0 hover:bg-white/5 transition"
-                        >
-                          <span className="text-text-muted w-[52px] shrink-0 text-[10px]">
-                            {formatDate(m.date)}
-                          </span>
-                          <div className="flex-1 min-w-0 text-right truncate">
-                            <span className={homeTeamWon && isCurrentHomeAtHome || awayTeamWon && !isCurrentHomeAtHome ? 'text-accent-green font-bold' : 'text-white'}>
-                              {m.home_team_name}
-                            </span>
-                          </div>
-                          <span className={`font-bold text-xs px-2 shrink-0 ${
-                            isDraw ? 'text-accent-yellow' : homeTeamWon ? 'text-accent-cyan' : 'text-accent-blue'
-                          }`}>
-                            {m.home_score} - {m.away_score}
-                          </span>
-                          <div className="flex-1 min-w-0 truncate">
-                            <span className={awayTeamWon && isCurrentHomeAtHome || homeTeamWon && !isCurrentHomeAtHome ? 'text-accent-green font-bold' : 'text-white'}>
-                              {m.away_team_name}
-                            </span>
-                          </div>
-                          {m.league && (
-                            <span className="text-[9px] text-text-muted shrink-0 truncate max-w-[60px]">{m.league}</span>
-                          )}
+        {/* Tab Content */}
+        <div className="p-6 space-y-6">
+
+          {/* ===== STATISTICS TAB ===== */}
+          {activeTab === 'stats' && (
+            <>
+              {/* Live Statistics */}
+              <div className="space-y-4">
+                <StatRow label="Possession" home={homeStats.possession} away={awayStats.possession} unit="%" compare={true} />
+                <StatRow label="Shots on Target" home={homeStats.shotsOnTarget} away={awayStats.shotsOnTarget} compare={true} />
+                <StatRow label="Shots Off Target" home={homeStats.shotsOffTarget} away={awayStats.shotsOffTarget} compare={true} />
+                <StatRow label="Total Shots" home={homeStats.shotsOnTarget + homeStats.shotsOffTarget} away={awayStats.shotsOnTarget + awayStats.shotsOffTarget} compare={true} />
+                <StatRow label="Attacks" home={homeStats.attacks} away={awayStats.attacks} compare={true} />
+                <StatRow label="Dangerous Attacks" home={homeStats.dangerousAttacks} away={awayStats.dangerousAttacks} compare={true} />
+                <StatRow label="Corners" home={homeStats.corners} away={awayStats.corners} compare={true} />
+                <StatRow label="Yellow Cards" home={homeStats.yellowCards} away={awayStats.yellowCards} compare={true} />
+                <StatRow label="Red Cards" home={homeStats.redCards} away={awayStats.redCards} compare={false} />
+              </div>
+
+              {/* Goals by Half */}
+              {(homeStats.firstHalf > 0 || awayStats.firstHalf > 0 || homeStats.secondHalf > 0 || awayStats.secondHalf > 0) && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-accent-amber" />
+                    <h3 className="text-lg font-bold text-white">Goals by Half</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <TimeWindowStat label="First Half" home={homeStats.firstHalf} away={awayStats.firstHalf} />
+                    <TimeWindowStat label="Second Half" home={homeStats.secondHalf} away={awayStats.secondHalf} />
+                  </div>
+                </div>
+              )}
+
+              {/* Match Momentum */}
+              <MomentumSection homeStats={homeStats} awayStats={awayStats} match={match} />
+
+              {/* Odds Section */}
+              {(match as any).odds && (
+                <BettingOddsSection
+                  odds={(match as any).odds}
+                  homeName={match.teams?.home?.name || 'Home'}
+                  awayName={match.teams?.away?.name || 'Away'}
+                />
+              )}
+
+              {/* AI Predictions */}
+              <MatchPredictionsWrapper match={match} />
+            </>
+          )}
+
+          {/* ===== PREVIOUS GAMES TAB ===== */}
+          {activeTab === 'history' && (
+            <>
+              {/* Head-to-Head */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-accent-blue" />
+                  Head-to-Head ({h2hMatches.length > 0 ? `Last ${h2hMatches.length}` : 'Recent'})
+                </h3>
+
+                {formLoading && h2hMatches.length === 0 && (
+                  <div className="text-xs text-text-muted animate-pulse">Loading H2H data...</div>
+                )}
+
+                {!formLoading && h2hMatches.length === 0 && (
+                  <div className="text-xs text-text-muted">No recent H2H matches found</div>
+                )}
+
+                {h2hMatches.length > 0 && (() => {
+                  const homeTeamId = String(match.teams?.home?.id || '');
+                  const homeName = match.teams?.home?.name || 'Home';
+                  const awayName = match.teams?.away?.name || 'Away';
+
+                  let homeWins = 0, awayWins = 0, draws = 0, totalHomeGoals = 0, totalAwayGoals = 0;
+                  h2hMatches.forEach(m => {
+                    const hScore = m.home_score;
+                    const aScore = m.away_score;
+                    const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
+                    totalHomeGoals += isCurrentHomeAtHome ? hScore : aScore;
+                    totalAwayGoals += isCurrentHomeAtHome ? aScore : hScore;
+
+                    if (hScore > aScore) {
+                      if (isCurrentHomeAtHome) homeWins++; else awayWins++;
+                    } else if (aScore > hScore) {
+                      if (isCurrentHomeAtHome) awayWins++; else homeWins++;
+                    } else {
+                      draws++;
+                    }
+                  });
+
+                  return (
+                    <>
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)]">
+                        <div className="text-center flex-1">
+                          <div className="text-xs text-text-muted mb-1 truncate">{homeName}</div>
+                          <div className="text-2xl font-bold text-accent-cyan">{homeWins}</div>
+                          <div className="text-[10px] text-text-muted">wins</div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </>
-              );
-            })()}
-          </div>
+                        <div className="text-center px-4">
+                          <div className="text-xs text-text-muted mb-1">Draws</div>
+                          <div className="text-2xl font-bold text-accent-yellow">{draws}</div>
+                          <div className="text-[10px] text-text-muted">{totalHomeGoals}-{totalAwayGoals} goals</div>
+                        </div>
+                        <div className="text-center flex-1">
+                          <div className="text-xs text-text-muted mb-1 truncate">{awayName}</div>
+                          <div className="text-2xl font-bold text-accent-blue">{awayWins}</div>
+                          <div className="text-[10px] text-text-muted">wins</div>
+                        </div>
+                      </div>
 
-          {/* Goals by Half */}
-          {(homeStats.firstHalf > 0 || awayStats.firstHalf > 0 || homeStats.secondHalf > 0 || awayStats.secondHalf > 0) && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-5 h-5 text-accent-amber" />
-                <h3 className="text-lg font-bold text-white">Goals by Half</h3>
+                      <div className="space-y-0 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+                        {h2hMatches.map((m, i) => {
+                          const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
+                          const homeTeamWon = isCurrentHomeAtHome
+                            ? m.home_score > m.away_score
+                            : m.away_score > m.home_score;
+                          const awayTeamWon = isCurrentHomeAtHome
+                            ? m.away_score > m.home_score
+                            : m.home_score > m.away_score;
+                          const isDraw = m.home_score === m.away_score;
+
+                          return (
+                            <div
+                              key={m.id || i}
+                              className="flex items-center gap-2 px-3 py-2.5 text-[11px] border-b border-white/8 last:border-b-0 hover:bg-white/5 transition"
+                            >
+                              <span className="text-text-muted w-[52px] shrink-0 text-[10px]">
+                                {formatDate(m.date)}
+                              </span>
+                              <div className="flex-1 min-w-0 text-right truncate">
+                                <span className={homeTeamWon && isCurrentHomeAtHome || awayTeamWon && !isCurrentHomeAtHome ? 'text-accent-green font-bold' : 'text-white'}>
+                                  {m.home_team_name}
+                                </span>
+                              </div>
+                              <span className={`font-bold text-xs px-2 shrink-0 ${
+                                isDraw ? 'text-accent-yellow' : homeTeamWon ? 'text-accent-cyan' : 'text-accent-blue'
+                              }`}>
+                                {m.home_score} - {m.away_score}
+                              </span>
+                              <div className="flex-1 min-w-0 truncate">
+                                <span className={awayTeamWon && isCurrentHomeAtHome || homeTeamWon && !isCurrentHomeAtHome ? 'text-accent-green font-bold' : 'text-white'}>
+                                  {m.away_team_name}
+                                </span>
+                              </div>
+                              {m.league && (
+                                <span className="text-[9px] text-text-muted shrink-0 truncate max-w-[60px]">{m.league}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <TimeWindowStat label="First Half" home={homeStats.firstHalf} away={awayStats.firstHalf} />
-                <TimeWindowStat label="Second Half" home={homeStats.secondHalf} away={awayStats.secondHalf} />
+
+              {/* Team Form */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-accent-green" />
+                  Team Form (Last 10 Matches)
+                </h3>
+                <p className="text-xs text-text-muted -mt-2">Click any match to see detailed stats</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <TeamFormBox
+                    team={match.teams?.home?.name || 'Home'}
+                    teamId={String(match.teams?.home?.id || '')}
+                    recentData={homeForm}
+                    loading={formLoading}
+                  />
+                  <TeamFormBox
+                    team={match.teams?.away?.name || 'Away'}
+                    teamId={String(match.teams?.away?.id || '')}
+                    recentData={awayForm}
+                    loading={formLoading}
+                  />
+                </div>
               </div>
-            </div>
+            </>
           )}
 
-          {/* Match Momentum - Event Timeline + Stats */}
-          <MomentumSection homeStats={homeStats} awayStats={awayStats} match={match} />
-
-          {/* Stats Breakdown */}
-          <StatsBreakdown homeStats={homeStats} awayStats={awayStats} match={match} />
-
-          {/* AI Predictions & Betting Insights */}
-          <MatchPredictionsWrapper match={match} />
         </div>
       </motion.div>
     </motion.div>

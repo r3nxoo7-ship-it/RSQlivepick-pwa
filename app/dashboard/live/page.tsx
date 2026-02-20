@@ -20,8 +20,7 @@ import {
 } from 'lucide-react';
 import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
-import MatchStatsDisplay from '@/components/MatchStatsDisplay';
-import MatchPredictionsWrapper from '@/components/MatchPredictionsWrapper';
+import AdvancedMatchDetail from '@/components/AdvancedMatchDetail';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
@@ -644,99 +643,17 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
           </button>
 
           {/* Match Details Modal */}
-          {selectedMatch && (() => {
-            const fixtureId = selectedMatch.fixture?.id;
-            const matchedFilters = fixtureId ? filterResults.get(fixtureId) : null;
-            return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4"
-              onClick={(e) => { if (e.target === e.currentTarget) setSelectedMatch(null); }}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-[#0f1729] rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden"
-              >
-                {/* Header with close button */}
-                <div className="flex items-start justify-between p-4 sm:p-5 border-b border-glass-lighter bg-[#131d33]">
-                  <div className="flex-1">
-                    <h2 className="text-lg sm:text-xl font-bold text-accent-cyan">
-                      {selectedMatch.teams.home.name} vs {selectedMatch.teams.away.name}
-                    </h2>
-                    <p className="text-xs sm:text-sm text-text-muted mt-1">
-                      {selectedMatch.league.name}
-                      {selectedMatch.fixture.status.elapsed != null && (
-                        <span className="ml-2 text-accent-green font-semibold">
-                          {selectedMatch.fixture.status.elapsed}&apos; {selectedMatch.fixture.status.short}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedMatch(null)}
-                    className="text-text-secondary hover:text-accent-cyan ml-3 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-glass-light transition-colors text-xl"
-                    aria-label="Close"
-                  >
-                    ×
-                  </button>
-                </div>
-
-                {/* Scrollable content */}
-                <div className="overflow-y-auto max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-180px)]">
-                  <div className="p-4 sm:p-5 space-y-4">
-                    {/* Score display */}
-                    <div className="flex items-center justify-center gap-4 py-3">
-                      <div className="text-center flex-1">
-                        <div className="text-sm text-text-secondary mb-1 truncate">{selectedMatch.teams.home.name}</div>
-                        <div className="text-3xl font-bold text-accent-yellow">
-                          {selectedMatch.goals?.home ?? 0}
-                        </div>
-                      </div>
-                      <div className="text-text-muted text-lg font-bold">-</div>
-                      <div className="text-center flex-1">
-                        <div className="text-sm text-text-secondary mb-1 truncate">{selectedMatch.teams.away.name}</div>
-                        <div className="text-3xl font-bold text-accent-blue">
-                          {selectedMatch.goals?.away ?? 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Triggered filters for this match */}
-                    {matchedFilters && matchedFilters.length > 0 && (
-                      <div className="rounded-lg border border-accent-green/30 bg-accent-green/5 p-3">
-                        <h4 className="text-sm font-semibold text-accent-green mb-2 flex items-center gap-2">
-                          <Target className="w-4 h-4" />
-                          {matchedFilters.length} Filter{matchedFilters.length > 1 ? 's' : ''} Triggered
-                        </h4>
-                        <div className="space-y-1.5">
-                          {matchedFilters.map((result, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-xs">
-                              <FilterIcon className="w-3 h-3 text-accent-cyan mt-0.5 shrink-0" />
-                              <div>
-                                <span className="font-semibold text-accent-cyan">{result.filter.name}</span>
-                                <p className="text-text-muted mt-0.5">{result.matchedConditions.join(', ')}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Match Statistics (real stat bars) */}
-                    <MatchStatsDisplay
-                      matchStats={selectedMatch.statistics}
-                      homeTeam={selectedMatch.teams.home.name}
-                      awayTeam={selectedMatch.teams.away.name}
-                    />
-
-                    {/* AI Predictions */}
-                    <MatchPredictionsWrapper match={selectedMatch} />
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-            );
-          })()}
+          {selectedMatch && (
+            <AdvancedMatchDetail
+              match={selectedMatch}
+              onClose={() => setSelectedMatch(null)}
+              filterResults={
+                selectedMatch.fixture?.id
+                  ? filterResults.get(selectedMatch.fixture.id)
+                  : undefined
+              }
+            />
+          )}
           
           {/* ========== EMPTY STATE ========== */}
           {!loading && !error && filteredMatches.length === 0 && (
