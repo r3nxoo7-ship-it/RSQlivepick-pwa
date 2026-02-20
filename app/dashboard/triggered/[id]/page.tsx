@@ -139,8 +139,13 @@ export default function TriggeredMatchDetailsPage() {
   const awayTeam = triggered.away_team;
   const filterName = triggered.filter_name;
   const triggeredAt = new Date(triggered.triggered_at);
-  const homeScore = triggered.score_home || 0;
-  const awayScore = triggered.score_away || 0;
+  // Use final/current match scores from live API, not triggered scores
+  const homeScore = match?.score?.home ?? triggered.score_home ?? 0;
+  const awayScore = match?.score?.away ?? triggered.score_away ?? 0;
+  // Show triggered scores for context
+  const triggeredHomeScore = triggered.score_home || 0;
+  const triggeredAwayScore = triggered.score_away || 0;
+  const scoreChanged = homeScore !== triggeredHomeScore || awayScore !== triggeredAwayScore;
 
   return (
     <AuthWrapper>
@@ -263,6 +268,13 @@ export default function TriggeredMatchDetailsPage() {
                 </p>
               </div>
             </div>
+
+            {/* Score Change Indicator */}
+            {scoreChanged && (
+              <div className="mt-4 pt-4 border-t border-glass-light/30 text-center text-sm text-text-secondary">
+                <p>Triggered at score: <span className="font-semibold text-accent-cyan">{triggeredHomeScore}</span>-<span className="font-semibold text-accent-blue">{triggeredAwayScore}</span></p>
+              </div>
+            )}
           </motion.div>
 
           {/* ========== MATCH STATISTICS (ESPN) ========== */}
