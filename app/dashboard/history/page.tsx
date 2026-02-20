@@ -426,7 +426,10 @@ function MatchGroupCard({
           <div className="px-3 py-2 space-y-1">
             {group.triggers.map((trigger, i) => {
               const isFilterExpanded = expandedFilter === (trigger.id || String(i));
-              const triggerScore = `${trigger.score_home ?? '?'}-${trigger.score_away ?? '?'}`;
+              // Display triggered score - should always have a value now
+              const triggerScore = (trigger.score_home !== null && trigger.score_away !== null)
+                ? `${trigger.score_home}-${trigger.score_away}`
+                : '0-0';
 
               return (
                 <div key={trigger.id || i}>

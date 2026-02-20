@@ -193,8 +193,9 @@ class BackgroundScannerService {
               league_name: match.league?.name || '',
               triggered_at: new Date().toISOString(),
               match_time: match.fixture.status.elapsed || null,
-              score_home: match.goals?.home ?? null,
-              score_away: match.goals?.away ?? null,
+              // Always ensure we capture scores - use goals if available, fall back to 0
+              score_home: (match.goals?.home !== null && match.goals?.home !== undefined) ? match.goals.home : 0,
+              score_away: (match.goals?.away !== null && match.goals?.away !== undefined) ? match.goals.away : 0,
               match_status: match.fixture?.status?.short || 'ongoing',
             }),
           });

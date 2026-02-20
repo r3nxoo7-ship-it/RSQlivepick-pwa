@@ -12,13 +12,8 @@ import {
   Filter as FilterIcon,
   Activity,
   Target,
-  Bell,
-  BellOff,
   Zap,
-  Settings,
-  Radio,
   Clock,
-  Calendar,
   Trophy,
   ChevronDown,
   ChevronUp
@@ -135,131 +130,6 @@ export default function LiveMatchesPage() {
   
   // Use background scanner hook
   const backgroundScanner = useBackgroundScanner(true);
-
-  // Enhanced live sparkline renderer — mirrors real match statistics for accurate live data visualization
-  function LiveSparkline({ match }: { match: LiveMatch }) {
-    const width = 520;
-    const height = 80;
-    const seed = Number(match.fixture?.id) || 1;
-
-    /**
-     * Extract stats from match.statistics array
-     * Prioritizes: Shots on Goal > Total Shots > Other metrics
-     * Falls back to pseudo-random if no stats available
-     */
-    const extractStat = (team: 'home' | 'away', names: string[]): number => {
-      if (!match.statistics || match.statistics.length === 0) return 0;
-      const teamStats = match.statistics.find(s => 
-        (team === 'home' && s.team.id === match.teams.home.id) ||
-        (team === 'away' && s.team.id === match.teams.away.id)
-      );
-      
-      if (!teamStats) return 0;
-      
-      for (const name of names) {
-        const stat = teamStats.statistics.find(s => 
-          s.type.toLowerCase().includes(name.toLowerCase())
-        );
-        if (stat && typeof stat.value === 'number' && stat.value > 0) {
-          return stat.value;
-        }
-      }
-      return 0;
-    };
-
-    // Extract real stats: prioritize shots on goal
-    const homeShotsOnGoal = extractStat('home', ['shots on goal', 'shots on target']);
-    const awayShotsOnGoal = extractStat('away', ['shots on goal', 'shots on target']);
-    const homeCorners = extractStat('home', ['corner']);
-    const awayCorners = extractStat('away', ['corner']);
-    
-    // Fall back to goals if no shot data
-    const homeBase = homeShotsOnGoal > 0 ? homeShotsOnGoal : (match.goals?.home ?? 0) * 3;
-    const awayBase = awayShotsOnGoal > 0 ? awayShotsOnGoal : (match.goals?.away ?? 0) * 3;
-
-    // Generate smooth progression based on elapsed time and real stats
-    const elapsed = match.fixture?.status.elapsed ?? 0;
-    const progressionFactor = Math.min(elapsed / 90, 1);
-
-    // If match is running, build realistic time-series
-    const points = 40;
-    const homeVals: number[] = [];
-    const awayVals: number[] = [];
-
-    // Deterministic pseudo-random seed-based variation
-    const rand = (n: number) => Math.abs(Math.sin((seed + n) * 12.9898) * 43758.5453) % 1;
-    
-    for (let i = 0; i < points; i++) {
-      const timeProgress = i / (points - 1);
-      
-      // Base intensity tied to real stats
-      const h = Math.max(0, Math.round(
-        (Math.sin(timeProgress * Math.PI / 2 + seed % 7) + 1) * 2 +
-        homeBase * timeProgress * 0.8 +
-        rand(i) * (homeBase > 0 ? 2 : 3)
-      ));
-      
-      const a = Math.max(0, Math.round(
-        (Math.cos(timeProgress * Math.PI / 2 + seed % 11) + 1) * 1.5 +
-        awayBase * timeProgress * 0.75 +
-        rand(i + 100) * (awayBase > 0 ? 2 : 3)
-      ));
-      
-      homeVals.push(h);
-      awayVals.push(a);
-    }
-
-    const maxVal = Math.max(...homeVals, ...awayVals, 1);
-
-    const toPoints = (vals: number[]) => vals.map((v, i) => {
-      const x = Math.round((i / (vals.length - 1)) * width);
-      const y = Math.round(height - (v / maxVal) * height);
-      return `${x},${y}`;
-    }).join(' ');
-
-    // Format stats summary for tooltip
-    const statsText = `Home: ${homeShotsOnGoal || 0} shots | Away: ${awayShotsOnGoal || 0} shots`;
-
-    return (
-      <div className="relative" title={statsText}>
-        <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="rounded">
-          <defs>
-            <linearGradient id="g1" x1="0" x2="1">
-              <stop offset="0%" stopColor="#ffd166" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#f97316" stopOpacity="0.9" />
-            </linearGradient>
-            <linearGradient id="g2" x1="0" x2="1">
-              <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.9" />
-            </linearGradient>
-          </defs>
-
-          <polyline points={toPoints(awayVals)} fill="none" stroke="url(#g2)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-          <polyline points={toPoints(homeVals)} fill="none" stroke="url(#g1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-
-          {/* Latest value markers */}
-          {(() => {
-            const hx = (points - 1) / (points - 1) * width;
-            const hy = height - (homeVals[homeVals.length - 1] / maxVal) * height;
-            const ax = (points - 1) / (points - 1) * width;
-            const ay = height - (awayVals[awayVals.length - 1] / maxVal) * height;
-            return (
-              <>
-                <circle cx={hx} cy={hy} r={3.5} fill="#f97316" stroke="#111827" strokeWidth={0.5} />
-                <circle cx={ax} cy={ay} r={3.5} fill="#3b82f6" stroke="#0b1220" strokeWidth={0.5} />
-              </>
-            );
-          })()}
-        </svg>
-        {/* Real stats indicator */}
-        {(homeShotsOnGoal > 0 || awayShotsOnGoal > 0) && (
-          <div className="absolute top-1 right-1 text-xs text-text-muted px-2 py-0.5 bg-black/30 rounded">
-            📊 Live
-          </div>
-        )}
-      </div>
-    );
-  }
 
     // ============================================
   // LOAD FUNCTIONS
@@ -464,33 +334,6 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
   // ============================================
   // HANDLERS
   // ============================================
-  
-  const handleMatchClick = (match: LiveMatch) => {
-    const fixtureId = match.fixture?.id;
-    const matchedFilters = fixtureId ? filterResults.get(fixtureId) : null;
-
-    const homeName = match.teams?.home?.name || 'Home';
-    const awayName = match.teams?.away?.name || 'Away';
-    const leagueName = match.league?.name || 'Unknown';
-
-    if (matchedFilters && matchedFilters.length > 0) {
-      const filterNames = matchedFilters.map(r => r.filter.name).join(', ');
-      const conditions = matchedFilters[0].matchedConditions.join('\n');
-
-      alert(
-        `⚽ ${homeName} vs ${awayName}\n\n` +
-        `✅ Matched Filters (${matchedFilters.length}):\n${filterNames}\n\n` +
-        `📊 Conditions:\n${conditions}`
-      );
-    } else {
-      alert(
-        `⚽ ${homeName} vs ${awayName}\n\n` +
-        `Match ID: ${fixtureId || 'unknown'}\n` +
-        `Liga: ${leagueName}\n\n` +
-        `❌ No filters matched`
-      );
-    }
-  };
   
   const handleRefresh = () => {
     fetchMatches();
@@ -763,38 +606,6 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
           {/* ========== MECIURI ========== */}
 {!loading && !error && filteredMatches.length > 0 && (
   <>
-    {/* Betting Insights Summary */}
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-6 rounded-xl border border-glass-light/20 mb-6"
-    >
-      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-glass-light/20">
-        <span className="text-2xl">💡</span>
-        <div>
-          <h3 className="text-lg font-semibold text-white">Today&apos;s Best Bets</h3>
-          <p className="text-xs text-text-muted">AI-powered predictions for popular betting markets</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-green-400">High Value</div>
-          <p className="text-xs text-text-muted mt-2">Bets with +5% odds advantage</p>
-        </div>
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-amber-400">Fair Value</div>
-          <p className="text-xs text-text-muted mt-2">Balanced risk/reward bets</p>
-        </div>
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-red-400">Skip</div>
-          <p className="text-xs text-text-muted mt-2">Poor odds, pass on these</p>
-        </div>
-      </div>
-      <p className="text-xs text-text-muted mt-4 italic">
-        Click on any match to see detailed betting predictions and odds analysis
-      </p>
-    </motion.div>
-
     {/* Main matches grid */}
     <motion.div
       initial={{ opacity: 0 }}
@@ -833,101 +644,99 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
           </button>
 
           {/* Match Details Modal */}
-          {selectedMatch && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-0 overflow-y-auto">
-              <motion.div 
+          {selectedMatch && (() => {
+            const fixtureId = selectedMatch.fixture?.id;
+            const matchedFilters = fixtureId ? filterResults.get(fixtureId) : null;
+            return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4"
+              onClick={(e) => { if (e.target === e.currentTarget) setSelectedMatch(null); }}
+            >
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-glass-light rounded-2xl shadow-2xl w-full max-w-lg relative animate-fadeIn my-auto"
+                className="bg-[#0f1729] rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden"
               >
-                {/* Compact header with close button */}
-                <div className="flex items-start justify-between p-4 sm:p-6 border-b border-glass-lighter">
+                {/* Header with close button */}
+                <div className="flex items-start justify-between p-4 sm:p-5 border-b border-glass-lighter bg-[#131d33]">
                   <div className="flex-1">
                     <h2 className="text-lg sm:text-xl font-bold text-accent-cyan">
                       {selectedMatch.teams.home.name} vs {selectedMatch.teams.away.name}
                     </h2>
                     <p className="text-xs sm:text-sm text-text-muted mt-1">
                       {selectedMatch.league.name}
+                      {selectedMatch.fixture.status.elapsed != null && (
+                        <span className="ml-2 text-accent-green font-semibold">
+                          {selectedMatch.fixture.status.elapsed}&apos; {selectedMatch.fixture.status.short}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <button
                     onClick={() => setSelectedMatch(null)}
-                    className="text-text-secondary hover:text-accent-cyan ml-3 flex-shrink-0 text-2xl"
+                    className="text-text-secondary hover:text-accent-cyan ml-3 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-glass-light transition-colors text-xl"
                     aria-label="Close"
                   >
                     ×
                   </button>
                 </div>
 
-                {/* Scrollable content (mobile-optimized) */}
-                <div className="overflow-y-auto max-h-[calc(100vh-200px)] sm:max-h-96">
-                  <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                    {/* Match status row */}
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs sm:text-sm">
-                      <div className="bg-glass-dark rounded-lg p-2">
-                        <div className="text-accent-yellow font-bold text-base sm:text-lg">
+                {/* Scrollable content */}
+                <div className="overflow-y-auto max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-180px)]">
+                  <div className="p-4 sm:p-5 space-y-4">
+                    {/* Score display */}
+                    <div className="flex items-center justify-center gap-4 py-3">
+                      <div className="text-center flex-1">
+                        <div className="text-sm text-text-secondary mb-1 truncate">{selectedMatch.teams.home.name}</div>
+                        <div className="text-3xl font-bold text-accent-yellow">
                           {selectedMatch.goals?.home ?? 0}
                         </div>
-                        <div className="text-text-muted text-xs mt-1">Goals</div>
                       </div>
-                      <div className="bg-glass-dark rounded-lg p-2 flex flex-col justify-center">
-                        <div className="text-accent-cyan font-semibold">
-                          {selectedMatch.fixture.status.elapsed || 0}&apos;
-                        </div>
-                        <div className="text-text-muted text-xs mt-1">
-                          {selectedMatch.fixture.status.short}
-                        </div>
-                      </div>
-                      <div className="bg-glass-dark rounded-lg p-2">
-                        <div className="text-accent-blue font-bold text-base sm:text-lg">
+                      <div className="text-text-muted text-lg font-bold">-</div>
+                      <div className="text-center flex-1">
+                        <div className="text-sm text-text-secondary mb-1 truncate">{selectedMatch.teams.away.name}</div>
+                        <div className="text-3xl font-bold text-accent-blue">
                           {selectedMatch.goals?.away ?? 0}
                         </div>
-                        <div className="text-text-muted text-xs mt-1">Goals</div>
                       </div>
                     </div>
 
-                    {/* Live chart area with real stats */}
-                    <div className="bg-[#0f172433] rounded-lg p-2 sm:p-3">
-                      <div className="h-16 sm:h-20">
-                        <LiveSparkline match={selectedMatch} />
-                      </div>
-                      {selectedMatch.statistics && selectedMatch.statistics.length > 0 ? (
-                        <div className="text-center text-xs text-text-muted mt-2">
-                          📊 Live stats mirrored
-                        </div>
-                      ) : (
-                        <div className="text-center text-xs text-text-muted mt-2">
-                          Loading stats...
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Key stats grid if available */}
-                    {selectedMatch.statistics && selectedMatch.statistics.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
-                        {selectedMatch.statistics.slice(0, 4).map((teamStat, idx) => (
-                          <div key={idx} className="bg-glass-dark rounded-lg p-2">
-                            <p className="font-semibold text-accent-cyan truncate">{teamStat.team.name}</p>
-                            <div className="mt-1 space-y-1 text-text-secondary">
-                              {teamStat.statistics.slice(0, 2).map((stat, i) => (
-                                <div key={i} className="flex justify-between text-xs">
-                                  <span className="truncate">{stat.type}</span>
-                                  <span className="ml-1 font-semibold">{stat.value}</span>
-                                </div>
-                              ))}
+                    {/* Triggered filters for this match */}
+                    {matchedFilters && matchedFilters.length > 0 && (
+                      <div className="rounded-lg border border-accent-green/30 bg-accent-green/5 p-3">
+                        <h4 className="text-sm font-semibold text-accent-green mb-2 flex items-center gap-2">
+                          <Target className="w-4 h-4" />
+                          {matchedFilters.length} Filter{matchedFilters.length > 1 ? 's' : ''} Triggered
+                        </h4>
+                        <div className="space-y-1.5">
+                          {matchedFilters.map((result, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-xs">
+                              <FilterIcon className="w-3 h-3 text-accent-cyan mt-0.5 shrink-0" />
+                              <div>
+                                <span className="font-semibold text-accent-cyan">{result.filter.name}</span>
+                                <p className="text-text-muted mt-0.5">{result.matchedConditions.join(', ')}</p>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                    {/* Match Predictions - ML-powered betting insights */}
+                    {/* Match Statistics (real stat bars) */}
+                    <MatchStatsDisplay
+                      matchStats={selectedMatch.statistics}
+                      homeTeam={selectedMatch.teams.home.name}
+                      awayTeam={selectedMatch.teams.away.name}
+                    />
+
+                    {/* AI Predictions */}
                     <MatchPredictionsWrapper match={selectedMatch} />
                   </div>
                 </div>
               </motion.div>
             </div>
-          )}
+            );
+          })()}
           
           {/* ========== EMPTY STATE ========== */}
           {!loading && !error && filteredMatches.length === 0 && (
