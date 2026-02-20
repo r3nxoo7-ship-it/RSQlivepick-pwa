@@ -611,25 +611,6 @@ export default function FiltersPage() {
             </div>
           )}
           
-          {/* ========== DEBUG INFO (pentru testing) ========== */}
-          <div className="glass-card p-4 text-xs text-text-muted">
-            <details>
-              <summary className="cursor-pointer font-semibold mb-2">🔧 Debug Info (for developer)</summary>
-              <div className="space-y-1 mt-2">
-                <p>Total filters loaded: {filters.length}</p>
-                <p>Active filters: {filters.filter(f => f.is_active).length}</p>
-                <p>Filters with notifications: {filters.filter(f => f.notification_enabled).length}</p>
-                <p className="text-accent-cyan mt-2">✅ DELETE and TOGGLE are fully implemented!</p>
-                {lastApiDebug && (
-                  <div className="mt-2 text-left text-[11px] text-text-muted">
-                    <div className="font-semibold">API debug:</div>
-                    <div>Status: {lastApiDebug.status}</div>
-                    <div>Result: <pre className="whitespace-pre-wrap">{JSON.stringify(lastApiDebug.result, null, 2)}</pre></div>
-                  </div>
-                )}
-              </div>
-            </details>
-          </div>
         </div>
       </div>
     </AuthWrapper>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, TrendingUp, BarChart3, Clock, Activity } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
+import MatchPredictionsWrapper from '@/components/MatchPredictionsWrapper';
 
 interface AdvancedMatchDetailProps {
   match: LiveMatch;
@@ -446,6 +447,9 @@ export default function AdvancedMatchDetail({ match, onClose }: AdvancedMatchDet
 
           {/* Stats Breakdown */}
           <StatsBreakdown homeStats={homeStats} awayStats={awayStats} match={match} />
+
+          {/* AI Predictions & Betting Insights */}
+          <MatchPredictionsWrapper match={match} />
         </div>
       </motion.div>
     </motion.div>

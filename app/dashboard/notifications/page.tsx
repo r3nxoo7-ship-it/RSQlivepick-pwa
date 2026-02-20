@@ -73,6 +73,12 @@ export default function NotificationSettingsPage() {
   // ===== Telegram tab state =====
   const [activeTab, setActiveTab] = useState<'push' | 'telegram'>('push');
 
+  // Read tab from URL params (e.g., ?tab=telegram from /dashboard/telegram redirect)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'telegram') setActiveTab('telegram');
+  }, []);
+
   const [tgLoading, setTgLoading] = useState(true);
   const [tgUser, setTgUser] = useState<any>(null);
   const [tgProfile, setTgProfile] = useState<any>(null);

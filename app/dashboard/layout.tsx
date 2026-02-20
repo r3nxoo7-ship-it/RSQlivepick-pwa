@@ -13,8 +13,9 @@ import {
   Activity,
   Filter,
   Bell,
-  Send,
+  BookOpen,
   BarChart3,
+  TrendingUp,
   Menu,
   X,
   LogOut,
@@ -39,19 +40,24 @@ const navigation = [
     icon: Activity,
   },
   {
-    name: 'History',
-    href: '/dashboard/history',
-    icon: Clock,
-  },
-  {
     name: 'Matches',
     href: '/dashboard/matches',
     icon: BarChart3,
   },
   {
+    name: 'History',
+    href: '/dashboard/history',
+    icon: Clock,
+  },
+  {
     name: 'Filters',
     href: '/dashboard/filters',
     icon: Filter,
+  },
+  {
+    name: 'Analytics',
+    href: '/dashboard/analytics',
+    icon: TrendingUp,
   },
   {
     name: 'Notifications',
@@ -61,7 +67,7 @@ const navigation = [
   {
     name: 'Library',
     href: '/dashboard/library',
-    icon: Send,
+    icon: BookOpen,
   },
 ];
 

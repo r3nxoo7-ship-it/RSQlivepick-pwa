@@ -26,7 +26,7 @@ import {
 import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
 import MatchStatsDisplay from '@/components/MatchStatsDisplay';
-import BettingOddsAnalyzer from '@/components/BettingOddsAnalyzer';
+import MatchPredictionsWrapper from '@/components/MatchPredictionsWrapper';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
@@ -921,8 +921,8 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                       </div>
                     )}
 
-                    {/* Betting Odds Analyzer - self-fetches real ESPN data */}
-                    <BettingOddsAnalyzer match={selectedMatch} />
+                    {/* Match Predictions - ML-powered betting insights */}
+                    <MatchPredictionsWrapper match={selectedMatch} />
                   </div>
                 </div>
               </motion.div>
