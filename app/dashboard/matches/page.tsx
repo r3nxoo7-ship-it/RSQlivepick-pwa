@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, TrendingUp, Activity } from 'lucide-react';
+import { RefreshCw, Calendar } from 'lucide-react';
 import { getLiveMatches, getLiveAndUpcomingMatches, LiveMatch } from '@/lib/unified-api';
 import LiveMatchesDashboardV2 from '@/components/LiveMatchesDashboardV2';
 import { dbHelpers, authHelpers } from '@/lib/supabase';
@@ -9,7 +9,6 @@ import type { Filter } from '@/lib/supabase';
 
 export default function MatchesAnalyticsPage() {
   const [matches, setMatches] = useState<LiveMatch[]>([]);
-  const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<LiveMatch[]>([]);
   const [scheduledMatches, setScheduledMatches] = useState<LiveMatch[]>([]);
   const [teamForm, setTeamForm] = useState<Record<string, any>>({});
@@ -34,19 +33,17 @@ export default function MatchesAnalyticsPage() {
 
       // Try to get separated live and upcoming matches first
       const separated = await getLiveAndUpcomingMatches();
-      if (separated.live.length > 0 || separated.upcoming.length > 0 || separated.scheduled.length > 0) {
-        console.log(`📊 Got ${separated.live.length} live, ${separated.upcoming.length} upcoming, ${separated.scheduled.length} scheduled matches`);
-        setLiveMatches(separated.live);
+      if (separated.upcoming.length > 0 || separated.scheduled.length > 0) {
+        console.log(`📊 Got ${separated.upcoming.length} upcoming, ${separated.scheduled.length} scheduled matches`);
         setUpcomingMatches(separated.upcoming);
         setScheduledMatches(separated.scheduled);
         setTeamForm(separated.teamForm || {});
-        setMatches([...separated.live, ...separated.upcoming]);
+        setMatches([...separated.upcoming]);
       } else {
         // Fallback to old format
         const allMatches = await getLiveMatches();
         console.log(`📊 Got ${allMatches?.length || 0} total matches (fallback)`);
         setMatches(allMatches || []);
-        setLiveMatches([]);
         setUpcomingMatches([]);
       }
 
@@ -91,9 +88,9 @@ export default function MatchesAnalyticsPage() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <Activity className="w-8 h-8 text-accent-cyan" />
+              <Calendar className="w-8 h-8 text-accent-cyan" />
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-accent-cyan to-accent-blue bg-clip-text text-transparent">
-                Live & Upcoming Matches
+                Upcoming Matches
               </h1>
             </div>
             <button
@@ -108,7 +105,7 @@ export default function MatchesAnalyticsPage() {
             </button>
           </div>
           <p className="text-text-secondary mt-1">
-            Real-time match stats • Filter predictions • Today + 7-day schedule{lastUpdate && ` • Updated: ${lastUpdate}`}
+            7-day match schedule with AI predictions{lastUpdate && ` • Updated: ${lastUpdate}`}
           </p>
         </div>
       </motion.div>
@@ -117,7 +114,7 @@ export default function MatchesAnalyticsPage() {
       <div className="container mx-auto px-4 py-8">
         <LiveMatchesDashboardV2
           matches={matches}
-          liveMatches={liveMatches}
+          liveMatches={[]}
           upcomingMatches={upcomingMatches}
           scheduledMatches={scheduledMatches}
           teamForm={teamForm}
