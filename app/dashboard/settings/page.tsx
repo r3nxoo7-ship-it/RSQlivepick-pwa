@@ -214,6 +214,7 @@ export default function SettingsPage() {
             <button
               onClick={() => router.back()}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              title="Go back"
             >
               <ArrowLeft className="w-6 h-6 text-text-secondary" />
             </button>

@@ -82,6 +82,7 @@ function OddsMarketRow({
         checked={isEnabled}
         onChange={(e) => toggleMarket(e.target.checked)}
         className="w-4 h-4 rounded shrink-0"
+        title={`Toggle ${label}`}
       />
       <span className={`text-xs w-[140px] shrink-0 ${isEnabled ? 'text-white' : 'text-text-muted'}`}>
         {label}
@@ -96,6 +97,7 @@ function OddsMarketRow({
             value={current.min ?? ''}
             onChange={(e) => updateRange('min', e.target.value)}
             className="input-field text-xs py-1 px-2 w-20"
+            title="Minimum odds"
           />
           <input
             type="number"
@@ -105,6 +107,7 @@ function OddsMarketRow({
             value={current.max ?? ''}
             onChange={(e) => updateRange('max', e.target.value)}
             className="input-field text-xs py-1 px-2 w-20"
+            title="Maximum odds"
           />
         </>
       )}
@@ -1052,6 +1055,7 @@ export default function CompleteFilterBuilder() {
                     value={timeMode}
                     onChange={(e) => setTimeMode(e.target.value as any)}
                     className="input-field"
+                    title="Select time mode"
                   >
                     <option value="after">After minute...</option>
                       <option value="before">Before minute...</option>
@@ -1124,6 +1128,7 @@ export default function CompleteFilterBuilder() {
                     value={scoreMode}
                     onChange={(e) => setScoreMode(e.target.value as any)}
                     className="input-field"
+                    title="Select score mode"
                   >
                     <option value="exact">Exact Score (ex: 0-0, 1-0)</option>
                     <option value="range">Range (min/max goals)</option>
@@ -1140,6 +1145,7 @@ export default function CompleteFilterBuilder() {
                         onChange={(e) => setExactScore({ ...exactScore, home: parseInt(e.target.value) || 0 })}
                         min={0}
                         className="input-field"
+                        title="Home team goals"
                       />
                     </div>
                     <div>
@@ -1150,6 +1156,7 @@ export default function CompleteFilterBuilder() {
                         onChange={(e) => setExactScore({ ...exactScore, away: parseInt(e.target.value) || 0 })}
                         min={0}
                         className="input-field"
+                        title="Away team goals"
                       />
                     </div>
                   </div>

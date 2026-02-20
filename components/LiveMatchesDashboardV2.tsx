@@ -336,6 +336,7 @@ export default function LiveMatchesDashboardV2({
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-glass-light transition"
+              title="Clear search"
             >
               <X className="w-3 h-3 text-text-muted" />
             </button>
@@ -518,9 +519,10 @@ function MatchCard({
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-glass-light/30">
             <TrendingUp className="w-3.5 h-3.5 text-accent-cyan shrink-0" />
             <div className="flex-1 h-1 bg-glass-light rounded-full overflow-hidden">
+              {/* eslint-disable-next-line */}
               <div
                 className="h-full bg-gradient-to-r from-accent-cyan to-accent-blue rounded-full"
-                style={{ width: `${match.predictability}%` }}
+                style={{ width: `${match.predictability}%` } as React.CSSProperties}
               />
             </div>
             <span className="text-[10px] text-accent-cyan font-semibold shrink-0">

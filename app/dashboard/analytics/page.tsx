@@ -223,6 +223,7 @@ export default function AnalyticsPage() {
                 value={timeRange}
                 onChange={(e) => setTimeRange(Number(e.target.value) as 7 | 30)}
                 className="input-field w-full sm:w-40"
+                title="Select time range"
               >
                 <option value={7}>Last 7 days</option>
                 <option value={30}>Last 30 days</option>
@@ -332,9 +333,10 @@ export default function AnalyticsPage() {
                       {day.successRate}%
                     </div>
                     <div className="w-full bg-glass-light rounded-t-lg relative group">
+                      {/* eslint-disable-next-line */}
                       <div
                         className="bg-gradient-to-t from-accent-cyan to-accent-green rounded-t-lg transition-all duration-300 group-hover:opacity-80"
-                        style={{ height: `${(day.successRate / 100) * 200}px` }}
+                        style={{ height: `${(day.successRate / 100) * 200}px` } as React.CSSProperties}
                       />
                     </div>
                     <div className="text-xs text-text-muted text-center">
@@ -431,11 +433,12 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.corners}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
+                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-cyan"
                         style={{ 
                           width: `${(categoryStats.corners / filters.length) * 100}%` 
-                        }}
+                        } as React.CSSProperties}
                       />
                     </div>
                   </div>
@@ -446,11 +449,12 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.shots}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
+                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-green"
                         style={{ 
                           width: `${(categoryStats.shots / filters.length) * 100}%` 
-                        }}
+                        } as React.CSSProperties}
                       />
                     </div>
                   </div>
@@ -461,11 +465,12 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.cards}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
+                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-amber"
                         style={{ 
                           width: `${(categoryStats.cards / filters.length) * 100}%` 
-                        }}
+                        } as React.CSSProperties}
                       />
                     </div>
                   </div>
@@ -476,11 +481,12 @@ export default function AnalyticsPage() {
                       <span className="font-semibold">{categoryStats.mixed}</span>
                     </div>
                     <div className="h-2 bg-glass-light rounded-full overflow-hidden">
+                      {/* eslint-disable-next-line */}
                       <div
                         className="h-full bg-accent-purple"
                         style={{ 
                           width: `${(categoryStats.mixed / filters.length) * 100}%` 
-                        }}
+                        } as React.CSSProperties}
                       />
                     </div>
                   </div>

@@ -126,6 +126,7 @@ function PredictionMarket({
         <button
           onClick={() => setShowDetails(!showDetails)}
           className="text-text-muted hover:text-accent-cyan transition-colors p-1"
+          title="Toggle prediction details"
         >
           <Info className="w-4 h-4" />
         </button>

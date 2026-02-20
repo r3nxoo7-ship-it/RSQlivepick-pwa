@@ -587,6 +587,7 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                 value={selectedLeague}
                 onChange={(e) => setSelectedLeague(e.target.value)}
                 className="input-field max-w-xs text-sm py-2"
+                title="Filter by league"
               >
                 <option value="all">All ({matches.length})</option>
                 {leagues.map(league => {

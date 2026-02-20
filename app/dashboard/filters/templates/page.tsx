@@ -312,6 +312,7 @@ export default function FilterTemplatesPage() {
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="md:w-56 bg-glass-light hover:bg-glass-lighter border border-glass-lighter rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 transition font-semibold"
+                title="Filter templates by category"
               >
                 <option value="all">📊 All Templates ({allTemplates.length})</option>
                 <option value="popular">⭐ Popular ({categoryCounts.popular || 0})</option>
@@ -364,10 +365,13 @@ export default function FilterTemplatesPage() {
                     >
                       {/* Background Image */}
                       {template.backgroundImage && (
-                        <div
-                          className="absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-30 transition duration-300 bg-cover bg-center"
-                          style={{ backgroundImage: `url(${template.backgroundImage})` }}
-                        />
+                        <>
+                          {/* eslint-disable-next-line */}
+                          <div
+                            className="absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-30 transition duration-300 bg-cover bg-center"
+                            style={{ backgroundImage: `url(${template.backgroundImage})` } as React.CSSProperties}
+                          />
+                        </>
                       )}
                       
                       {/* Glow effect */}

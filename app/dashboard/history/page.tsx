@@ -196,6 +196,7 @@ export default function HistoryTriggeredPage() {
               <button
                 onClick={() => router.back()}
                 className="p-2 hover:bg-glass-light rounded-lg transition shrink-0"
+                title="Go back"
               >
                 <ArrowLeft className="w-5 h-5 text-text-secondary" />
               </button>
@@ -208,6 +209,7 @@ export default function HistoryTriggeredPage() {
               onClick={() => { setPage(0); setExpandedMatch(null); loadTriggeredMatches(true); }}
               disabled={refreshing || loading}
               className="p-2 rounded-lg hover:bg-glass-light transition disabled:opacity-50 shrink-0"
+              title="Refresh"
             >
               <RefreshCw className={`w-5 h-5 text-text-secondary ${refreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -713,15 +715,17 @@ function StatBar({ label, home, away }: { label: string; home: number; away: num
       </div>
       <div className="flex gap-0.5 h-1.5">
         <div className="flex-1 flex justify-end">
+          {/* eslint-disable-next-line */}
           <div
             className="h-full rounded-l-full bg-accent-cyan transition-all"
-            style={{ width: `${homeP}%` }}
+            style={{ width: `${homeP}%` } as React.CSSProperties}
           />
         </div>
         <div className="flex-1 flex justify-start">
+          {/* eslint-disable-next-line */}
           <div
             className="h-full rounded-r-full bg-accent-blue transition-all"
-            style={{ width: `${100 - homeP}%` }}
+            style={{ width: `${100 - homeP}%` } as React.CSSProperties}
           />
         </div>
       </div>

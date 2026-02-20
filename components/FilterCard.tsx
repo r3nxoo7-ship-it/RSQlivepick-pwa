@@ -149,6 +149,7 @@ export default function FilterCard({
             <button
               onClick={onDelete}
               disabled={isLoading}
+              title="Delete filter"
               className="py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center bg-accent-red/20 text-accent-red hover:bg-accent-red/30 transition"
             >
               <Trash2 className="w-3 h-3" />
