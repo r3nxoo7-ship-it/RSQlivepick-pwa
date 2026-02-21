@@ -393,144 +393,61 @@ export default function CompleteFilterBuilder() {
         }
       }
       
+      // Helper: check if a team condition has any value set (including zero)
+      const hasValue = (v: number | undefined) => v !== undefined;
+      const buildTeamCond = (tc: TeamCondition) => ({
+        home: hasValue(tc.home_min) || hasValue(tc.home_max) ? { min: tc.home_min, max: tc.home_max } : undefined,
+        away: hasValue(tc.away_min) || hasValue(tc.away_max) ? { min: tc.away_min, max: tc.away_max } : undefined,
+        total: hasValue(tc.total_min) || hasValue(tc.total_max) ? { min: tc.total_min, max: tc.total_max } : undefined,
+      });
+
       // Corners
       if (cornersEnabled) {
-        conditions.corners = {
-          home: corners.home_min || corners.home_max ? {
-            min: corners.home_min,
-            max: corners.home_max,
-          } : undefined,
-          away: corners.away_min || corners.away_max ? {
-            min: corners.away_min,
-            max: corners.away_max,
-          } : undefined,
-          total: corners.total_min || corners.total_max ? {
-            min: corners.total_min,
-            max: corners.total_max,
-          } : undefined,
-        };
+        conditions.corners = buildTeamCond(corners);
       }
-      
+
       // Shots
       if (shotsEnabled) {
-        conditions.shots = {
-          home: shots.home_min || shots.home_max ? {
-            min: shots.home_min,
-            max: shots.home_max,
-          } : undefined,
-          away: shots.away_min || shots.away_max ? {
-            min: shots.away_min,
-            max: shots.away_max,
-          } : undefined,
-          total: shots.total_min || shots.total_max ? {
-            min: shots.total_min,
-            max: shots.total_max,
-          } : undefined,
-        };
+        conditions.shots = buildTeamCond(shots);
       }
-      
+
       // Shots on target
       if (shotsOnTargetEnabled) {
-        conditions.shots_on_target = {
-          home: shotsOnTarget.home_min || shotsOnTarget.home_max ? {
-            min: shotsOnTarget.home_min,
-            max: shotsOnTarget.home_max,
-          } : undefined,
-          away: shotsOnTarget.away_min || shotsOnTarget.away_max ? {
-            min: shotsOnTarget.away_min,
-            max: shotsOnTarget.away_max,
-          } : undefined,
-          total: shotsOnTarget.total_min || shotsOnTarget.total_max ? {
-            min: shotsOnTarget.total_min,
-            max: shotsOnTarget.total_max,
-          } : undefined,
-        };
+        conditions.shots_on_target = buildTeamCond(shotsOnTarget);
       }
-      
+
       // Yellow cards
       if (yellowCardsEnabled) {
-        conditions.yellow_cards = {
-          home: yellowCards.home_min || yellowCards.home_max ? {
-            min: yellowCards.home_min,
-            max: yellowCards.home_max,
-          } : undefined,
-          away: yellowCards.away_min || yellowCards.away_max ? {
-            min: yellowCards.away_min,
-            max: yellowCards.away_max,
-          } : undefined,
-          total: yellowCards.total_min || yellowCards.total_max ? {
-            min: yellowCards.total_min,
-            max: yellowCards.total_max,
-          } : undefined,
-        };
+        conditions.yellow_cards = buildTeamCond(yellowCards);
       }
-      
+
       // Red cards
       if (redCardsEnabled) {
-        conditions.red_cards = {
-          home: redCards.home_min || redCards.home_max ? {
-            min: redCards.home_min,
-            max: redCards.home_max,
-          } : undefined,
-          away: redCards.away_min || redCards.away_max ? {
-            min: redCards.away_min,
-            max: redCards.away_max,
-          } : undefined,
-          total: redCards.total_min || redCards.total_max ? {
-            min: redCards.total_min,
-            max: redCards.total_max,
-          } : undefined,
-        };
+        conditions.red_cards = buildTeamCond(redCards);
       }
-      
+
       // Dangerous attacks
       if (attacksEnabled) {
-        conditions.dangerous_attacks = {
-          home: attacks.home_min || attacks.home_max ? {
-            min: attacks.home_min,
-            max: attacks.home_max,
-          } : undefined,
-          away: attacks.away_min || attacks.away_max ? {
-            min: attacks.away_min,
-            max: attacks.away_max,
-          } : undefined,
-          total: attacks.total_min || attacks.total_max ? {
-            min: attacks.total_min,
-            max: attacks.total_max,
-          } : undefined,
-        };
+        conditions.dangerous_attacks = buildTeamCond(attacks);
       }
-      
+
       // Possession
       if (possessionEnabled) {
         conditions.possession = {
-          home: possession.home_min || possession.home_max ? {
+          home: hasValue(possession.home_min) || hasValue(possession.home_max) ? {
             min: possession.home_min,
             max: possession.home_max,
           } : undefined,
-          away: possession.away_min || possession.away_max ? {
+          away: hasValue(possession.away_min) || hasValue(possession.away_max) ? {
             min: possession.away_min,
             max: possession.away_max,
           } : undefined,
         };
       }
-      
+
       // Substitutions
       if (substitutionsEnabled) {
-        conditions.substitutions = {
-          home: substitutions.home_min || substitutions.home_max ? {
-            min: substitutions.home_min,
-            max: substitutions.home_max,
-          } : undefined,
-          away: substitutions.away_min || substitutions.away_max ? {
-            min: substitutions.away_min,
-            max: substitutions.away_max,
-          } : undefined,
-          total: substitutions.total_min || substitutions.total_max ? {
-            min: substitutions.total_min,
-            max: substitutions.total_max,
-          } : undefined,
-        };
+        conditions.substitutions = buildTeamCond(substitutions);
       }
 
       // Odds (legacy generic pre-match)
@@ -642,21 +559,23 @@ export default function CompleteFilterBuilder() {
                 <input
                   type="number"
                   placeholder="Min"
-                  value={values.home_min || ''}
+                  value={values.home_min !== undefined ? values.home_min : ''}
                   onChange={(e) => setValues({
                     ...values,
-                    home_min: e.target.value ? parseInt(e.target.value) : undefined,
+                    home_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                   })}
+                  min={0}
                   className="input-field"
                 />
                 <input
                   type="number"
                   placeholder="Max"
-                  value={values.home_max || ''}
+                  value={values.home_max !== undefined ? values.home_max : ''}
                   onChange={(e) => setValues({
                     ...values,
-                    home_max: e.target.value ? parseInt(e.target.value) : undefined,
+                    home_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                   })}
+                  min={0}
                   className="input-field"
                 />
               </div>
@@ -669,21 +588,23 @@ export default function CompleteFilterBuilder() {
                 <input
                   type="number"
                   placeholder="Min"
-                  value={values.away_min || ''}
+                  value={values.away_min !== undefined ? values.away_min : ''}
                   onChange={(e) => setValues({
                     ...values,
-                    away_min: e.target.value ? parseInt(e.target.value) : undefined,
+                    away_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                   })}
+                  min={0}
                   className="input-field"
                 />
                 <input
                   type="number"
                   placeholder="Max"
-                  value={values.away_max || ''}
+                  value={values.away_max !== undefined ? values.away_max : ''}
                   onChange={(e) => setValues({
                     ...values,
-                    away_max: e.target.value ? parseInt(e.target.value) : undefined,
+                    away_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                   })}
+                  min={0}
                   className="input-field"
                 />
               </div>
@@ -696,21 +617,23 @@ export default function CompleteFilterBuilder() {
                 <input
                   type="number"
                   placeholder="Min"
-                  value={values.total_min || ''}
+                  value={values.total_min !== undefined ? values.total_min : ''}
                   onChange={(e) => setValues({
                     ...values,
-                    total_min: e.target.value ? parseInt(e.target.value) : undefined,
+                    total_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                   })}
+                  min={0}
                   className="input-field"
                 />
                 <input
                   type="number"
                   placeholder="Max"
-                  value={values.total_max || ''}
+                  value={values.total_max !== undefined ? values.total_max : ''}
                   onChange={(e) => setValues({
                     ...values,
-                    total_max: e.target.value ? parseInt(e.target.value) : undefined,
+                    total_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                   })}
+                  min={0}
                   className="input-field"
                 />
               </div>
@@ -1057,10 +980,15 @@ export default function CompleteFilterBuilder() {
                     className="input-field"
                     title="Select time mode"
                   >
-                    <option value="after">After minute...</option>
-                      <option value="before">Before minute...</option>
-                      <option value="between">Between minutes...</option>
+                    <option value="after">After minute... (from minute X to end)</option>
+                    <option value="before">Before minute... (from kickoff to minute X)</option>
+                    <option value="between">Between minutes...</option>
                   </select>
+                  <p className="text-xs text-text-muted mt-1">
+                    {timeMode === 'after' && 'Filter triggers only after this minute until full time (e.g. after 60 = minutes 60-90)'}
+                    {timeMode === 'before' && 'Filter triggers from kickoff up to this minute (e.g. before 45 = first half only)'}
+                    {timeMode === 'between' && 'Filter triggers only between these two minutes'}
+                  </p>
                 </div>
                 
                 {timeMode === 'between' ? (
@@ -1351,10 +1279,10 @@ export default function CompleteFilterBuilder() {
                     <input
                       type="number"
                       placeholder="Min %"
-                      value={possession.home_min || ''}
+                      value={possession.home_min !== undefined ? possession.home_min : ''}
                       onChange={(e) => setPossession({
                         ...possession,
-                        home_min: e.target.value ? parseInt(e.target.value) : undefined,
+                        home_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                       })}
                       min={0}
                       max={100}
@@ -1363,10 +1291,10 @@ export default function CompleteFilterBuilder() {
                     <input
                       type="number"
                       placeholder="Max %"
-                      value={possession.home_max || ''}
+                      value={possession.home_max !== undefined ? possession.home_max : ''}
                       onChange={(e) => setPossession({
                         ...possession,
-                        home_max: e.target.value ? parseInt(e.target.value) : undefined,
+                        home_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                       })}
                       min={0}
                       max={100}
@@ -1383,10 +1311,10 @@ export default function CompleteFilterBuilder() {
                     <input
                       type="number"
                       placeholder="Min %"
-                      value={possession.away_min || ''}
+                      value={possession.away_min !== undefined ? possession.away_min : ''}
                       onChange={(e) => setPossession({
                         ...possession,
-                        away_min: e.target.value ? parseInt(e.target.value) : undefined,
+                        away_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                       })}
                       min={0}
                       max={100}
@@ -1395,10 +1323,10 @@ export default function CompleteFilterBuilder() {
                     <input
                       type="number"
                       placeholder="Max %"
-                      value={possession.away_max || ''}
+                      value={possession.away_max !== undefined ? possession.away_max : ''}
                       onChange={(e) => setPossession({
                         ...possession,
-                        away_max: e.target.value ? parseInt(e.target.value) : undefined,
+                        away_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
                       })}
                       min={0}
                       max={100}
