@@ -21,6 +21,7 @@ import {
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, FilterConditions } from '@/lib/supabase';
+import type { ExtendedFilterConditions } from '@/lib/extended-filters';
 
 // ============================================
 // MAIN COMPONENT
@@ -191,7 +192,7 @@ export default function FilterEditPage() {
     value: string
   ) => {
     const numValue = value === '' ? undefined : parseInt(value);
-    
+
     setFormData({
       ...formData,
       conditions: {
@@ -203,6 +204,91 @@ export default function FilterEditPage() {
       },
     });
   };
+
+  // Detect and render extended conditions that the basic UI can't edit
+  const extConditions = formData.conditions as any as ExtendedFilterConditions;
+  const extendedSummary: string[] = [];
+
+  // Check for extended match_time
+  if (extConditions.match_time) {
+    const mt = extConditions.match_time as any;
+    if (mt.after !== undefined) extendedSummary.push(`Match time: after ${mt.after}'`);
+    if (mt.before !== undefined) extendedSummary.push(`Match time: before ${mt.before}'`);
+    if (mt.between) extendedSummary.push(`Match time: between ${mt.between[0]}'-${mt.between[1]}'`);
+  }
+  // Check for team-specific stats (extended format: {home: {min}, away: {min}, total: {min}})
+  const checkTeamSpecific = (key: string, label: string) => {
+    const cond = (extConditions as any)[key];
+    if (!cond) return;
+    if (cond.home && typeof cond.home === 'object') {
+      const parts: string[] = [];
+      if (cond.home.min !== undefined) parts.push(`Home min: ${cond.home.min}`);
+      if (cond.home.max !== undefined) parts.push(`Home max: ${cond.home.max}`);
+      if (cond.away?.min !== undefined) parts.push(`Away min: ${cond.away.min}`);
+      if (cond.away?.max !== undefined) parts.push(`Away max: ${cond.away.max}`);
+      if (cond.total?.min !== undefined) parts.push(`Total min: ${cond.total.min}`);
+      if (cond.total?.max !== undefined) parts.push(`Total max: ${cond.total.max}`);
+      if (parts.length > 0) extendedSummary.push(`${label}: ${parts.join(', ')}`);
+    } else if (cond.total && typeof cond.total === 'object') {
+      const parts: string[] = [];
+      if (cond.total.min !== undefined) parts.push(`min: ${cond.total.min}`);
+      if (cond.total.max !== undefined) parts.push(`max: ${cond.total.max}`);
+      if (parts.length > 0) extendedSummary.push(`${label}: ${parts.join(', ')}`);
+    }
+  };
+  checkTeamSpecific('corners', 'Corners');
+  checkTeamSpecific('shots_on_target', 'Shots on Target');
+  checkTeamSpecific('dangerous_attacks', 'Dangerous Attacks');
+  checkTeamSpecific('attacks', 'Attacks');
+  checkTeamSpecific('yellow_cards', 'Yellow Cards');
+  checkTeamSpecific('red_cards', 'Red Cards');
+
+  // Score extended
+  if (extConditions.score) {
+    const s = extConditions.score;
+    const parts: string[] = [];
+    if (s.difference) {
+      if (s.difference.min !== undefined) parts.push(`Goal diff min: ${s.difference.min}`);
+      if (s.difference.max !== undefined) parts.push(`Goal diff max: ${s.difference.max}`);
+    }
+    if (s.total_goals) {
+      if (s.total_goals.min !== undefined) parts.push(`Total goals min: ${s.total_goals.min}`);
+      if (s.total_goals.max !== undefined) parts.push(`Total goals max: ${s.total_goals.max}`);
+    }
+    if (parts.length > 0) extendedSummary.push(`Score: ${parts.join(', ')}`);
+  }
+
+  // Possession extended
+  if (extConditions.possession) {
+    const p = extConditions.possession as any;
+    if (p.home || p.away || p.dominant) {
+      const parts: string[] = [];
+      if (p.home?.min !== undefined) parts.push(`Home min: ${p.home.min}%`);
+      if (p.home?.max !== undefined) parts.push(`Home max: ${p.home.max}%`);
+      if (p.away?.min !== undefined) parts.push(`Away min: ${p.away.min}%`);
+      if (p.away?.max !== undefined) parts.push(`Away max: ${p.away.max}%`);
+      if (p.dominant) parts.push(`Dominant: ${p.dominant}`);
+      if (parts.length > 0) extendedSummary.push(`Possession: ${parts.join(', ')}`);
+    }
+  }
+
+  // Trends
+  if (extConditions.trends) {
+    const t = extConditions.trends;
+    const parts: string[] = [];
+    if (t.corners_increasing) parts.push('Corners increasing');
+    if (t.shots_increasing) parts.push('Shots increasing');
+    if (t.cards_increasing) parts.push('Cards increasing');
+    if (t.home_pressure) parts.push('Home pressure');
+    if (t.away_pressure) parts.push('Away pressure');
+    if (parts.length > 0) extendedSummary.push(`Trends: ${parts.join(', ')}`);
+  }
+
+  // Pre-match odds
+  if (extConditions.pre_match_odds) {
+    const count = Object.keys(extConditions.pre_match_odds).filter(k => extConditions.pre_match_odds![k]).length;
+    if (count > 0) extendedSummary.push(`Pre-match odds: ${count} market(s) configured`);
+  }
   
   // ============================================
   // RENDER
@@ -642,6 +728,27 @@ export default function FilterEditPage() {
             </div>
           </div>
           
+          {/* ========== EXTENDED CONDITIONS (read-only) ========== */}
+          {extendedSummary.length > 0 && (
+            <div className="glass-card p-6 border-l-4 border-accent-amber">
+              <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-accent-amber" />
+                Advanced Conditions
+              </h2>
+              <p className="text-xs text-text-muted mb-3">
+                These conditions were set from a template or the advanced filter builder. They are preserved when saving.
+              </p>
+              <div className="space-y-2">
+                {extendedSummary.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-glass-light/50">
+                    <CheckCircle className="w-4 h-4 text-accent-green shrink-0" />
+                    <span className="text-sm text-text-primary">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ========== NOTIFICATIONS ========== */}
           <div className="glass-card p-6">
             <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">

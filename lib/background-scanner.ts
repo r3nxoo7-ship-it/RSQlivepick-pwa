@@ -112,6 +112,7 @@ class BackgroundScannerService {
       this.state.matchesScanned = matches.length;
 
       let notificationsSentThisScan = 0;
+      const completedMatches: { match_id: string; score_home: number; score_away: number }[] = [];
 
       // Scan each match - only process matches that are actually live (in progress)
       for (const match of matches) {
@@ -150,11 +151,28 @@ class BackgroundScannerService {
         }
       }
 
+      // Update completed matches with final scores
+      for (const match of matches) {
+        const status = match.fixture?.status?.short;
+        if (status === 'FT' || status === 'AET' || status === 'PEN') {
+          completedMatches.push({
+            match_id: String(match.fixture.id),
+            score_home: match.goals?.home ?? 0,
+            score_away: match.goals?.away ?? 0,
+          });
+        }
+      }
+
       // Update state
       this.state.totalScans++;
       this.state.lastScanTime = new Date();
       this.state.notificationsSent += notificationsSentThisScan;
       this.saveStateToStorage();
+
+      // Every 5 scans (~2.5 minutes), finalize triggered matches and recalculate success rates
+      if (this.state.totalScans % 5 === 0 || completedMatches.length > 0) {
+        this.finalizeTriggeredMatches(currentUser.id, completedMatches);
+      }
 
       console.log(`✅ Background Scanner: Scan complete. Sent ${notificationsSentThisScan} notifications.`);
     } catch (error) {
@@ -306,6 +324,27 @@ class BackgroundScannerService {
 
       localStorage.setItem('rsq_notif_sent', JSON.stringify(sentMap));
     } catch { /* localStorage not available */ }
+  }
+
+  /**
+   * Finalize triggered matches and recalculate success rates
+   */
+  private async finalizeTriggeredMatches(
+    userId: string,
+    completedMatches: { match_id: string; score_home: number; score_away: number }[]
+  ) {
+    try {
+      await fetch('/api/triggered-matches/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          completed_matches: completedMatches.length > 0 ? completedMatches : undefined,
+        }),
+      });
+    } catch {
+      // Non-critical, don't log noise
+    }
   }
 
   /**
