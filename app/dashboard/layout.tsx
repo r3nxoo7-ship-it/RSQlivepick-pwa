@@ -246,7 +246,7 @@ export default function DashboardLayout({
 
       {/* ========== MAIN CONTENT ========== */}
       <main className="lg:pl-72">
-        <div className="min-h-screen">
+        <div className="min-h-screen pb-20 md:pb-0">
           {children}
         </div>
       </main>

@@ -134,7 +134,7 @@ export default function HistoryTriggeredPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [timeRange, setTimeRange] = useState<'all' | '24h' | '7d' | '30d'>('7d');
+  const [timeRange, setTimeRange] = useState<'all' | '30m' | '2h' | '24h'>('24h');
   const [refreshing, setRefreshing] = useState(false);
   const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
 
@@ -217,7 +217,7 @@ export default function HistoryTriggeredPage() {
 
           {/* TIME PILLS + STATS inline */}
           <div className="flex items-center gap-2 flex-wrap">
-            {(['24h', '7d', '30d', 'all'] as const).map((range) => (
+            {(['30m', '2h', '24h', 'all'] as const).map((range) => (
               <button
                 key={range}
                 onClick={() => handleTimeRangeChange(range)}
@@ -247,7 +247,7 @@ export default function HistoryTriggeredPage() {
             <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
               <Trophy className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
               <p className="text-sm text-text-secondary">
-                No triggered matches {timeRange !== 'all' ? `in the last ${timeRange}` : ''}
+                No triggered matches {timeRange !== 'all' ? `in the last ${timeRange === '30m' ? '30 minutes' : timeRange === '2h' ? '2 hours' : '24 hours'}` : ''}
               </p>
               <p className="text-[11px] text-text-muted mt-1.5 max-w-xs mx-auto">
                 Keep the app open during match times. Your active filters will trigger automatically.

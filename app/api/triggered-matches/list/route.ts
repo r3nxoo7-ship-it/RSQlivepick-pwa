@@ -62,11 +62,13 @@ export async function GET(request: NextRequest) {
     // Apply time range filter
     if (range !== 'all') {
       const minutesMap: Record<string, number> = {
+        '30m': 30,
+        '2h': 2 * 60,
         '24h': 24 * 60,
         '7d': 7 * 24 * 60,
         '30d': 30 * 24 * 60,
       };
-      const minutes = minutesMap[range] || 7 * 24 * 60;
+      const minutes = minutesMap[range] || 24 * 60;
       const cutoff = new Date(Date.now() - minutes * 60 * 1000).toISOString();
       query = query.gte('created_at', cutoff);
     }
