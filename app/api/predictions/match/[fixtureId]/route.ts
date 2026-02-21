@@ -18,6 +18,7 @@ import {
   aggregateMatchContext,
   validateContextQuality,
 } from '@/lib/prediction-data-aggregation';
+import { getMatchStats, convertESPNMatchToLiveMatch } from '@/lib/espn-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,6 @@ const predictionCache = new Map<string, { data: any; timestamp: number }>();
 
 // Resolve the internal API base URL for server-to-server calls
 function getBaseUrl(): string {
-  // On Vercel, use VERCEL_URL; locally use localhost
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   return `http://localhost:${process.env.PORT || 3000}`;
@@ -53,30 +53,21 @@ export async function GET(
     }
 
     console.log(`[Predictions] Generating for fixture ${fixtureId}`);
-    const baseUrl = getBaseUrl();
 
-    // 1. Fetch match details from ESPN synced data
-    let match: any = null;
-    try {
-      const matchRes = await fetch(`${baseUrl}/api/espn/matches`, { cache: 'no-store' });
-      if (matchRes.ok) {
-        const body = await matchRes.json();
-        // Search all categories for this fixture
-        const allMatches = [
-          ...(body.live?.matches || []),
-          ...(body.upcoming?.matches || []),
-          ...(body.scheduled?.matches || []),
-          ...(Array.isArray(body.matches) ? body.matches : []),
-        ];
-        match = allMatches.find((m: any) => String(m.fixture?.id) === String(fixtureId));
-      }
-    } catch (err) {
-      console.warn(`[Predictions] ESPN matches fetch failed:`, err);
+    // 1. Fetch match directly from DB (no HTTP roundtrip)
+    const matchRow = await getMatchStats(fixtureId);
+    if (!matchRow) {
+      return NextResponse.json(
+        { error: 'Match not found in database', fixtureId },
+        { status: 404 }
+      );
     }
+
+    const match = convertESPNMatchToLiveMatch(matchRow);
 
     if (!match?.teams?.home?.id || !match?.teams?.away?.id) {
       return NextResponse.json(
-        { error: 'Match not found or missing team data', fixtureId },
+        { error: 'Match missing team data', fixtureId },
         { status: 404 }
       );
     }
@@ -87,6 +78,7 @@ export async function GET(
     const awayTeamName = match.teams.away.name || 'Away';
 
     // 2. Fetch team form + H2H in parallel (all from ESPN - real data)
+    const baseUrl = getBaseUrl();
     const [homeFormRes, awayFormRes, h2hRes] = await Promise.all([
       fetch(`${baseUrl}/api/espn/team-form?teamId=${homeTeamId}&limit=10`, { cache: 'no-store' }).catch(() => null),
       fetch(`${baseUrl}/api/espn/team-form?teamId=${awayTeamId}&limit=10`, { cache: 'no-store' }).catch(() => null),

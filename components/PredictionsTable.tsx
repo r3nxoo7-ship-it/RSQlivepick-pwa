@@ -105,9 +105,13 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
             if (res.ok) {
               const data = await res.json();
               results.set(fixtureId, data);
+            } else {
+              console.warn(`[Predictions] Failed for fixture ${fixtureId}: ${res.status}`);
             }
-          } catch {
-            // Silently skip failed predictions
+          } catch (err: any) {
+            if (err?.name !== 'AbortError') {
+              console.warn(`[Predictions] Error for fixture ${fixtureId}:`, err);
+            }
           }
           count++;
           setLoadedCount(count);
