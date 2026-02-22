@@ -104,6 +104,7 @@ export default function AdminPage() {
               <button
                 onClick={() => router.push('/dashboard')}
                 className="p-2 rounded-xl hover:bg-glass-light transition-all"
+                title="Go back to dashboard"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -163,10 +164,11 @@ export default function AdminPage() {
               <form onSubmit={handleAddUser} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-display text-text-secondary mb-2">
+                    <label htmlFor="username" className="block text-sm font-display text-text-secondary mb-2">
                       Username *
                     </label>
                     <input
+                      id="username"
                       type="text"
                       value={formData.username}
                       onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -175,10 +177,11 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-display text-text-secondary mb-2">
+                    <label htmlFor="password" className="block text-sm font-display text-text-secondary mb-2">
                       Parolă *
                     </label>
                     <input
+                      id="password"
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -187,10 +190,11 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-display text-text-secondary mb-2">
+                    <label htmlFor="full_name" className="block text-sm font-display text-text-secondary mb-2">
                       Nume Complet
                     </label>
                     <input
+                      id="full_name"
                       type="text"
                       value={formData.full_name}
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
@@ -198,10 +202,11 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-display text-text-secondary mb-2">
+                    <label htmlFor="email" className="block text-sm font-display text-text-secondary mb-2">
                       Email
                     </label>
                     <input
+                      id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
