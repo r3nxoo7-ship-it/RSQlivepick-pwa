@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { matchesFilter } from '@/lib/filter-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,68 @@ if (!supabaseUrl || !serviceRoleKey) {
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+/**
+ * Evaluates if a filter would match the final score
+ * Returns true if the filter condition was satisfied at final score
+ */
+function evaluateFilterCondition(
+  filter: any,
+  finalScore: { home: number; away: number; elapsed: number }
+): boolean {
+  const conditions = filter.conditions || {};
+
+  // Helper to check a numeric condition
+  const checkNumeric = (actual: number, min?: number, max?: number): boolean => {
+    if (min !== undefined && actual < min) return false;
+    if (max !== undefined && actual > max) return false;
+    return true;
+  };
+
+  // Evaluate each condition
+  for (const [key, value] of Object.entries(conditions)) {
+    if (!value || typeof value !== 'object') continue;
+
+    const v = value as any;
+    let conditionMet = true;
+
+    switch (key) {
+      case 'goals': {
+        const total = finalScore.home + finalScore.away;
+        if (v.team === 'home') {
+          conditionMet = checkNumeric(finalScore.home, v.min, v.max);
+        } else if (v.team === 'away') {
+          conditionMet = checkNumeric(finalScore.away, v.min, v.max);
+        } else {
+          conditionMet = checkNumeric(total, v.min, v.max);
+        }
+        break;
+      }
+
+      case 'corners':
+      case 'shots_on_target':
+      case 'total_shots':
+      case 'yellow_cards':
+      case 'red_cards':
+      case 'fouls':
+      case 'offsides': {
+        // These require live stats which we may not have at finalize time
+        // For now, we'll assume they could be true (be permissive)
+        // Better to count a filter as successful if goals condition passed
+        conditionMet = true;
+        break;
+      }
+
+      default:
+        conditionMet = true;
+    }
+
+    // If any condition is not met, filter fails
+    if (!conditionMet) return false;
+  }
+
+  return true; // All conditions checked and passed
+}
 
 /**
  * POST /api/triggered-matches/finalize
@@ -64,10 +127,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Now recalculate success_rate for all user's filters
-    // Get all user's filters
+    // Get all user's filters with their conditions
     const { data: filters } = await supabaseAdmin
       .from('filters')
-      .select('id, trigger_count')
+      .select('id, trigger_count, conditions')
       .eq('user_id', user_id);
 
     if (filters && filters.length > 0) {
@@ -84,18 +147,21 @@ export async function POST(request: NextRequest) {
         const finishedTriggers = triggers.filter(t => t.match_status === 'finished');
         if (finishedTriggers.length === 0) continue;
 
-        // Calculate success: a trigger is "successful" if it happened at a meaningful
-        // match time (not minute 0-2) and the match had goals
+        // Calculate success: count how many matches satisfied the filter condition at final score
         let successCount = 0;
         for (const t of finishedTriggers) {
-          const matchTime = t.match_time || 0;
-          const totalGoals = (t.score_home || 0) + (t.score_away || 0);
+          // Only count if we have both scores from the final match
+          if (t.score_home !== null && t.score_away !== null) {
+            const finalScore = {
+              home: t.score_home,
+              away: t.score_away,
+              elapsed: t.match_time || 0,
+            };
 
-          // Success criteria:
-          // 1. Triggered after minute 2 (not a false early trigger)
-          // 2. Match had at least 1 goal (some activity happened)
-          if (matchTime > 2 && totalGoals > 0) {
-            successCount++;
+            // Check if the filter conditions were met at the final score
+            if (evaluateFilterCondition(filter, finalScore)) {
+              successCount++;
+            }
           }
         }
 
