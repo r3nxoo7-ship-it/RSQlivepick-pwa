@@ -284,6 +284,9 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
           {/* ===== STATISTICS TAB ===== */}
           {activeTab === 'stats' && (
             <>
+              {/* Match Events & Momentum (top) */}
+              <MomentumSection homeStats={homeStats} awayStats={awayStats} match={match} />
+
               {/* Live Statistics */}
               <div className="space-y-4">
                 <StatRow label="Possession" home={homeStats.possession} away={awayStats.possession} unit="%" compare={true} />
@@ -296,23 +299,6 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                 <StatRow label="Yellow Cards" home={homeStats.yellowCards} away={awayStats.yellowCards} compare={true} />
                 <StatRow label="Red Cards" home={homeStats.redCards} away={awayStats.redCards} compare={false} />
               </div>
-
-              {/* Goals by Half */}
-              {(homeStats.firstHalf > 0 || awayStats.firstHalf > 0 || homeStats.secondHalf > 0 || awayStats.secondHalf > 0) && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-accent-amber" />
-                    <h3 className="text-lg font-bold text-white">Goals by Half</h3>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <TimeWindowStat label="First Half" home={homeStats.firstHalf} away={awayStats.firstHalf} />
-                    <TimeWindowStat label="Second Half" home={homeStats.secondHalf} away={awayStats.secondHalf} />
-                  </div>
-                </div>
-              )}
-
-              {/* Match Momentum */}
-              <MomentumSection homeStats={homeStats} awayStats={awayStats} match={match} />
 
               {/* Odds Section */}
               {(match as any).odds && (
@@ -626,19 +612,6 @@ function BettingOddsSection({
   );
 }
 
-function TimeWindowStat({ label, home, away }: { label: string; home: number; away: number; disabled?: boolean }) {
-  return (
-    <div className="rounded-lg p-3 border border-white/10 bg-[rgba(15,23,42,0.85)]">
-      <div className="text-xs text-text-muted mb-2">{label}</div>
-      <div className="flex items-center justify-between">
-        <div className="text-lg font-bold text-accent-cyan">{home}</div>
-        <div className="text-xs text-text-secondary">-</div>
-        <div className="text-lg font-bold text-accent-blue">{away}</div>
-      </div>
-    </div>
-  );
-}
-
 interface MatchEvent {
   minute: number;
   period: number;
@@ -651,7 +624,8 @@ interface MatchEvent {
 }
 
 /**
- * Momentum Section - Bundesliga-style event timeline + stat-based momentum gauge
+ * Momentum Section - Professional event strip + stat momentum gauge
+ * Shows: match events (goals/cards/subs) as compact rows, momentum bar from stats
  */
 function MomentumSection({
   homeStats,
@@ -692,24 +666,29 @@ function MomentumSection({
   const homeName = match.teams?.home?.name || 'Home';
   const awayName = match.teams?.away?.name || 'Away';
   const homeId = match.teams?.home?.id ? String(match.teams.home.id) : homeTeamId;
-  const elapsed = match.fixture?.status?.elapsed || 90;
-  const isHT = match.fixture?.status?.short === 'HT';
-  const isFT = match.fixture?.status?.short === 'FT' || match.fixture?.status?.short === 'AET';
-  const totalMinutes = isFT ? 90 : elapsed;
-
-  // Split events into home and away
-  const homeEvents = events.filter(e => e.teamId && e.teamId === homeId);
-  const awayEvents = events.filter(e => e.teamId && e.teamId !== homeId);
 
   const hasEvents = events.length > 0;
   const hasStats = match.statistics && match.statistics.length > 0;
+
+  // Filter to key events only (goals, cards, subs - not shots)
+  const keyEvents = events.filter(e =>
+    ['goal', 'penalty-goal', 'own-goal', 'penalty-miss', 'yellow-card', 'red-card', 'substitution'].includes(e.type)
+  ).sort((a, b) => a.minute - b.minute);
+
+  // Calculate goals by half from events
+  const goalEvents = events.filter(e => e.isScoring);
+  const homeGoals1H = goalEvents.filter(e => e.teamId === homeId && e.period === 1).length;
+  const awayGoals1H = goalEvents.filter(e => e.teamId !== homeId && e.teamId !== null && e.period === 1).length;
+  const homeGoals2H = goalEvents.filter(e => e.teamId === homeId && e.period === 2).length;
+  const awayGoals2H = goalEvents.filter(e => e.teamId !== homeId && e.teamId !== null && e.period === 2).length;
+  const hasGoalsByHalf = goalEvents.length > 0;
 
   if (!hasEvents && !hasStats && !eventsLoading) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-accent-purple" />
-          <h3 className="text-lg font-bold text-white">Match Momentum</h3>
+          <h3 className="text-lg font-bold text-white">Match Events</h3>
         </div>
         <div className="rounded-lg p-4 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
           <div className="text-xs text-text-muted">Match data not yet available</div>
@@ -720,196 +699,158 @@ function MomentumSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Activity className="w-5 h-5 text-accent-purple" />
-        <h3 className="text-lg font-bold text-white">Match Momentum</h3>
-      </div>
-
-      <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
-        {/* Team names header */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-1">
-          <span className="text-[11px] font-bold text-accent-cyan truncate max-w-[40%]">{homeName}</span>
-          <span className="text-[10px] text-text-muted">MATCH MOMENTUM</span>
-          <span className="text-[11px] font-bold text-accent-blue truncate max-w-[40%] text-right">{awayName}</span>
+      {/* Goals by Half (calculated from events) */}
+      {hasGoalsByHalf && (
+        <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+            <Clock className="w-4 h-4 text-accent-amber" />
+            <span className="text-xs font-bold text-white">Goals by Half</span>
+          </div>
+          <div className="grid grid-cols-2 gap-0 px-4 pb-3">
+            <div className="text-center border-r border-white/10 pr-3">
+              <div className="text-[10px] text-text-muted mb-1">First Half</div>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-lg font-bold text-accent-cyan">{homeGoals1H}</span>
+                <span className="text-xs text-text-muted">-</span>
+                <span className="text-lg font-bold text-accent-blue">{awayGoals1H}</span>
+              </div>
+            </div>
+            <div className="text-center pl-3">
+              <div className="text-[10px] text-text-muted mb-1">Second Half</div>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-lg font-bold text-accent-cyan">{homeGoals2H}</span>
+                <span className="text-xs text-text-muted">-</span>
+                <span className="text-lg font-bold text-accent-blue">{awayGoals2H}</span>
+              </div>
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* Timeline visualization */}
-        {eventsLoading ? (
-          <div className="px-4 py-6 text-center">
-            <div className="text-xs text-text-muted animate-pulse">Loading match events...</div>
+      {/* Match Events Strip */}
+      {eventsLoading ? (
+        <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] p-4">
+          <div className="text-xs text-text-muted animate-pulse text-center">Loading match events...</div>
+        </div>
+      ) : keyEvents.length > 0 ? (
+        <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+          <div className="flex items-center justify-between px-4 pt-3 pb-2">
+            <span className="text-[11px] font-bold text-accent-cyan truncate max-w-[35%]">{homeName}</span>
+            <span className="text-[10px] text-text-muted uppercase tracking-wide">Match Events</span>
+            <span className="text-[11px] font-bold text-accent-blue truncate max-w-[35%] text-right">{awayName}</span>
           </div>
-        ) : hasEvents ? (
-          <div className="px-3 pb-3">
-            {/* Event timeline - Bundesliga style */}
-            <div className="relative" style={{ height: '140px' }}>
-              {/* Center line (0 axis) */}
-              <div className="absolute left-0 right-0 top-1/2 h-px bg-white/20" />
 
-              {/* Minute markers */}
-              <div className="absolute left-0 right-0 top-1/2 flex justify-between px-1 -translate-y-1/2">
-                {[0, 15, 30, 45, 60, 75, 90].filter(m => m <= totalMinutes).map(m => (
-                  <div key={m} className="flex flex-col items-center">
-                    <div className="w-px h-2 bg-white/15" />
-                  </div>
-                ))}
-              </div>
-
-              {/* Minute labels */}
-              <div className="absolute left-0 right-0 bottom-0 flex justify-between px-1 text-[8px] text-text-muted">
-                <span>1&apos;</span>
-                {!isHT && <span className="absolute left-1/2 -translate-x-1/2">HT</span>}
-                <span>{isFT ? 'FT' : `${elapsed}'`}</span>
-              </div>
-
-              {/* Home events (bars going UP from center) */}
-              {homeEvents.map((evt, i) => {
-                const xPercent = Math.min((evt.minute / totalMinutes) * 100, 100);
-                return (
-                  <EventMarker key={`h-${i}`} event={evt} xPercent={xPercent} isHome={true} />
-                );
-              })}
-
-              {/* Away events (bars going DOWN from center) */}
-              {awayEvents.map((evt, i) => {
-                const xPercent = Math.min((evt.minute / totalMinutes) * 100, 100);
-                return (
-                  <EventMarker key={`a-${i}`} event={evt} xPercent={xPercent} isHome={false} />
-                );
-              })}
-
-              {/* HT separator line */}
-              <div
-                className="absolute top-2 bottom-4 w-px bg-white/30"
-                style={{ left: `${Math.min((45 / totalMinutes) * 100, 50)}%` }}
-              />
-            </div>
-
-            {/* Event legend */}
-            <div className="flex items-center justify-center gap-3 flex-wrap pt-2 border-t border-white/8 mt-1">
-              <div className="flex items-center gap-1 text-[9px] text-text-muted">
-                <svg width="10" height="10" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="white" stroke="#333" strokeWidth="0.8" /></svg> Goal
-              </div>
-              <div className="flex items-center gap-1 text-[9px] text-text-muted">
-                <span className="w-2 h-2.5 rounded-[1px] bg-yellow-400 inline-block" /> Yellow
-              </div>
-              <div className="flex items-center gap-1 text-[9px] text-text-muted">
-                <span className="w-2 h-2.5 rounded-[1px] bg-red-500 inline-block" /> Red
-              </div>
-              <div className="flex items-center gap-1 text-[9px] text-text-muted">
-                <span className="text-green-400">{'\u25B2'}</span><span className="text-red-400">{'\u25BC'}</span> Sub
-              </div>
-              <div className="flex items-center gap-1 text-[9px] text-text-muted">
-                <span className="w-2.5 h-2.5 rounded-full bg-orange-400 inline-block" /> On Target
-              </div>
-              <div className="flex items-center gap-1 text-[9px] text-text-muted">
-                <span className="w-2 h-2 rounded-full border border-orange-400 inline-block" /> Off Target
-              </div>
-            </div>
+          <div className="divide-y divide-white/5">
+            {keyEvents.map((evt, i) => {
+              const isHome = evt.teamId === homeId;
+              return (
+                <EventRow key={i} event={evt} isHome={isHome} />
+              );
+            })}
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        {/* Stat-based momentum gauge (below timeline) */}
-        {hasStats && <StatMomentumGauge homeStats={homeStats} awayStats={awayStats} />}
-      </div>
+      {/* Stat Momentum Gauge */}
+      {hasStats && (
+        <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+            <Activity className="w-4 h-4 text-accent-purple" />
+            <span className="text-xs font-bold text-white">Match Momentum</span>
+          </div>
+          <StatMomentumGauge homeStats={homeStats} awayStats={awayStats} />
+        </div>
+      )}
     </div>
   );
 }
 
-/** Individual event marker on the timeline */
-function EventMarker({ event, xPercent, isHome }: { event: MatchEvent; xPercent: number; isHome: boolean }) {
-  const topBase = 50; // center line at 50%
-
-  // Event icon and bar height
-  let barHeight = 0;
+/** Compact event row - professional SofaScore-style */
+function EventRow({ event, isHome }: { event: MatchEvent; isHome: boolean }) {
   let icon: React.ReactNode = null;
+  let label = event.player || event.text || '';
+  let extraLabel = '';
 
   switch (event.type) {
     case 'goal':
-    case 'penalty-goal':
-    case 'own-goal':
-      barHeight = 38;
-      // Football/soccer ball icon
       icon = (
-        <svg width="16" height="16" viewBox="0 0 16 16" className="drop-shadow-md">
-          <circle cx="8" cy="8" r="7" fill="white" stroke="#333" strokeWidth="0.8" />
-          <path d="M8 1.5 L9.5 4.5 L13 5 L10.5 8 L11.5 12 L8 10.5 L4.5 12 L5.5 8 L3 5 L6.5 4.5 Z"
-            fill="none" stroke="#333" strokeWidth="0.7" strokeLinejoin="round" />
-          {event.type === 'penalty-goal' && <text x="8" y="10.5" textAnchor="middle" fontSize="5" fontWeight="bold" fill="#333">P</text>}
-          {event.type === 'own-goal' && <text x="8" y="10.5" textAnchor="middle" fontSize="4.5" fontWeight="bold" fill="#dc2626">OG</text>}
+        <svg width="14" height="14" viewBox="0 0 16 16">
+          <circle cx="8" cy="8" r="6.5" fill="white" stroke="#333" strokeWidth="0.8" />
+          <path d="M8 2.5 L9.2 5 L12 5.3 L10 7.5 L10.8 10.5 L8 9 L5.2 10.5 L6 7.5 L4 5.3 L6.8 5 Z"
+            fill="none" stroke="#444" strokeWidth="0.6" />
         </svg>
       );
+      break;
+    case 'penalty-goal':
+      icon = (
+        <svg width="14" height="14" viewBox="0 0 16 16">
+          <circle cx="8" cy="8" r="6.5" fill="white" stroke="#333" strokeWidth="0.8" />
+          <text x="8" y="10.5" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#333">P</text>
+        </svg>
+      );
+      extraLabel = '(pen)';
+      break;
+    case 'own-goal':
+      icon = (
+        <svg width="14" height="14" viewBox="0 0 16 16">
+          <circle cx="8" cy="8" r="6.5" fill="#dc2626" stroke="#991b1b" strokeWidth="0.8" />
+          <text x="8" y="10.5" textAnchor="middle" fontSize="6" fontWeight="bold" fill="white">OG</text>
+        </svg>
+      );
+      extraLabel = '(o.g.)';
       break;
     case 'penalty-miss':
-      barHeight = 30;
-      // Ball with X overlay
       icon = (
-        <svg width="16" height="16" viewBox="0 0 16 16" className="drop-shadow-md">
-          <circle cx="8" cy="8" r="7" fill="white" stroke="#333" strokeWidth="0.8" opacity="0.6" />
-          <line x1="4" y1="4" x2="12" y2="12" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
-          <line x1="12" y1="4" x2="4" y2="12" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+        <svg width="14" height="14" viewBox="0 0 16 16">
+          <circle cx="8" cy="8" r="6.5" fill="#666" stroke="#444" strokeWidth="0.8" />
+          <line x1="5" y1="5" x2="11" y2="11" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="11" y1="5" x2="5" y2="11" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       );
-      break;
-    case 'shot-on-target':
-      barHeight = 22;
-      // Larger circle for shot on target (orange)
-      icon = <div className="w-3.5 h-3.5 rounded-full bg-orange-400 border border-orange-500 shadow-sm" />;
-      break;
-    case 'shot-off-target':
-      barHeight = 14;
-      // Smaller circle for shot off target (orange, hollow)
-      icon = <div className="w-2.5 h-2.5 rounded-full border-2 border-orange-400 bg-transparent" />;
+      extraLabel = '(pen missed)';
       break;
     case 'yellow-card':
-      barHeight = 20;
-      icon = <div className="w-2.5 h-3.5 rounded-[1px] bg-yellow-400" />;
+      icon = <div className="w-2.5 h-3.5 rounded-[1px] bg-yellow-400 shadow-sm" />;
       break;
     case 'red-card':
-      barHeight = 28;
-      icon = <div className="w-2.5 h-3.5 rounded-[1px] bg-red-500" />;
+      icon = <div className="w-2.5 h-3.5 rounded-[1px] bg-red-500 shadow-sm" />;
       break;
     case 'substitution':
-      barHeight = 12;
-      // Green arrow IN, Red arrow OUT
       icon = (
-        <div className="flex flex-col items-center leading-none">
-          <span className="text-[9px] text-green-400 font-bold">{'\u25B2'}</span>
-          <span className="text-[9px] text-red-400 font-bold -mt-0.5">{'\u25BC'}</span>
+        <div className="flex items-center gap-0.5">
+          <span className="text-[10px] text-green-400 font-bold leading-none">{'\u25B2'}</span>
+          <span className="text-[10px] text-red-400 font-bold leading-none">{'\u25BC'}</span>
         </div>
       );
-      break;
-    default:
-      barHeight = 10;
       break;
   }
 
-  // Position: home goes up (lower top%), away goes down (higher top%)
-  const barColor = isHome ? 'bg-accent-cyan/70' : 'bg-accent-blue/70';
-  const top = isHome ? `${topBase - barHeight}%` : `${topBase}%`;
+  // Truncate long names
+  if (label.length > 22) label = label.substring(0, 20) + '..';
 
   return (
-    <div
-      className="absolute flex flex-col items-center"
-      style={{
-        left: `${xPercent}%`,
-        top,
-        height: `${barHeight}%`,
-        transform: 'translateX(-50%)',
-        zIndex: event.isScoring ? 10 : 5,
-      }}
-      title={`${event.minute}' ${event.text}`}
-    >
-      {/* Bar */}
-      <div className={`w-1.5 flex-1 ${barColor} rounded-sm`} />
-      {/* Icon at the end (top for home, bottom for away) */}
-      <div className={`absolute ${isHome ? '-top-2' : '-bottom-2'}`}>
-        {icon}
-      </div>
-      {/* Minute label for goals */}
-      {event.isScoring && (
-        <div className={`absolute text-[7px] font-bold text-white ${isHome ? '-top-5' : '-bottom-5'}`}>
-          {event.minute}&apos;
-        </div>
+    <div className="flex items-center px-4 py-1.5 text-[11px]">
+      {/* Home side (left-aligned) */}
+      {isHome ? (
+        <>
+          <div className="flex-1 flex items-center gap-2 justify-end min-w-0">
+            <span className="text-white truncate">{label}</span>
+            {extraLabel && <span className="text-text-muted text-[9px] shrink-0">{extraLabel}</span>}
+            <div className="shrink-0 w-4 flex justify-center">{icon}</div>
+          </div>
+          <div className="w-10 text-center text-[10px] font-bold text-accent-cyan shrink-0">{event.minute}&apos;</div>
+          <div className="flex-1" />
+        </>
+      ) : (
+        <>
+          <div className="flex-1" />
+          <div className="w-10 text-center text-[10px] font-bold text-accent-blue shrink-0">{event.minute}&apos;</div>
+          <div className="flex-1 flex items-center gap-2 min-w-0">
+            <div className="shrink-0 w-4 flex justify-center">{icon}</div>
+            <span className="text-white truncate">{label}</span>
+            {extraLabel && <span className="text-text-muted text-[9px] shrink-0">{extraLabel}</span>}
+          </div>
+        </>
       )}
     </div>
   );
