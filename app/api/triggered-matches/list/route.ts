@@ -13,11 +13,12 @@ if (!supabaseUrl || !serviceRoleKey) {
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 /**
- * GET /api/triggered-matches/list?user_id=xxx&range=7d&limit=50&offset=0
+ * GET /api/triggered-matches/list?user_id=xxx&filter_id=yyy&range=7d&limit=50&offset=0
  * Reads triggered matches using service role key (bypasses RLS)
  *
  * Query params:
- * - user_id (required)
+ * - user_id (required) OR filter_id (if filter_id provided, uses it to find user_id)
+ * - filter_id: optional, filter by specific filter
  * - range: '24h' | '7d' | '30d' | 'all' (default: '7d')
  * - limit: number (default: 50)
  * - offset: number (default: 0)
@@ -25,22 +26,36 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('user_id');
+    let userId = request.nextUrl.searchParams.get('user_id');
+    const filterId = request.nextUrl.searchParams.get('filter_id');
     const range = request.nextUrl.searchParams.get('range') || '7d';
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50');
     const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0');
     const matchId = request.nextUrl.searchParams.get('match_id');
     const triggeredId = request.nextUrl.searchParams.get('id');
 
+    // If filter_id is provided, get the user_id from the filter
+    if (filterId && !userId) {
+      const { data: filter } = await supabaseAdmin
+        .from('filters')
+        .select('user_id')
+        .eq('id', filterId)
+        .single();
+
+      if (filter) {
+        userId = filter.user_id;
+      }
+    }
+
     if (!userId) {
-      return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+      return NextResponse.json({ error: 'user_id or filter_id is required' }, { status: 400 });
     }
 
     // If looking for a specific triggered match by ID
     if (triggeredId) {
       const { data, error } = await supabaseAdmin
         .from('triggered_matches')
-        .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, match_status, created_at')
+        .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, final_score_home, final_score_away, match_status, created_at')
         .eq('user_id', userId)
         .eq('id', triggeredId)
         .single();
@@ -55,9 +70,14 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabaseAdmin
       .from('triggered_matches')
-      .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, match_status, created_at')
+      .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, final_score_home, final_score_away, match_status, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+
+    // Apply filter_id filter if provided
+    if (filterId) {
+      query = query.eq('filter_id', filterId);
+    }
 
     // Apply time range filter
     if (range !== 'all') {
@@ -89,7 +109,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      matches: data || [],
+      triggers: data || [],
       count: data?.length || 0,
     });
   } catch (err) {

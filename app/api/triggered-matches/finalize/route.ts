@@ -103,8 +103,8 @@ export async function POST(request: NextRequest) {
         const { error } = await supabaseAdmin
           .from('triggered_matches')
           .update({
-            score_home: cm.score_home,
-            score_away: cm.score_away,
+            final_score_home: cm.score_home,
+            final_score_away: cm.score_away,
             match_status: 'finished',
           })
           .eq('user_id', user_id)
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         // Get all triggered matches for this filter
         const { data: triggers } = await supabaseAdmin
           .from('triggered_matches')
-          .select('id, match_time, score_home, score_away, match_status')
+          .select('id, match_time, score_home, score_away, final_score_home, final_score_away, match_status')
           .eq('filter_id', filter.id)
           .eq('user_id', user_id);
 
@@ -150,18 +150,19 @@ export async function POST(request: NextRequest) {
         // Calculate success: count how many matches satisfied the filter condition at final score
         let successCount = 0;
         for (const t of finishedTriggers) {
-          // Only count if we have both scores from the final match
-          if (t.score_home !== null && t.score_away !== null) {
-            const finalScore = {
-              home: t.score_home,
-              away: t.score_away,
-              elapsed: t.match_time || 0,
-            };
+          // Use final scores if available, otherwise use score_home/score_away
+          const finalHome = t.final_score_home ?? t.score_home ?? 0;
+          const finalAway = t.final_score_away ?? t.score_away ?? 0;
 
-            // Check if the filter conditions were met at the final score
-            if (evaluateFilterCondition(filter, finalScore)) {
-              successCount++;
-            }
+          const finalScore = {
+            home: finalHome,
+            away: finalAway,
+            elapsed: t.match_time || 0,
+          };
+
+          // Check if the filter conditions were met at the final score
+          if (evaluateFilterCondition(filter, finalScore)) {
+            successCount++;
           }
         }
 

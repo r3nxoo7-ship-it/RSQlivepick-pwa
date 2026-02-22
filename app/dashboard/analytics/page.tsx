@@ -24,6 +24,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
+import { FilterFeedbackCard } from '@/components/FilterFeedbackCard';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter } from '@/lib/supabase';
 import {
@@ -489,6 +490,26 @@ export default function AnalyticsPage() {
               </div>
             )}
           </div>
+          
+          {/* ========== FILTER FEEDBACK ========== */}
+          <FilterFeedbackCard 
+            filters={filters}
+            onFeedback={(filterId, matchId, isPositive) => {
+              // Update success rate for the filter based on feedback
+              // This modifies the UI feedback only; success_rate field is calculated server-side
+              const updatedFilters = filters.map(f => {
+                if (f.id === filterId) {
+                  const currentRate = f.success_rate ?? 0;
+                  // Small adjustment based on feedback (not persisted, just UI)
+                  const adjustment = isPositive ? 1 : -1;
+                  const newRate = Math.max(0, Math.min(100, currentRate + adjustment * 0.5));
+                  return { ...f, success_rate: newRate };
+                }
+                return f;
+              });
+              setFilters(updatedFilters);
+            }}
+          />
           
           {/* ========== INSIGHTS ========== */}
           {(bestFilter || mostActive) && (
