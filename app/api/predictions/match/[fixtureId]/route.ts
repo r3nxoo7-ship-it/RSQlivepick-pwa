@@ -19,19 +19,13 @@ import {
   validateContextQuality,
 } from '@/lib/prediction-data-aggregation';
 import { getMatchStats, convertESPNMatchToLiveMatch } from '@/lib/espn-sync';
+import { getTeamSchedule } from '@/lib/espn-api';
 
 export const dynamic = 'force-dynamic';
 
 // Cache predictions for 30 minutes
 const CACHE_DURATION = 30 * 60 * 1000;
 const predictionCache = new Map<string, { data: any; timestamp: number }>();
-
-// Resolve the internal API base URL for server-to-server calls
-function getBaseUrl(): string {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  return `http://localhost:${process.env.PORT || 3000}`;
-}
 
 export async function GET(
   request: NextRequest,
@@ -77,17 +71,53 @@ export async function GET(
     const homeTeamName = match.teams.home.name || 'Home';
     const awayTeamName = match.teams.away.name || 'Away';
 
-    // 2. Fetch team form + H2H in parallel (all from ESPN - real data)
-    const baseUrl = getBaseUrl();
-    const [homeFormRes, awayFormRes, h2hRes] = await Promise.all([
-      fetch(`${baseUrl}/api/espn/team-form?teamId=${homeTeamId}&limit=10`, { cache: 'no-store' }).catch(() => null),
-      fetch(`${baseUrl}/api/espn/team-form?teamId=${awayTeamId}&limit=10`, { cache: 'no-store' }).catch(() => null),
-      fetch(`${baseUrl}/api/espn/h2h?homeId=${homeTeamId}&awayId=${awayTeamId}&limit=10`, { cache: 'no-store' }).catch(() => null),
+    // 2. Fetch team form + H2H directly from ESPN (no HTTP roundtrip)
+    const [homeSchedule, awaySchedule] = await Promise.all([
+      getTeamSchedule(String(homeTeamId)).catch(() => []),
+      getTeamSchedule(String(awayTeamId)).catch(() => []),
     ]);
 
-    const homeForm = homeFormRes?.ok ? (await homeFormRes.json()).matches || [] : [];
-    const awayForm = awayFormRes?.ok ? (await awayFormRes.json()).matches || [] : [];
-    const h2hData = h2hRes?.ok ? (await h2hRes.json()).matches || [] : [];
+    // Convert ESPN matches to form data format
+    const convertToFormData = (matches: any[]) =>
+      matches.slice(0, 10).map((m: any) => ({
+        id: m.id,
+        date: m.date,
+        home_team_id: m.homeTeam?.id,
+        away_team_id: m.awayTeam?.id,
+        home_score: m.homeScore || 0,
+        away_score: m.awayScore || 0,
+        home_corners: m.homeCorners || null,
+        away_corners: m.awayCorners || null,
+        home_shots_on_target: m.homeShotsOnTarget || null,
+        away_shots_on_target: m.awayShotsOnTarget || null,
+        home_possession: m.homePossession || null,
+        away_possession: m.awayPossession || null,
+        home_yellow_cards: m.homeYellowCards || null,
+        away_yellow_cards: m.awayYellowCards || null,
+      }));
+
+    const homeForm = convertToFormData(homeSchedule);
+    const awayForm = convertToFormData(awaySchedule);
+
+    // H2H: find matches from home team's schedule where opponent is away team
+    const h2hData = homeSchedule
+      .filter((m: any) => {
+        const hid = String(m.homeTeam?.id);
+        const aid = String(m.awayTeam?.id);
+        return (
+          (hid === String(homeTeamId) && aid === String(awayTeamId)) ||
+          (hid === String(awayTeamId) && aid === String(homeTeamId))
+        );
+      })
+      .slice(0, 10)
+      .map((m: any) => ({
+        home_team_id: m.homeTeam?.id,
+        away_team_id: m.awayTeam?.id,
+        home_score: m.homeScore || 0,
+        away_score: m.awayScore || 0,
+        home_corners: m.homeCorners || null,
+        away_corners: m.awayCorners || null,
+      }));
 
     // 3. Extract pre-match odds from ESPN match data (already in match object)
     // ESPN scoreboard includes odds in match.fixture.odds or similar

@@ -13,16 +13,16 @@ const MARKET_GROUPS = [
   {
     group: 'Goals',
     markets: [
-      { key: 'fullMatch.over0_5', label: 'O0.5' },
-      { key: 'fullMatch.over1_5', label: 'O1.5' },
-      { key: 'fullMatch.over2_5', label: 'O2.5' },
+      { key: 'fullMatch.over0_5', label: '+0.5' },
+      { key: 'fullMatch.over1_5', label: '+1.5' },
+      { key: 'fullMatch.over2_5', label: '+2.5' },
     ],
   },
   {
     group: '1st Half',
     markets: [
-      { key: 'firstHalf.over0_5', label: 'O0.5' },
-      { key: 'firstHalf.over1_5', label: 'O1.5' },
+      { key: 'firstHalf.over0_5', label: '+0.5' },
+      { key: 'firstHalf.over1_5', label: '+1.5' },
     ],
   },
   {
@@ -32,13 +32,13 @@ const MARKET_GROUPS = [
   {
     group: 'Corners',
     markets: [
-      { key: 'corners.over8', label: 'O8' },
-      { key: 'corners.over9', label: 'O9' },
+      { key: 'corners.over8', label: '+8' },
+      { key: 'corners.over9', label: '+9' },
     ],
   },
   {
     group: 'Cards',
-    markets: [{ key: 'cards.over4_5', label: 'O4.5' }],
+    markets: [{ key: 'cards.over4_5', label: '+4.5' }],
   },
 ];
 
@@ -156,7 +156,7 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm border-collapse">
           <thead>
             {/* Group headers */}
             <tr className="border-b border-glass-lighter">
@@ -165,23 +165,23 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
                 <th
                   key={g.group}
                   colSpan={g.markets.length}
-                  className="px-1 py-1.5 text-center text-xs font-semibold text-accent-cyan border-l border-glass-lighter"
+                  className="px-2 py-2 text-center text-[11px] font-bold text-accent-cyan uppercase tracking-wider border-l border-glass-medium"
                 >
                   {g.group}
                 </th>
               ))}
             </tr>
             {/* Market labels */}
-            <tr className="border-b border-glass-medium">
-              <th className="sticky left-0 z-10 bg-[#0f1729] px-3 py-2 text-left text-xs text-text-muted font-semibold min-w-[180px]">
+            <tr className="border-b border-glass-medium bg-glass-light/30">
+              <th className="sticky left-0 z-10 bg-[#0f1729] px-3 py-2 text-left text-xs text-text-muted font-semibold min-w-[170px]">
                 Match
               </th>
               {MARKET_GROUPS.map((g) =>
                 g.markets.map((m, idx) => (
                   <th
                     key={m.key}
-                    className={`px-2 py-2 text-center text-xs text-text-secondary font-semibold min-w-[52px] ${
-                      idx === 0 ? 'border-l border-glass-lighter' : ''
+                    className={`px-2 py-1.5 text-center text-[11px] text-text-secondary font-bold min-w-[48px] ${
+                      idx === 0 ? 'border-l border-glass-medium' : ''
                     }`}
                   >
                     {m.label}
@@ -235,19 +235,19 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
                       return (
                         <td
                           key={m.key}
-                          className={`px-1 py-2.5 text-center ${
-                            idx === 0 ? 'border-l border-glass-lighter' : ''
+                          className={`px-1.5 py-2 text-center ${
+                            idx === 0 ? 'border-l border-glass-medium' : ''
                           }`}
                         >
                           {isLoading ? (
                             <div className="w-10 h-5 mx-auto rounded bg-glass-light animate-pulse" />
                           ) : prob !== null ? (
                             <span
-                              className={`inline-block px-1.5 py-0.5 rounded text-xs font-semibold ${getProbStyle(
+                              className={`inline-block min-w-[38px] px-1 py-0.5 rounded text-[11px] font-bold tabular-nums ${getProbStyle(
                                 prob
                               )}`}
                             >
-                              {Math.round(prob)}%
+                              {Math.round(prob)}
                             </span>
                           ) : (
                             <span className="text-text-muted text-xs">-</span>
@@ -264,17 +264,17 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2 border-t border-glass-lighter flex items-center gap-4 text-[10px] text-text-muted">
+      <div className="px-4 py-2.5 border-t border-glass-lighter flex items-center gap-4 text-[10px] text-text-muted">
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-green-500/20" /> 60%+
+          <span className="w-2.5 h-2.5 rounded-sm bg-green-500/20" /> High (75+)
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-amber-500/10" /> 50-59%
+          <span className="w-2.5 h-2.5 rounded-sm bg-amber-500/10" /> Mid (50-74)
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-red-500/10" /> &lt;50%
+          <span className="w-2.5 h-2.5 rounded-sm bg-red-500/10" /> Low (&lt;50)
         </span>
-        <span className="ml-auto italic">Predictions update every 30 min</span>
+        <span className="ml-auto italic">Based on team form &amp; recent results</span>
       </div>
     </div>
   );
