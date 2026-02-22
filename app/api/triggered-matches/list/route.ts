@@ -110,6 +110,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       triggers: data || [],
+      matches: data || [], // For backward compatibility
       count: data?.length || 0,
     });
   } catch (err) {
