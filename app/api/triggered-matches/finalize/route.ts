@@ -115,15 +115,103 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Auto-finalize: mark old 'ongoing' matches (>2 hours) as finished
+      // First, fetch them so we can look up final scores
       const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-      const { error } = await supabaseAdmin
+      const { data: ongoingMatches } = await supabaseAdmin
         .from('triggered_matches')
-        .update({ match_status: 'finished' })
+        .select('id, match_id')
         .eq('user_id', user_id)
         .eq('match_status', 'ongoing')
         .lt('triggered_at', cutoff);
 
-      if (!error) updatedCount++;
+      if (ongoingMatches && ongoingMatches.length > 0) {
+        // Get unique match IDs to look up final scores
+        const uniqueMatchIds = [...new Set(ongoingMatches.map(m => m.match_id))];
+
+        // Look up final scores from espn_matches table
+        const scoreMap = new Map<string, { home: number | null; away: number | null }>();
+        for (const matchId of uniqueMatchIds) {
+          try {
+            const { data: espnMatch } = await supabaseAdmin
+              .from('espn_matches')
+              .select('home_score, away_score, status')
+              .eq('id', matchId)
+              .single();
+
+            if (espnMatch) {
+              scoreMap.set(matchId, {
+                home: espnMatch.home_score,
+                away: espnMatch.away_score,
+              });
+            }
+          } catch {
+            // Match not found in ESPN data, will finalize without score
+          }
+        }
+
+        // Update each triggered match with final score if available
+        for (const tm of ongoingMatches) {
+          const scores = scoreMap.get(tm.match_id);
+          const updateData: Record<string, any> = { match_status: 'finished' };
+          if (scores) {
+            updateData.final_score_home = scores.home;
+            updateData.final_score_away = scores.away;
+          }
+
+          const { error } = await supabaseAdmin
+            .from('triggered_matches')
+            .update(updateData)
+            .eq('id', tm.id);
+
+          if (!error) updatedCount++;
+        }
+      }
+    }
+
+    // Backfill: patch any previously-finalized matches missing final scores
+    const { data: missingScores } = await supabaseAdmin
+      .from('triggered_matches')
+      .select('id, match_id')
+      .eq('user_id', user_id)
+      .eq('match_status', 'finished')
+      .is('final_score_home', null)
+      .limit(50);
+
+    if (missingScores && missingScores.length > 0) {
+      const backfillMatchIds = [...new Set(missingScores.map(m => m.match_id))];
+      const backfillScoreMap = new Map<string, { home: number | null; away: number | null }>();
+
+      for (const matchId of backfillMatchIds) {
+        try {
+          const { data: espnMatch } = await supabaseAdmin
+            .from('espn_matches')
+            .select('home_score, away_score')
+            .eq('id', matchId)
+            .single();
+
+          if (espnMatch && espnMatch.home_score !== null) {
+            backfillScoreMap.set(matchId, {
+              home: espnMatch.home_score,
+              away: espnMatch.away_score,
+            });
+          }
+        } catch {
+          // Not found, skip
+        }
+      }
+
+      for (const tm of missingScores) {
+        const scores = backfillScoreMap.get(tm.match_id);
+        if (scores) {
+          await supabaseAdmin
+            .from('triggered_matches')
+            .update({
+              final_score_home: scores.home,
+              final_score_away: scores.away,
+            })
+            .eq('id', tm.id);
+        }
+      }
     }
 
     // Now recalculate success_rate for all user's filters

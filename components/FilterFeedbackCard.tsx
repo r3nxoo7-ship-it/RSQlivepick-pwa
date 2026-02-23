@@ -254,11 +254,13 @@ export function FilterFeedbackCard({ filters, userId, onSuccessRateUpdated }: Fi
                                 </span>
                                 {match.match_time ? ` (${match.match_time}')` : ''}
                               </span>
-                              {/* Final score if available */}
-                              {isFinished && match.final_score_home !== null && (
+                              {/* Final score if available (fallback to trigger score for old data) */}
+                              {isFinished && (
                                 <span>
                                   Final: <span className="text-white font-medium">
-                                    {match.final_score_home}-{match.final_score_away}
+                                    {match.final_score_home !== null
+                                      ? `${match.final_score_home}-${match.final_score_away}`
+                                      : `${match.score_home ?? '?'}-${match.score_away ?? '?'}`}
                                   </span>
                                 </span>
                               )}
