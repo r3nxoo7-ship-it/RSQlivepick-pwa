@@ -1,27 +1,21 @@
 'use client';
 
-// ============================================
-// R$Q - ANALYTICS & HISTORY PAGE
-// ============================================
-// View filter performance, stats and history
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import {
   BarChart3,
   TrendingUp,
-  TrendingDown,
   Award,
   Target,
   Zap,
   Download,
-  Calendar,
   Filter as FilterIcon,
   Bell,
   Send,
-  CheckCircle,
   ArrowRight,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { FilterFeedbackCard } from '@/components/FilterFeedbackCard';
@@ -29,163 +23,94 @@ import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter } from '@/lib/supabase';
 import {
   calculateAllFiltersStats,
-  calculateFilterStats,
   categorizeFilters,
-  generatePerformanceTrend,
-  getBestFilter,
-  getMostActiveFilter,
   getPerformanceRating,
   formatSuccessRate,
   exportToCSV,
   type FilterStats,
 } from '@/lib/analytics';
 
-// ============================================
-// COMPONENTA PRINCIPALĂ
-// ============================================
-
 export default function AnalyticsPage() {
   const router = useRouter();
-  
-  // ============================================
-  // STATE
-  // ============================================
-  
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filter[]>([]);
-  const [timeRange, setTimeRange] = useState<7 | 30>(7);
-  
-  // Stats
+  const [userId, setUserId] = useState<string>('');
   const [overallStats, setOverallStats] = useState<any>(null);
   const [categoryStats, setCategoryStats] = useState<any>(null);
-  const [trendData, setTrendData] = useState<any[]>([]);
   const [topFilters, setTopFilters] = useState<FilterStats[]>([]);
-  
-  // ============================================
-  // LOAD DATA
-  // ============================================
-  
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const user = authHelpers.getCurrentUser();
-        if (!user) {
-          router.push('/login');
-          return;
-        }
-        const userFilters = await dbHelpers.getUserFilters(user.id);
-        setFilters(userFilters);
-      } catch (err) {
-        console.error('Error loading analytics:', err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [router]);
 
-  useEffect(() => {
-    if (filters.length === 0) return;
-
-    // calculateStats inline to avoid missing-deps lint
-    const overall = calculateAllFiltersStats(filters);
-    setOverallStats(overall);
-
-    const categories = categorizeFilters(filters);
-    setCategoryStats(categories);
-
-    const trend = generatePerformanceTrend(filters, timeRange);
-    setTrendData(trend);
-
-    setTopFilters(overall.topPerformers);
-  }, [filters, timeRange]);
-  
-  const loadAnalytics = async () => {
-    setLoading(true);
-    
+  // Load filters
+  const loadFilters = useCallback(async () => {
     try {
       const user = authHelpers.getCurrentUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      
+      if (!user) { router.push('/login'); return; }
+      setUserId(user.id);
       const userFilters = await dbHelpers.getUserFilters(user.id);
       setFilters(userFilters);
-      
     } catch (err) {
       console.error('Error loading analytics:', err);
     } finally {
       setLoading(false);
     }
-  };
-  
-  const calculateStats = () => {
-    // Overall stats
+  }, [router]);
+
+  useEffect(() => { loadFilters(); }, [loadFilters]);
+
+  // Recalculate stats when filters change
+  useEffect(() => {
+    if (filters.length === 0) return;
     const overall = calculateAllFiltersStats(filters);
     setOverallStats(overall);
-    
-    // Category stats
-    const categories = categorizeFilters(filters);
-    setCategoryStats(categories);
-    
-    // Trend data
-    const trend = generatePerformanceTrend(filters, timeRange);
-    setTrendData(trend);
-    
-    // Top filters
+    setCategoryStats(categorizeFilters(filters));
     setTopFilters(overall.topPerformers);
-  };
-  
-  // ============================================
-  // HANDLERS
-  // ============================================
-  
+  }, [filters]);
+
   const handleExport = () => {
     const csv = exportToCSV(filters);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rsq-filters-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `livepick-analytics-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
-  
-  const bestFilter = getBestFilter(filters);
-  const mostActive = getMostActiveFilter(filters);
-  
-  // ============================================
-  // RENDER
-  // ============================================
-  
+
+  // When feedback updates a filter's success_rate, reload filters to get fresh data
+  const handleSuccessRateUpdated = useCallback(async () => {
+    const user = authHelpers.getCurrentUser();
+    if (!user) return;
+    const userFilters = await dbHelpers.getUserFilters(user.id);
+    setFilters(userFilters);
+  }, []);
+
+  // Loading state
   if (loading) {
     return (
       <AuthWrapper>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full border-4 border-accent-cyan border-t-transparent animate-spin mx-auto mb-4" />
-            <p className="text-text-secondary">Loading analytics...</p>
+            <div className="w-12 h-12 rounded-full border-3 border-accent-cyan border-t-transparent animate-spin mx-auto mb-3" />
+            <p className="text-text-secondary text-sm">Loading analytics...</p>
           </div>
         </div>
       </AuthWrapper>
     );
   }
-  
+
+  // Empty state
   if (filters.length === 0) {
     return (
       <AuthWrapper>
         <div className="min-h-screen flex items-center justify-center p-6">
-          <div className="text-center max-w-md">
-            <BarChart3 className="w-20 h-20 text-text-muted mx-auto mb-4" />
-            <h2 className="text-2xl font-display font-bold mb-2">
-              No Statistics Available
-            </h2>
-            <p className="text-text-muted mb-6">
-              Create your first filter to see analytics and statistics
+          <div className="text-center max-w-sm">
+            <BarChart3 className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-50" />
+            <h2 className="text-xl font-display font-bold mb-2">No Analytics Yet</h2>
+            <p className="text-text-muted text-sm mb-4">
+              Create filters to start tracking performance
             </p>
             <button
               onClick={() => router.push('/dashboard/filters/new')}
-              className="btn-primary"
+              className="btn-primary text-sm"
             >
               Create First Filter
             </button>
@@ -194,380 +119,242 @@ export default function AnalyticsPage() {
       </AuthWrapper>
     );
   }
-  
+
+  // Compute some derived values
+  const totalFeedback = filters.reduce((sum, f) => {
+    const rate = f.success_rate ?? 0;
+    const triggers = f.trigger_count ?? 0;
+    return sum + (rate > 0 && triggers > 0 ? 1 : 0);
+  }, 0);
+
   return (
     <AuthWrapper>
-      <div className="min-h-screen p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          
-          {/* ========== HEADER ========== */}
-          <div className="flex items-center justify-between">
+      <div className="min-h-screen p-4 sm:p-6">
+        <div className="max-w-5xl mx-auto space-y-5">
+
+          {/* ===== HEADER ===== */}
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-display font-bold gradient-text mb-2">
-                Analytics & History
-              </h1>
-              <p className="text-text-secondary">
-                Filter stats and performance analysis
-              </p>
+              <h1 className="text-2xl font-display font-bold gradient-text">Analytics</h1>
+              <p className="text-xs text-text-muted mt-0.5">Filter performance & feedback</p>
             </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="flex gap-2">
+              <button
+                onClick={loadFilters}
+                className="p-2 rounded-lg bg-glass-light hover:bg-glass-medium text-text-muted hover:text-white transition-colors"
+                title="Refresh data"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
               <button
                 onClick={handleExport}
-                className="btn-secondary flex items-center gap-2 w-full sm:w-auto"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-glass-light hover:bg-glass-medium text-text-muted hover:text-white transition-colors text-xs"
               >
-                <Download className="w-4 h-4" />
-                Export CSV
+                <Download className="w-3.5 h-3.5" />
+                Export
               </button>
-              
-              <select  
-                value={timeRange}
-                onChange={(e) => setTimeRange(Number(e.target.value) as 7 | 30)}
-                className="input-field w-full sm:w-40"
-                title="Select time range"
-              >
-                <option value={7}>Last 7 days</option>
-                <option value={30}>Last 30 days</option>
-              </select>
             </div>
           </div>
-          
-          {/* ========== OVERVIEW STATS ========== */}
+
+          {/* ===== COMPACT STATS ROW ===== */}
           {overallStats && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="glass-card p-6"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-3 rounded-xl bg-accent-cyan/10">
-                    <FilterIcon className="w-6 h-6 text-accent-cyan" />
-                  </div>
-                </div>
-                <h3 className="text-3xl font-display font-bold mb-1">
-                  {overallStats.total}
-                </h3>
-                <p className="text-sm text-text-muted">Total Filters</p>
-                <p className="text-xs text-accent-cyan mt-2">
-                  {overallStats.active} active
-                </p>
-              </motion.div>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="glass-card p-6"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-3 rounded-xl bg-accent-amber/10">
-                    <Zap className="w-6 h-6 text-accent-amber" />
-                  </div>
-                </div>
-                <h3 className="text-3xl font-display font-bold mb-1">
-                  {overallStats.totalTriggers}
-                </h3>
-                <p className="text-sm text-text-muted">Total Triggers</p>
-                {overallStats.totalTriggers === 0 && (
-                  <p className="text-[10px] text-text-muted mt-2">
-                    Triggers are logged when live matches meet your filter conditions while the app is open
-                  </p>
-                )}
-              </motion.div>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="glass-card p-6"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-3 rounded-xl bg-accent-green/10">
-                    <Target className="w-6 h-6 text-accent-green" />
-                  </div>
-                </div>
-                <h3 className="text-3xl font-display font-bold mb-1">
-                  {formatSuccessRate(overallStats.avgSuccessRate)}
-                </h3>
-                <p className="text-sm text-text-muted">Average Success Rate</p>
-              </motion.div>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="glass-card p-6"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-3 rounded-xl bg-accent-purple/10">
-                    <Bell className="w-6 h-6 text-accent-purple" />
-                  </div>
-                </div>
-                <h3 className="text-3xl font-display font-bold mb-1">
-                  {overallStats.withNotifications + overallStats.withTelegram}
-                </h3>
-                <p className="text-sm text-text-muted">With Notifications</p>
-                <p className="text-xs text-text-muted mt-2">
-                  {overallStats.withNotifications} browser, {overallStats.withTelegram} Telegram
-                </p>
-              </motion.div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard
+                icon={<FilterIcon className="w-4 h-4 text-accent-cyan" />}
+                value={overallStats.total}
+                label="Filters"
+                sub={`${overallStats.active} active`}
+                subColor="text-accent-cyan"
+              />
+              <StatCard
+                icon={<Zap className="w-4 h-4 text-accent-amber" />}
+                value={overallStats.totalTriggers}
+                label="Total Triggers"
+              />
+              <StatCard
+                icon={<Target className="w-4 h-4 text-accent-green" />}
+                value={formatSuccessRate(overallStats.avgSuccessRate)}
+                label="Avg Success"
+                sub={totalFeedback > 0 ? `${totalFeedback} rated` : 'No ratings yet'}
+                subColor={totalFeedback > 0 ? 'text-accent-green' : 'text-text-muted'}
+              />
+              <StatCard
+                icon={<Bell className="w-4 h-4 text-accent-purple" />}
+                value={overallStats.withNotifications + overallStats.withTelegram}
+                label="Notifications"
+                sub={`${overallStats.withNotifications} push, ${overallStats.withTelegram} TG`}
+                subColor="text-text-muted"
+              />
             </div>
           )}
-          
-          {/* ========== PERFORMANCE TREND ========== */}
-          <div className="glass-card p-6">
-            <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-accent-cyan" />
-              Performance Trend
-            </h2>
-            
-            {trendData.length > 0 && (
-              <div className="h-64 flex items-end gap-2">
-                {trendData.map((day, index) => (
-                  <div
-                    key={index}
-                    className="flex-1 flex flex-col items-center gap-2"
-                  >
-                    <div className="text-xs text-text-muted text-center">
-                      {day.successRate}%
-                    </div>
-                    <div className="w-full bg-glass-light rounded-t-lg relative group">
-                      <div
-                        className="bg-gradient-to-t from-accent-cyan to-accent-green rounded-t-lg transition-all duration-300 group-hover:opacity-80"
-                        style={{ height: `${(day.successRate / 100) * 200}px` } as React.CSSProperties}
-                      />
-                    </div>
-                    <div className="text-xs text-text-muted text-center">
-                      {day.date}
-                    </div>
-                  </div>
-                ))}
+
+          {/* ===== MAIN CONTENT: 2-column on desktop ===== */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+            {/* LEFT: Top Filters (3 cols) */}
+            <div className="lg:col-span-3 glass-card overflow-hidden">
+              <div className="px-4 py-3 border-b border-glass-lighter flex items-center gap-2">
+                <Award className="w-4 h-4 text-accent-amber" />
+                <h2 className="text-sm font-bold">Top Filters by Triggers</h2>
               </div>
-            )}
-          </div>
-          
-          {/* ========== BEST PERFORMERS & CATEGORIES ========== */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* Top Filters */}
-            <div className="glass-card p-6">
-              <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
-                <Award className="w-5 h-5 text-accent-amber" />
-                Top 5 Filters
-              </h2>
-              
-              {topFilters.length > 0 ? (
-                <div className="space-y-3">
-                  {topFilters.map((filterStat, index) => {
+              <div className="divide-y divide-glass-lighter/50">
+                {topFilters.length > 0 ? (
+                  topFilters.map((filterStat, index) => {
                     const rating = getPerformanceRating(filterStat.successRate);
-                    
                     return (
-                      <motion.div
+                      <button
+                        type="button"
                         key={filterStat.filterId}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="p-4 rounded-lg bg-glass-light hover:bg-glass-medium transition-all cursor-pointer"
                         onClick={() => router.push(`/dashboard/filters/${filterStat.filterId}`)}
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-glass-light/50 transition-colors text-left"
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl font-bold text-accent-amber">
-                              #{index + 1}
+                        <span className="text-lg font-bold text-accent-amber/70 w-6 text-center">
+                          {index + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {filterStat.filterName}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-text-muted">
+                              {filterStat.totalTriggers} triggers
                             </span>
-                            <div>
-                              <h3 className="font-semibold text-sm">
-                                {filterStat.filterName}
-                              </h3>
-                              <p className="text-xs text-text-muted">
-                                {filterStat.totalTriggers} triggers
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="text-right">
-                            <p className={`text-lg font-bold ${rating.color}`}>
-                              {formatSuccessRate(filterStat.successRate)}
-                            </p>
-                            <p className="text-xs text-text-muted">{rating.label}</p>
+                            {filterStat.isActive && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent-green/10 text-accent-green">
+                                Active
+                              </span>
+                            )}
+                            {filterStat.notificationsEnabled && (
+                              <Bell className="w-3 h-3 text-accent-cyan" />
+                            )}
+                            {filterStat.telegramEnabled && (
+                              <Send className="w-3 h-3 text-accent-purple" />
+                            )}
                           </div>
                         </div>
-                        
-                        <div className="flex gap-2 mt-2">
-                          {filterStat.isActive && (
-                            <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green text-xs">
-                              Active
-                            </span>
-                          )}
-                          {filterStat.notificationsEnabled && (
-                            <Bell className="w-3 h-3 text-accent-cyan" />
-                          )}
-                          {filterStat.telegramEnabled && (
-                            <Send className="w-3 h-3 text-accent-purple" />
-                          )}
+                        <div className="text-right flex-shrink-0">
+                          <p className={`text-sm font-bold ${rating.color}`}>
+                            {formatSuccessRate(filterStat.successRate)}
+                          </p>
+                          <p className="text-[10px] text-text-muted">{rating.label}</p>
                         </div>
-                      </motion.div>
+                        <ArrowRight className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+                      </button>
                     );
-                  })}
-                </div>
-              ) : (
-                <p className="text-center text-text-muted py-8">
-                  No filters with triggers yet
-                </p>
-              )}
+                  })
+                ) : (
+                  <div className="p-6 text-center text-text-muted text-sm">
+                    No filters with triggers yet
+                  </div>
+                )}
+              </div>
             </div>
-            
-            {/* Category Stats */}
+
+            {/* RIGHT: Category breakdown (2 cols) */}
             {categoryStats && (
-              <div className="glass-card p-6">
-                <h2 className="text-xl font-display font-semibold mb-4">
-                  Filters by Category
-                </h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">⚽ Corners</span>
-                      <span className="font-semibold">{categoryStats.corners}</span>
-                    </div>
-                    <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent-cyan"
-                        style={{ 
-                          width: `${(categoryStats.corners / filters.length) * 100}%` 
-                        } as React.CSSProperties}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">🎯 Shots</span>
-                      <span className="font-semibold">{categoryStats.shots}</span>
-                    </div>
-                    <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent-green"
-                        style={{ 
-                          width: `${(categoryStats.shots / filters.length) * 100}%` 
-                        } as React.CSSProperties}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">🟨 Cards</span>
-                      <span className="font-semibold">{categoryStats.cards}</span>
-                    </div>
-                    <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent-amber"
-                        style={{ 
-                          width: `${(categoryStats.cards / filters.length) * 100}%` 
-                        } as React.CSSProperties}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">🔥 Mixed</span>
-                      <span className="font-semibold">{categoryStats.mixed}</span>
-                    </div>
-                    <div className="h-2 bg-glass-light rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent-purple"
-                        style={{ 
-                          width: `${(categoryStats.mixed / filters.length) * 100}%` 
-                        } as React.CSSProperties}
-                      />
+              <div className="lg:col-span-2 glass-card overflow-hidden">
+                <div className="px-4 py-3 border-b border-glass-lighter">
+                  <h2 className="text-sm font-bold">Filter Categories</h2>
+                </div>
+                <div className="p-4 space-y-4">
+                  <CategoryBar label="Corners" count={categoryStats.corners} total={filters.length} color="bg-accent-cyan" />
+                  <CategoryBar label="Shots" count={categoryStats.shots} total={filters.length} color="bg-accent-green" />
+                  <CategoryBar label="Cards" count={categoryStats.cards} total={filters.length} color="bg-accent-amber" />
+                  <CategoryBar label="Mixed" count={categoryStats.mixed} total={filters.length} color="bg-accent-purple" />
+
+                  {/* Quick summary */}
+                  <div className="pt-3 border-t border-glass-lighter">
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div>
+                        <p className="text-lg font-bold text-white">{filters.filter(f => f.is_active).length}</p>
+                        <p className="text-[10px] text-text-muted">Active</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-white">{filters.filter(f => !f.is_active).length}</p>
+                        <p className="text-[10px] text-text-muted">Paused</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
-          
-          {/* ========== FILTER FEEDBACK ========== */}
-          <FilterFeedbackCard 
-            filters={filters}
-            onFeedback={(filterId, matchId, isPositive) => {
-              // Update success rate for the filter based on feedback
-              // This modifies the UI feedback only; success_rate field is calculated server-side
-              const updatedFilters = filters.map(f => {
-                if (f.id === filterId) {
-                  const currentRate = f.success_rate ?? 0;
-                  // Small adjustment based on feedback (not persisted, just UI)
-                  const adjustment = isPositive ? 1 : -1;
-                  const newRate = Math.max(0, Math.min(100, currentRate + adjustment * 0.5));
-                  return { ...f, success_rate: newRate };
-                }
-                return f;
-              });
-              setFilters(updatedFilters);
-            }}
-          />
-          
-          {/* ========== INSIGHTS ========== */}
-          {(bestFilter || mostActive) && (
-            <div className="glass-card p-6">
-              <h2 className="text-xl font-display font-semibold mb-4">
-                💡 Performance Insights
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bestFilter && (
-                  <div className="p-4 rounded-lg bg-gradient-to-br from-accent-green/10 to-accent-cyan/10 border border-accent-green/20">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-accent-green flex-shrink-0 mt-1" />
-                      <div>
-                        <h3 className="font-semibold mb-1">Best Performing Filter</h3>
-                        <p className="text-sm text-text-muted mb-2">
-                          <span className="font-semibold text-accent-green">{bestFilter.name}</span>
-                          {' '}has the best success rate to triggers ratio
-                        </p>
-                        <button
-                          onClick={() => router.push(`/dashboard/filters/${bestFilter.id}`)}
-                          className="text-xs text-accent-cyan hover:underline flex items-center gap-1"
-                        >
-                          View Filter
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {mostActive && (
-                  <div className="p-4 rounded-lg bg-gradient-to-br from-accent-amber/10 to-accent-purple/10 border border-accent-amber/20">
-                    <div className="flex items-start gap-3">
-                      <Zap className="w-5 h-5 text-accent-amber flex-shrink-0 mt-1" />
-                      <div>
-                        <h3 className="font-semibold mb-1">Most Active Filter</h3>
-                        <p className="text-sm text-text-muted mb-2">
-                          <span className="font-semibold text-accent-amber">{mostActive.name}</span>
-                          {' '}has been triggered the most times
-                        </p>
-                        <button
-                          onClick={() => router.push(`/dashboard/filters/${mostActive.id}`)}
-                          className="text-xs text-accent-cyan hover:underline flex items-center gap-1"
-                        >
-                          View Filter
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+
+          {/* ===== FEEDBACK SECTION ===== */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <ThumbsUp className="w-4 h-4 text-accent-green" />
+              <h2 className="text-sm font-bold text-white">Rate Filter Triggers</h2>
+              <span className="text-[10px] text-text-muted ml-1">
+                Your ratings update the success rate in real-time
+              </span>
             </div>
-          )}
-          
+            <FilterFeedbackCard
+              filters={filters}
+              userId={userId}
+              onSuccessRateUpdated={handleSuccessRateUpdated}
+            />
+          </div>
+
         </div>
       </div>
     </AuthWrapper>
+  );
+}
+
+// ===== Sub-components =====
+
+function StatCard({
+  icon,
+  value,
+  label,
+  sub,
+  subColor,
+}: {
+  icon: React.ReactNode;
+  value: string | number;
+  label: string;
+  sub?: string;
+  subColor?: string;
+}) {
+  return (
+    <div className="glass-card px-4 py-3">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="p-1.5 rounded-lg bg-glass-light">{icon}</div>
+        <span className="text-xs text-text-muted">{label}</span>
+      </div>
+      <p className="text-2xl font-display font-bold text-white">{value}</p>
+      {sub && (
+        <p className={`text-[10px] mt-1 ${subColor || 'text-text-muted'}`}>{sub}</p>
+      )}
+    </div>
+  );
+}
+
+function CategoryBar({
+  label,
+  count,
+  total,
+  color,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  color: string;
+}) {
+  const pct = total > 0 ? (count / total) * 100 : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs text-text-secondary">{label}</span>
+        <span className="text-xs font-bold text-white">{count}</span>
+      </div>
+      <div className="h-1.5 bg-glass-light rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full ${color} transition-all`}
+          style={{ width: `${Math.max(pct, 2)}%` } as React.CSSProperties}
+        />
+      </div>
+    </div>
   );
 }
