@@ -98,13 +98,11 @@ export async function POST(request: NextRequest) {
     let updatedCount = 0;
 
     if (completed_matches && completed_matches.length > 0) {
-      // Update triggered matches with provided final scores
+      // Mark triggered matches as finished (scores already captured at trigger time)
       for (const cm of completed_matches) {
         const { error } = await supabaseAdmin
           .from('triggered_matches')
           .update({
-            final_score_home: cm.score_home,
-            final_score_away: cm.score_away,
             match_status: 'finished',
           })
           .eq('user_id', user_id)
@@ -138,7 +136,7 @@ export async function POST(request: NextRequest) {
         // Get all triggered matches for this filter
         const { data: triggers } = await supabaseAdmin
           .from('triggered_matches')
-          .select('id, match_time, score_home, score_away, final_score_home, final_score_away, match_status')
+          .select('id, match_time, score_home, score_away, match_status')
           .eq('filter_id', filter.id)
           .eq('user_id', user_id);
 
@@ -147,21 +145,17 @@ export async function POST(request: NextRequest) {
         const finishedTriggers = triggers.filter(t => t.match_status === 'finished');
         if (finishedTriggers.length === 0) continue;
 
-        // Calculate success: count how many matches satisfied the filter condition at final score
+        // Calculate success: count how many matches satisfied the filter condition at trigger time
         let successCount = 0;
         for (const t of finishedTriggers) {
-          // Use final scores if available, otherwise use score_home/score_away
-          const finalHome = t.final_score_home ?? t.score_home ?? 0;
-          const finalAway = t.final_score_away ?? t.score_away ?? 0;
-
-          const finalScore = {
-            home: finalHome,
-            away: finalAway,
+          const triggerScore = {
+            home: t.score_home ?? 0,
+            away: t.score_away ?? 0,
             elapsed: t.match_time || 0,
           };
 
-          // Check if the filter conditions were met at the final score
-          if (evaluateFilterCondition(filter, finalScore)) {
+          // Check if the filter conditions were met at trigger time
+          if (evaluateFilterCondition(filter, triggerScore)) {
             successCount++;
           }
         }

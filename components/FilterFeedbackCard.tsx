@@ -11,8 +11,6 @@ interface TriggeredMatch {
   away_team: string;
   score_home: number | null;
   score_away: number | null;
-  final_score_home: number | null;
-  final_score_away: number | null;
   match_time: number | null;
   triggered_at: string;
 }
@@ -146,13 +144,9 @@ export function FilterFeedbackCard({ filters, onFeedback }: FilterFeedbackProps)
                         const feedbackKey = match.id;
                         const userFeedback = feedback[feedbackKey];
 
-                        // Get triggered score (current score at time of trigger)
-                        const triggeredScoreHome = match.score_home ?? '?';
-                        const triggeredScoreAway = match.score_away ?? '?';
-
-                        // Get final score (if match finished, use final_score_home/away)
-                        const finalScoreHome = match.final_score_home ?? match.score_home ?? '?';
-                        const finalScoreAway = match.final_score_away ?? match.score_away ?? '?';
+                        // Get score at trigger time
+                        const scoreHome = match.score_home ?? '?';
+                        const scoreAway = match.score_away ?? '?';
 
                         return (
                           <div
@@ -165,16 +159,11 @@ export function FilterFeedbackCard({ filters, onFeedback }: FilterFeedbackProps)
                                 {match.home_team} vs {match.away_team}
                               </div>
 
-                              {/* Scores */}
+                              {/* Score at trigger time */}
                               <div className="flex gap-4 mt-1 text-xs text-slate-400">
                                 <span>
-                                  Triggered: <span className="text-slate-300 font-medium">
-                                    {triggeredScoreHome}-{triggeredScoreAway}
-                                  </span>
-                                </span>
-                                <span>
-                                  Final: <span className="text-emerald-400 font-medium">
-                                    {finalScoreHome}-{finalScoreAway}
+                                  Score at trigger: <span className="text-emerald-400 font-medium">
+                                    {scoreHome}-{scoreAway}
                                   </span>
                                 </span>
                               </div>
@@ -189,7 +178,7 @@ export function FilterFeedbackCard({ filters, onFeedback }: FilterFeedbackProps)
                                     ? 'bg-emerald-500/80 text-white'
                                     : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-emerald-400'
                                 }`}
-                                title="Match was expected (correct prediction)"
+                                title="Prediction was correct at this score"
                               >
                                 <ThumbsUp size={16} />
                               </button>
@@ -200,7 +189,7 @@ export function FilterFeedbackCard({ filters, onFeedback }: FilterFeedbackProps)
                                     ? 'bg-red-500/80 text-white'
                                     : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-red-400'
                                 }`}
-                                title="Match was unexpected (wrong prediction)"
+                                title="Prediction was incorrect at this score"
                               >
                                 <ThumbsDown size={16} />
                               </button>
