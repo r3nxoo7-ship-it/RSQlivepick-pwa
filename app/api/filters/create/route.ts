@@ -117,19 +117,53 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ All validations passed');
 
+    // If combining filters, merge their conditions into one
+    let finalConditions = conditions || {};
+    if (isCombiningFilters) {
+      const { data: sourceFilters, error: srcErr } = await supabaseAdmin
+        .from('filters')
+        .select('id, name, conditions')
+        .in('id', combined_filter_ids)
+        .eq('user_id', user_id);
+
+      if (srcErr || !sourceFilters || sourceFilters.length === 0) {
+        return NextResponse.json(
+          { error: 'Could not load source filters to combine' },
+          { status: 400 }
+        );
+      }
+
+      // Merge: for each condition key, use the strictest values (highest min, lowest max)
+      const merged: Record<string, any> = {};
+      for (const sf of sourceFilters) {
+        const conds = sf.conditions || {};
+        for (const [key, value] of Object.entries(conds)) {
+          if (!value || typeof value !== 'object') continue;
+          if (!merged[key]) {
+            merged[key] = JSON.parse(JSON.stringify(value));
+          } else {
+            mergeCondition(merged, key, value);
+          }
+        }
+      }
+
+      finalConditions = merged;
+      console.log('✅ Merged conditions from', sourceFilters.length, 'filters:', Object.keys(finalConditions));
+    }
+
     // Insert filter using admin client (bypasses RLS)
     const { data, error } = await supabaseAdmin
       .from('filters')
       .insert([{
         user_id,
         name,
-        description: description || null,
-        conditions,
+        description: description || `Combined from ${combined_filter_ids?.length || 0} filters`,
+        conditions: finalConditions,
         is_active: is_active || false,
         is_shared: false,
         is_public: is_public || false, // Default to private (false)
-        notification_enabled: notification_enabled && conditionsComplete,
-        telegram_enabled: telegram_enabled && conditionsComplete,
+        notification_enabled: notification_enabled && (isCombiningFilters || conditionsComplete),
+        telegram_enabled: telegram_enabled && (isCombiningFilters || conditionsComplete),
         version: 1, // New filters start at v1.0
         is_editable: true, // User's own filters are always editable
         created_at: new Date().toISOString(),
@@ -154,5 +188,56 @@ export async function POST(request: NextRequest) {
       { error: 'Server error' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Merge a condition value into the merged object.
+ * Uses AND logic: take the strictest bounds (highest min, lowest max).
+ * Handles both flat { min, max } and nested { home: { min, max }, away: { min, max }, total: { min, max } }
+ */
+function mergeCondition(merged: Record<string, any>, key: string, incoming: any) {
+  const existing = merged[key];
+  if (!existing || !incoming) return;
+
+  // Check if it's a nested structure (home/away/total) or flat (min/max)
+  const nestedKeys = ['home', 'away', 'total'];
+  const isNested = nestedKeys.some(k => incoming[k] !== undefined || existing[k] !== undefined);
+
+  if (isNested) {
+    for (const subKey of nestedKeys) {
+      if (incoming[subKey]) {
+        if (!existing[subKey]) {
+          existing[subKey] = { ...incoming[subKey] };
+        } else {
+          mergeRange(existing[subKey], incoming[subKey]);
+        }
+      }
+    }
+  } else {
+    // Flat condition: merge min/max directly
+    mergeRange(existing, incoming);
+  }
+
+  // Also handle special fields like 'between', 'after', 'before', 'exact', 'dominant'
+  if (incoming.between) existing.between = incoming.between;
+  if (incoming.after !== undefined) {
+    existing.after = Math.max(existing.after ?? 0, incoming.after);
+  }
+  if (incoming.before !== undefined) {
+    existing.before = existing.before !== undefined
+      ? Math.min(existing.before, incoming.before)
+      : incoming.before;
+  }
+  if (incoming.exact) existing.exact = incoming.exact;
+  if (incoming.dominant) existing.dominant = incoming.dominant;
+}
+
+function mergeRange(target: any, source: any) {
+  if (source.min !== undefined) {
+    target.min = target.min !== undefined ? Math.max(target.min, source.min) : source.min;
+  }
+  if (source.max !== undefined) {
+    target.max = target.max !== undefined ? Math.min(target.max, source.max) : source.max;
   }
 }

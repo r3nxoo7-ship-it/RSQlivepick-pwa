@@ -653,6 +653,7 @@ export const dbHelpers = {
           notification_enabled: filter.notification_enabled,
           telegram_enabled: filter.telegram_enabled,
           is_public: (filter as any).is_public || false,
+          combined_filter_ids: (filter as any).combined_filter_ids || undefined,
         }),
       });
 
