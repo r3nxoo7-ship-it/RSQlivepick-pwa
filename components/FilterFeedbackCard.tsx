@@ -232,7 +232,9 @@ export function FilterFeedbackCard({ filters, userId, onSuccessRateUpdated }: Fi
                   <div className="max-h-96 overflow-y-auto divide-y divide-glass-lighter/50">
                     {matches.map(match => {
                       const isSaving = savingFeedback.has(match.id);
-                      const isFinished = match.match_status === 'finished';
+                      // Treat as finished if status says so OR if triggered >3 hours ago
+                      const triggeredAge = Date.now() - new Date(match.triggered_at).getTime();
+                      const isFinished = match.match_status === 'finished' || triggeredAge > 3 * 60 * 60 * 1000;
 
                       return (
                         <div

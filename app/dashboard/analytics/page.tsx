@@ -39,12 +39,20 @@ export default function AnalyticsPage() {
   const [categoryStats, setCategoryStats] = useState<any>(null);
   const [topFilters, setTopFilters] = useState<FilterStats[]>([]);
 
-  // Load filters
+  // Load filters and finalize old triggered matches
   const loadFilters = useCallback(async () => {
     try {
       const user = authHelpers.getCurrentUser();
       if (!user) { router.push('/login'); return; }
       setUserId(user.id);
+
+      // Finalize old ongoing matches in background (marks >2h old as finished)
+      fetch('/api/triggered-matches/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      }).catch(() => {}); // Fire and forget
+
       const userFilters = await dbHelpers.getUserFilters(user.id);
       setFilters(userFilters);
     } catch (err) {

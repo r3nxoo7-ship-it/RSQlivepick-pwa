@@ -98,12 +98,14 @@ export async function POST(request: NextRequest) {
     let updatedCount = 0;
 
     if (completed_matches && completed_matches.length > 0) {
-      // Mark triggered matches as finished (scores already captured at trigger time)
+      // Mark triggered matches as finished with final scores
       for (const cm of completed_matches) {
         const { error } = await supabaseAdmin
           .from('triggered_matches')
           .update({
             match_status: 'finished',
+            final_score_home: cm.score_home ?? null,
+            final_score_away: cm.score_away ?? null,
           })
           .eq('user_id', user_id)
           .eq('match_id', String(cm.match_id))
