@@ -30,15 +30,16 @@ export async function POST(request: NextRequest) {
       teamResult = await espnSync.syncAllTeams();
     }
 
-    // Occasional sync: upcoming 7 days (~1% of calls)
+    // Occasional sync: upcoming 7 days (~10% of calls = ~every 5 min with 30s scanner)
+    // Higher frequency ensures new leagues appear quickly in the schedule
     let upcomingResult = { count: 0, duration: 0 };
-    if (Math.random() < 0.01) {
+    if (Math.random() < 0.1) {
       upcomingResult = await espnSync.syncUpcomingDays(7);
     }
 
-    // Occasional sync: past 14 days for team form history (~0.5% of calls)
+    // Occasional sync: past 14 days for team form history (~2% of calls)
     let recentResult = { count: 0, duration: 0 };
-    if (Math.random() < 0.005) {
+    if (Math.random() < 0.02) {
       recentResult = await espnSync.syncRecentDays(14);
     }
 

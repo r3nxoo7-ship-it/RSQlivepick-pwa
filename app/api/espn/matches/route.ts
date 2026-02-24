@@ -41,8 +41,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // On-demand sync: if no scheduled matches for next 7 days, fetch them
-    if (scheduledRaw.length === 0) {
+    // On-demand sync: if few scheduled matches for next 7 days, fetch them
+    // Threshold of 10 catches post-deployment states where only old leagues are cached
+    if (scheduledRaw.length < 10) {
       console.log('📅 [API] No scheduled matches, syncing upcoming 7 days...');
       try {
         await espnSync.syncUpcomingDays(7);

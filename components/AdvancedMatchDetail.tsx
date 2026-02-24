@@ -116,22 +116,23 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
       const awayIdStr = match.teams?.away?.id != null ? String(match.teams.away.id) : '';
 
       try {
-        // Parallel: TheSportsDB team form (cache-first) + H2H (cache-first)
-        // Falls back gracefully if team names missing
+        // Parallel: ESPN team form (12-15 matches with stats) + TheSportsDB H2H (20-30 meetings)
+        // ESPN used for form (more matches, includes corners/shots/possession)
+        // TheSportsDB used for H2H (much more historical data than ESPN's 0-1)
         const [homeRes, awayRes, h2hRes] = await Promise.all([
-          homeName
-            ? fetch(`/api/team-form?team=${encodeURIComponent(homeName)}&limit=10`).then(r => r.ok ? r.json() : null)
+          homeIdStr
+            ? fetch(`/api/espn/team-form?teamId=${homeIdStr}&limit=10`).then(r => r.ok ? r.json() : null)
             : null,
-          awayName
-            ? fetch(`/api/team-form?team=${encodeURIComponent(awayName)}&limit=10`).then(r => r.ok ? r.json() : null)
+          awayIdStr
+            ? fetch(`/api/espn/team-form?teamId=${awayIdStr}&limit=10`).then(r => r.ok ? r.json() : null)
             : null,
           (homeName && awayName)
             ? fetch(`/api/h2h?home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}&limit=20`).then(r => r.ok ? r.json() : null)
             : null,
         ]);
 
-        if (homeRes) setHomeForm({ teamId: homeRes.teamId || homeIdStr, matches: homeRes.matches || [], form: homeRes.form });
-        if (awayRes) setAwayForm({ teamId: awayRes.teamId || awayIdStr, matches: awayRes.matches || [], form: awayRes.form });
+        if (homeRes?.matches?.length > 0) setHomeForm({ teamId: homeRes.teamId || homeIdStr, matches: homeRes.matches, form: homeRes.form });
+        if (awayRes?.matches?.length > 0) setAwayForm({ teamId: awayRes.teamId || awayIdStr, matches: awayRes.matches, form: awayRes.form });
         if (h2hRes?.matches) setH2HMatches(h2hRes.matches || []);
       } catch (err) {
         console.error('Error fetching team form:', err);
