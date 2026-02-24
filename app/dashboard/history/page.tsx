@@ -309,9 +309,9 @@ function MatchGroupCard({
   const [finalResult, setFinalResult] = useState<FinalResult | null>(null);
   const [loadingResult, setLoadingResult] = useState(false);
 
-  // Fetch final result when card is expanded
+  // Fetch final result on mount (always, not just when expanded)
   useEffect(() => {
-    if (!isExpanded || finalResult) return;
+    if (finalResult) return;
     
     setLoadingResult(true);
     fetch(`/api/match-result?match_id=${group.matchId}`)
@@ -361,6 +361,12 @@ function MatchGroupCard({
                      finalResult?.statusLong?.toLowerCase().includes('finished') ||
                      group.matchStatus?.toLowerCase() === 'finished';
 
+  // Use final score in header if available, otherwise fall back to triggered score
+  const displayScoreHome = finalResult?.loaded ? finalResult.scoreHome : group.scoreHome;
+  const displayScoreAway = finalResult?.loaded ? finalResult.scoreAway : group.scoreAway;
+  const scoresChanged = finalResult?.loaded &&
+    (finalResult.scoreHome !== group.scoreHome || finalResult.scoreAway !== group.scoreAway);
+
   return (
     <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
       {/* Card header - always visible */}
@@ -370,13 +376,23 @@ function MatchGroupCard({
       >
         <div className="flex items-center gap-3">
           {/* Score */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-lg font-bold text-accent-cyan">{group.scoreHome ?? 0}</span>
-            <span className="text-xs text-text-muted">-</span>
-            <span className="text-lg font-bold text-accent-blue">{group.scoreAway ?? 0}</span>
-            {isFinished && (
-              <span className="text-[10px] bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded font-semibold ml-1">
-                FT
+          <div className="flex flex-col items-center shrink-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg font-bold text-accent-cyan">{displayScoreHome ?? 0}</span>
+              <span className="text-xs text-text-muted">-</span>
+              <span className="text-lg font-bold text-accent-blue">{displayScoreAway ?? 0}</span>
+              {isFinished && (
+                <span className="text-[10px] bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded font-semibold ml-1">
+                  FT
+                </span>
+              )}
+              {loadingResult && !finalResult && (
+                <span className="w-3 h-3 rounded-full border-2 border-accent-cyan/40 border-t-accent-cyan animate-spin ml-1" />
+              )}
+            </div>
+            {scoresChanged && (
+              <span className="text-[9px] text-accent-cyan/70 leading-tight">
+                triggered {group.scoreHome ?? 0}-{group.scoreAway ?? 0}
               </span>
             )}
           </div>

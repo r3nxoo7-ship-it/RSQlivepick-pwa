@@ -19,8 +19,12 @@ interface TriggeredMatch {
   created_at: string;
   user_feedback: boolean | null;
   feedback_at: string | null;
-  final_score_home: number | null;
-  final_score_away: number | null;
+}
+
+interface FinalScore {
+  home: number | null;
+  away: number | null;
+  status: string;
 }
 
 interface FilterFeedbackProps {
@@ -34,6 +38,8 @@ export function FilterFeedbackCard({ filters, userId, onSuccessRateUpdated }: Fi
   const [triggeredMatches, setTriggeredMatches] = useState<Record<string, TriggeredMatch[]>>({});
   const [loading, setLoading] = useState(true);
   const [savingFeedback, setSavingFeedback] = useState<Set<string>>(new Set());
+  // Keyed by match_id → final score fetched from ESPN
+  const [finalScores, setFinalScores] = useState<Record<string, FinalScore>>({});
 
   // Memoize active filter IDs to prevent infinite re-render loop
   const activeFilterIds = useMemo(
@@ -89,8 +95,32 @@ export function FilterFeedbackCard({ filters, userId, onSuccessRateUpdated }: Fi
   const toggleFilter = (filterId: string) => {
     setExpandedFilters(prev => {
       const next = new Set(prev);
-      if (next.has(filterId)) next.delete(filterId);
-      else next.add(filterId);
+      const nowExpanded = !prev.has(filterId);
+      if (nowExpanded) {
+        next.add(filterId);
+        // Fetch final scores for this filter's matches
+        const matches = triggeredMatches[filterId] || [];
+        matches.forEach(match => {
+          if (finalScores[match.match_id] !== undefined) return; // already fetched
+          fetch(`/api/match-result?match_id=${match.match_id}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.scoreHome !== undefined) {
+                setFinalScores(s => ({
+                  ...s,
+                  [match.match_id]: {
+                    home: data.scoreHome,
+                    away: data.scoreAway,
+                    status: data.status || '',
+                  },
+                }));
+              }
+            })
+            .catch(() => {});
+        });
+      } else {
+        next.delete(filterId);
+      }
       return next;
     });
   };
@@ -254,16 +284,21 @@ export function FilterFeedbackCard({ filters, userId, onSuccessRateUpdated }: Fi
                                 </span>
                                 {match.match_time ? ` (${match.match_time}')` : ''}
                               </span>
-                              {/* Final score if available (fallback to trigger score for old data) */}
-                              {isFinished && (
-                                <span>
-                                  Final: <span className="text-white font-medium">
-                                    {match.final_score_home !== null
-                                      ? `${match.final_score_home}-${match.final_score_away}`
-                                      : `${match.score_home ?? '?'}-${match.score_away ?? '?'}`}
+                              {/* Final score fetched from ESPN */}
+                              {(() => {
+                                const fs = finalScores[match.match_id];
+                                if (!fs) return null;
+                                const ftStatus = fs.status?.toLowerCase() === 'ft' || isFinished;
+                                if (!ftStatus) return null;
+                                const changed = fs.home !== match.score_home || fs.away !== match.score_away;
+                                return (
+                                  <span>
+                                    Final: <span className={`font-medium ${changed ? 'text-accent-green' : 'text-white'}`}>
+                                      {fs.home ?? '?'}-{fs.away ?? '?'}
+                                    </span>
                                   </span>
-                                </span>
-                              )}
+                                );
+                              })()}
                               {/* Status */}
                               <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                 isFinished
