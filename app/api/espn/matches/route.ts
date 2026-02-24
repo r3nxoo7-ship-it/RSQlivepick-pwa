@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import * as espnSync from '@/lib/espn-sync';
+import { ALL_EUROPEAN_SOCCER_LEAGUES } from '@/lib/espn-api';
 
 export const dynamic = 'force-dynamic';
 // Cache for 30 seconds to reduce Supabase load while keeping data relatively fresh
@@ -42,8 +43,8 @@ export async function GET(request: NextRequest) {
     }
 
     // On-demand sync: if few scheduled matches for next 7 days, fetch them
-    // Threshold of 10 catches post-deployment states where only old leagues are cached
-    if (scheduledRaw.length < 10) {
+    // Threshold of 50 ensures all leagues (39 × 7 days) are represented, not just a handful
+    if (scheduledRaw.length < 50) {
       console.log('📅 [API] No scheduled matches, syncing upcoming 7 days...');
       try {
         await espnSync.syncUpcomingDays(7);
@@ -75,13 +76,8 @@ export async function GET(request: NextRequest) {
       row.away_team_name !== 'Unknown' &&
       row.id;
 
-    // Limit to the curated leagues (using display names as stored in DB)
-    const allowedLeagues = new Set([
-      'Premier League', 'Bundesliga', 'Serie A', 'La Liga',
-      'Champions League', 'Europa League', 'Conference League',
-      'Primeira Liga', 'Eredivisie', 'Belgian Pro League',
-      'Ligue 1', 'Turkish Super Lig', 'Austrian Bundesliga',
-    ]);
+    // Derive allowed leagues from the canonical sync list so they always stay in sync
+    const allowedLeagues = new Set(ALL_EUROPEAN_SOCCER_LEAGUES.map(l => l.name));
 
     const filterByAllowed = (row: any) => validFilter(row) && (!row.league || allowedLeagues.has(row.league));
 

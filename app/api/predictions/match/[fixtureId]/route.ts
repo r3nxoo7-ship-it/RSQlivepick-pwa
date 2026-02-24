@@ -18,7 +18,7 @@ import {
   aggregateMatchContext,
   validateContextQuality,
 } from '@/lib/prediction-data-aggregation';
-import { getMatchStats, convertESPNMatchToLiveMatch } from '@/lib/espn-sync';
+import { getMatchStats, convertESPNMatchToLiveMatch, getTeamRecentMatches } from '@/lib/espn-sync';
 import { getTeamSchedule } from '@/lib/espn-api';
 
 export const dynamic = 'force-dynamic';
@@ -71,38 +71,63 @@ export async function GET(
     const homeTeamName = match.teams.home.name || 'Home';
     const awayTeamName = match.teams.away.name || 'Away';
 
-    // 2. Fetch team form (ESPN schedule) + H2H (TheSportsDB cache) in parallel
+    // 2. Fetch team form: Supabase DB first (fast, no external calls, 10 recent completed matches)
+    // Fall back to live ESPN schedule only if DB has < 4 matches for this team
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const [homeSchedule, awaySchedule, h2hResponse] = await Promise.all([
-      getTeamSchedule(String(homeTeamId)).catch(() => []),
-      getTeamSchedule(String(awayTeamId)).catch(() => []),
-      // TheSportsDB H2H — cache-first, returns 20-30 past meetings
-      fetch(`${baseUrl}/api/h2h?home=${encodeURIComponent(homeTeamName)}&away=${encodeURIComponent(awayTeamName)}&limit=20`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null),
-    ]);
 
-    // Convert ESPN matches to form data format (goals + stats for Poisson model)
-    const convertToFormData = (matches: any[]) =>
-      matches.slice(0, 10).map((m: any) => ({
+    // Convert ESPN schedule match → form data (both DB rows and live ESPN matches share same fields)
+    const convertDBRowToFormData = (rows: any[]) =>
+      rows.slice(0, 10).map((m: any) => ({
         id: m.id,
         date: m.date,
-        home_team_id: m.homeTeam?.id,
-        away_team_id: m.awayTeam?.id,
-        home_score: m.homeScore || 0,
-        away_score: m.awayScore || 0,
-        home_corners: m.homeCorners || null,
-        away_corners: m.awayCorners || null,
-        home_shots_on_target: m.homeShotsOnTarget || null,
-        away_shots_on_target: m.awayShotsOnTarget || null,
-        home_possession: m.homePossession || null,
-        away_possession: m.awayPossession || null,
-        home_yellow_cards: m.homeYellowCards || null,
-        away_yellow_cards: m.awayYellowCards || null,
+        home_team_id: String(m.home_team_id || m.homeTeam?.id || ''),
+        away_team_id: String(m.away_team_id || m.awayTeam?.id || ''),
+        home_score: m.home_score ?? m.home_goals ?? m.homeScore ?? 0,
+        away_score: m.away_score ?? m.away_goals ?? m.awayScore ?? 0,
+        home_corners: m.home_corners ?? m.homeCorners ?? null,
+        away_corners: m.away_corners ?? m.awayCorners ?? null,
+        home_shots_on_target: m.home_shots_on_target ?? m.homeShotsOnTarget ?? null,
+        away_shots_on_target: m.away_shots_on_target ?? m.awayShotsOnTarget ?? null,
+        home_possession: m.home_possession ?? m.homePossession ?? null,
+        away_possession: m.away_possession ?? m.awayPossession ?? null,
+        home_yellow_cards: m.home_yellow_cards ?? m.homeYellowCards ?? null,
+        away_yellow_cards: m.away_yellow_cards ?? m.awayYellowCards ?? null,
       }));
+
+    // Helper: fetch ESPN schedule with a 5s timeout to avoid blocking the Vercel function
+    const fetchESPNScheduleSafe = async (teamId: string) => {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 5000);
+      try { return await getTeamSchedule(teamId); } catch { return []; } finally { clearTimeout(t); }
+    };
+
+    // DB-first form data
+    const [homeDBMatches, awayDBMatches] = await Promise.all([
+      getTeamRecentMatches(String(homeTeamId), 10),
+      getTeamRecentMatches(String(awayTeamId), 10),
+    ]);
+
+    // Fall back to live ESPN API only when DB has sparse data for this team
+    const [homeSchedule, awaySchedule] = await Promise.all([
+      homeDBMatches.length >= 4
+        ? Promise.resolve(homeDBMatches)
+        : fetchESPNScheduleSafe(String(homeTeamId)).then(r => r.length >= homeDBMatches.length ? r : homeDBMatches),
+      awayDBMatches.length >= 4
+        ? Promise.resolve(awayDBMatches)
+        : fetchESPNScheduleSafe(String(awayTeamId)).then(r => r.length >= awayDBMatches.length ? r : awayDBMatches),
+    ]);
+
+    const h2hResponse = await fetch(
+      `${baseUrl}/api/h2h?home=${encodeURIComponent(homeTeamName)}&away=${encodeURIComponent(awayTeamName)}&limit=20`,
+      { signal: AbortSignal.timeout(7000) }
+    ).then(r => r.ok ? r.json() : null).catch(() => null);
+
+    // Convert ESPN schedule/DB matches to form data format (goals + stats for Poisson model)
+    const convertToFormData = (matches: any[]) => convertDBRowToFormData(matches);
 
     const homeForm = convertToFormData(homeSchedule);
     const awayForm = convertToFormData(awaySchedule);
+    console.log(`[Predictions] Form data: home=${homeForm.length} matches (DB: ${homeDBMatches.length}), away=${awayForm.length} matches (DB: ${awayDBMatches.length})`);
 
     // H2H from TheSportsDB cache (20-30 matches) with fallback to ESPN (0-1 matches)
     let h2hData: any[] = [];
@@ -187,7 +212,11 @@ export async function GET(
         homeFormMatches: context.homeTeam.matchesAnalyzed,
         awayFormMatches: context.awayTeam.matchesAnalyzed,
         h2hMatches: context.h2hStats.totalMatches,
-        dataSources: ['ESPN Team Schedule', h2hData.length > 2 ? 'TheSportsDB H2H' : 'ESPN H2H', homeForm.length > 0 ? 'Real Form Stats' : 'Defaults'],
+        dataSources: [
+          homeDBMatches.length >= 4 ? 'Supabase DB (home form)' : 'ESPN API (home form)',
+          awayDBMatches.length >= 4 ? 'Supabase DB (away form)' : 'ESPN API (away form)',
+          h2hData.length > 2 ? 'TheSportsDB H2H' : 'ESPN H2H fallback',
+        ],
       },
     };
 
