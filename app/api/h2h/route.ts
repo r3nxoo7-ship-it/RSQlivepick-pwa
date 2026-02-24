@@ -116,19 +116,34 @@ export async function GET(request: NextRequest) {
       // Check remaining time budget before making more external calls
       if (Date.now() - startTime > ROUTE_DEADLINE_MS - 2000) return [];
 
-      let freshMatches: CachedMatch[] = [];
-
+      // Run all available strategies in parallel, then merge & deduplicate
+      // - getH2HByTeamIds: tries eventsvs.php (paid) → eventslast.php cross-ref (free)
+      // - getH2HEvents: searchevents.php both orderings (free)
+      const tasks: Promise<CachedMatch[]>[] = [];
       if (homeId && awayId) {
-        console.log(`[H2H] Using eventsvs.php for IDs ${homeId} vs ${awayId}`);
-        freshMatches = await getH2HByTeamIds(homeId, awayId);
+        tasks.push(getH2HByTeamIds(homeId, awayId));
+      }
+      tasks.push(getH2HEvents(home, away));
+
+      const results = await Promise.allSettled(tasks);
+
+      // Merge all results, deduplicate by tsdb_id
+      const seen = new Set<string>();
+      const merged: CachedMatch[] = [];
+      for (const r of results) {
+        if (r.status !== 'fulfilled') continue;
+        for (const m of r.value) {
+          const key = m.tsdb_id || `${m.date}_${m.home_team_name}_${m.away_team_name}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(m);
+          }
+        }
       }
 
-      if (freshMatches.length === 0 && Date.now() - startTime < ROUTE_DEADLINE_MS - 2000) {
-        console.log(`[H2H] Falling back to searchevents.php for "${home}" vs "${away}"`);
-        freshMatches = await getH2HEvents(home, away);
-      }
-
-      return freshMatches;
+      merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      console.log(`[H2H] Merged ${merged.length} matches (${tasks.length} strategies)`);
+      return merged;
     })();
 
     const raceResult = await Promise.race([fetchResult, deadline]);

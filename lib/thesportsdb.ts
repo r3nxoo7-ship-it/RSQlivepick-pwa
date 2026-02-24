@@ -186,7 +186,9 @@ async function tsdbGet<T>(endpoint: string, params: Record<string, string> = {},
     });
     clearTimeout(timer);
     if (!res.ok) {
-      console.error(`[TheSportsDB] ${endpoint} returned ${res.status}`);
+      // 404 is expected for paid-tier-only endpoints (e.g. eventsvs.php) on free key — downgrade to warn
+      const logFn = res.status === 404 ? console.warn : console.error;
+      logFn(`[TheSportsDB] ${endpoint} returned ${res.status}`);
       return null;
     }
     return res.json() as Promise<T>;
@@ -204,33 +206,83 @@ async function tsdbGet<T>(endpoint: string, params: Record<string, string> = {},
 // --- H2H: searchevents ---
 /**
  * Fetch head-to-head matches between two teams.
- * Returns up to 30 past meetings going back decades.
- * Uses searchevents.php?e=Team1_vs_Team2
+ * Uses searchevents.php?e=Team1_vs_Team2 (free tier).
+ * Tries both orderings (home_vs_away and away_vs_home) and merges results.
  */
 export async function getH2HEvents(homeTeamName: string, awayTeamName: string): Promise<CachedMatch[]> {
-  // TheSportsDB uses underscore-separated team names
-  const query = `${homeTeamName.replace(/ /g, '_')}_vs_${awayTeamName.replace(/ /g, '_')}`;
-  const data = await tsdbGet<{ event: TSDBEvent[] | null }>('/searchevents.php', { e: query });
+  const toKey = (name: string) => name.replace(/ /g, '_');
+  const queryFwd = `${toKey(homeTeamName)}_vs_${toKey(awayTeamName)}`;
+  const queryRev = `${toKey(awayTeamName)}_vs_${toKey(homeTeamName)}`;
 
-  if (!data?.event) return [];
+  // Try both orderings in parallel
+  const [fwdData, revData] = await Promise.all([
+    tsdbGet<{ event: TSDBEvent[] | null }>('/searchevents.php', { e: queryFwd }),
+    tsdbGet<{ event: TSDBEvent[] | null }>('/searchevents.php', { e: queryRev }),
+  ]);
 
-  return data.event
-    .filter(e => e.intHomeScore !== null && e.intAwayScore !== null && e.strPostponed !== 'yes')
-    .map(e => normalizeEvent(e))
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const seen = new Set<string>();
+  const events: CachedMatch[] = [];
+
+  const addEvents = (data: { event: TSDBEvent[] | null } | null) => {
+    if (!data?.event) return;
+    for (const e of data.event) {
+      if (e.intHomeScore === null || e.intAwayScore === null || e.strPostponed === 'yes') continue;
+      if (seen.has(e.idEvent)) continue;
+      seen.add(e.idEvent);
+      events.push(normalizeEvent(e));
+    }
+  };
+
+  addEvents(fwdData);
+  addEvents(revData);
+
+  return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 /**
- * Alternative H2H using eventsvs.php (dedicated team-vs-team endpoint).
- * Requires TheSportsDB team IDs (not ESPN IDs).
+ * H2H via eventsvs.php (paid-tier endpoint — returns 404 on free key "3").
+ * Falls back to cross-referencing eventslast.php (free tier) for both teams.
+ * Requires TheSportsDB team IDs.
  */
 export async function getH2HByTeamIds(tsdbHomeId: string, tsdbAwayId: string): Promise<CachedMatch[]> {
-  const data = await tsdbGet<{ eventsvs: TSDBEvent[] | null }>('/eventsvs.php', {
+  // Attempt paid-tier endpoint first (works if THESPORTSDB_API_KEY is a Patreon key)
+  const paidData = await tsdbGet<{ eventsvs: TSDBEvent[] | null }>('/eventsvs.php', {
     id: tsdbHomeId,
     id2: tsdbAwayId,
   });
-  if (!data?.eventsvs) return [];
-  return data.eventsvs
+  if (paidData?.eventsvs?.length) {
+    return paidData.eventsvs
+      .filter(e => e.intHomeScore !== null && e.intAwayScore !== null)
+      .map(e => normalizeEvent(e))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  // Free-tier fallback: fetch last 5 events for each team, find common matches
+  // eventslast.php returns the last 5 completed events regardless of opponent
+  const [homeEvents, awayEvents] = await Promise.all([
+    tsdbGet<{ results: TSDBEvent[] | null }>('/eventslast.php', { id: tsdbHomeId }),
+    tsdbGet<{ results: TSDBEvent[] | null }>('/eventslast.php', { id: tsdbAwayId }),
+  ]);
+
+  const homeList = homeEvents?.results || [];
+  const awayList = awayEvents?.results || [];
+
+  // Cross-reference: find events where both team IDs appear (home+away)
+  const commonEvents: TSDBEvent[] = [];
+  const seen = new Set<string>();
+
+  for (const e of [...homeList, ...awayList]) {
+    if (seen.has(e.idEvent)) continue;
+    const involvedIds = [e.idHomeTeam, e.idAwayTeam];
+    if (involvedIds.includes(tsdbHomeId) && involvedIds.includes(tsdbAwayId)) {
+      seen.add(e.idEvent);
+      commonEvents.push(e);
+    }
+  }
+
+  if (commonEvents.length === 0) return [];
+
+  return commonEvents
     .filter(e => e.intHomeScore !== null && e.intAwayScore !== null)
     .map(e => normalizeEvent(e))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
