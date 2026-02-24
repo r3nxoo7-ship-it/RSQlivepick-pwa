@@ -31,15 +31,87 @@ export function getMatchingFiltersForMatch(
     .sort((a, b) => b.confidence - a.confidence);
 }
 
+// ============================================================================
+// HELPERS FOR DUAL-FORMAT CONDITIONS (flat FilterConditions + ExtendedFilterConditions)
+// ============================================================================
+
+/** Returns true if the condition is in extended "team-specific" format (home/away/total as objects) */
+function isTeamSpecificCondition(cond: any): boolean {
+  if (!cond || typeof cond !== 'object') return false;
+  return (
+    (cond.home !== undefined && typeof cond.home === 'object') ||
+    (cond.away !== undefined && typeof cond.away === 'object') ||
+    (cond.total !== undefined && typeof cond.total === 'object')
+  );
+}
+
+/** Evaluates a TeamSpecificCondition (home/away/total as RangeCondition objects) */
+function evaluateTeamSpecificCondition(
+  homeVal: number,
+  awayVal: number,
+  cond: { home?: { min?: number; max?: number }; away?: { min?: number; max?: number }; total?: { min?: number; max?: number } },
+  label: string,
+  matchedConditions: string[],
+  failedConditions: string[]
+): boolean {
+  const total = homeVal + awayVal;
+  let ok = true;
+
+  if (cond.home) {
+    if ((cond.home.min !== undefined && homeVal < cond.home.min) ||
+        (cond.home.max !== undefined && homeVal > cond.home.max)) {
+      failedConditions.push(`${label} home: ${homeVal} (need ${cond.home.min ?? 0}+${cond.home.max !== undefined ? '-' + cond.home.max : ''})`);
+      ok = false;
+    }
+  }
+  if (cond.away) {
+    if ((cond.away.min !== undefined && awayVal < cond.away.min) ||
+        (cond.away.max !== undefined && awayVal > cond.away.max)) {
+      failedConditions.push(`${label} away: ${awayVal} (need ${cond.away.min ?? 0}+${cond.away.max !== undefined ? '-' + cond.away.max : ''})`);
+      ok = false;
+    }
+  }
+  if (cond.total) {
+    if ((cond.total.min !== undefined && total < cond.total.min) ||
+        (cond.total.max !== undefined && total > cond.total.max)) {
+      failedConditions.push(`${label} total: ${total} H${homeVal}+A${awayVal} (need ${cond.total.min ?? 0}+${cond.total.max !== undefined ? '-' + cond.total.max : ''})`);
+      ok = false;
+    }
+  }
+
+  if (ok) {
+    matchedConditions.push(`${label} H${homeVal}/A${awayVal} (total: ${total})`);
+  }
+  return ok;
+}
+
+/** Returns true if the match_time is in extended TimeCondition format */
+function isExtendedTimeCondition(cond: any): boolean {
+  return cond && (cond.between !== undefined || cond.after !== undefined || cond.before !== undefined || cond.exact !== undefined) && cond.min === undefined;
+}
+
+/** Evaluates extended TimeCondition against elapsed minutes */
+function evaluateExtendedTimeCondition(elapsed: number, cond: { between?: [number, number]; after?: number; before?: number; exact?: number }): boolean {
+  if (cond.exact !== undefined) return elapsed === cond.exact;
+  if (cond.after !== undefined && elapsed <= cond.after) return false;
+  if (cond.before !== undefined && elapsed >= cond.before) return false;
+  if (cond.between) {
+    const [min, max] = cond.between;
+    if (elapsed < min || elapsed > max) return false;
+  }
+  return true;
+}
+
 /**
  * Detailed filter evaluation for a single match
+ * Supports both flat FilterConditions and extended ExtendedFilterConditions (used by LivePick templates).
  */
 export function evaluateFilterForMatch(
   match: LiveMatch,
   filter: Filter,
   teamHistoryData?: TeamHistoryData
 ): FilterMatchDetails {
-  const conditions = filter.conditions as FilterConditions;
+  const conditions = filter.conditions as any; // use `any` to handle both flat and extended formats
   const matchedConditions: string[] = [];
   const failedConditions: string[] = [];
   let conditionScore = 0;
@@ -47,12 +119,40 @@ export function evaluateFilterForMatch(
 
   // Extract stats from match
   const stats = extractMatchStats(match);
+  const elapsed = match.fixture?.status?.elapsed || 0;
 
-  // Evaluate each condition type
+  // ========== MATCH TIME ==========
+  // Flat: { min, max } | Extended: { between, after, before }
+  if (conditions.match_time) {
+    totalConditions++;
+    const mt = conditions.match_time;
+    let timeOk: boolean;
+
+    if (isExtendedTimeCondition(mt)) {
+      timeOk = evaluateExtendedTimeCondition(elapsed, mt);
+      if (timeOk) {
+        matchedConditions.push(`Time ${elapsed}'`);
+        conditionScore++;
+      } else {
+        const range = mt.between ? `${mt.between[0]}-${mt.between[1]}` : mt.after ? `>${mt.after}` : mt.before ? `<${mt.before}` : `=${mt.exact}`;
+        failedConditions.push(`Time: ${elapsed}' not in [${range}]`);
+      }
+    } else {
+      // Flat format: min/max
+      timeOk = isInRange(elapsed, mt.min, mt.max);
+      if (timeOk) {
+        matchedConditions.push(`Time ${elapsed}'`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Time: ${elapsed}' not in ${mt.min ?? 0}-${mt.max ?? 90}`);
+      }
+    }
+  }
+
+  // ========== GOALS ==========
   if (conditions.goals) {
     totalConditions++;
     const goalsValue = conditions.goals.team === 'away' ? stats.awayGoals : stats.homeGoals;
-    const goalsTotal = stats.homeGoals + stats.awayGoals;
 
     if (isInRange(goalsValue, conditions.goals.min, conditions.goals.max)) {
       matchedConditions.push(`Goals (${goalsValue})`);
@@ -62,58 +162,245 @@ export function evaluateFilterForMatch(
     }
   }
 
+  // ========== SCORE (extended: total_goals / home / away / difference / exact) ==========
+  if (conditions.score) {
+    totalConditions++;
+    const homeGoals = stats.homeGoals;
+    const awayGoals = stats.awayGoals;
+    const totalGoals = homeGoals + awayGoals;
+    const diff = Math.abs(homeGoals - awayGoals);
+    let scoreOk = true;
+
+    if (conditions.score.exact) {
+      if (homeGoals !== conditions.score.exact.home || awayGoals !== conditions.score.exact.away) {
+        failedConditions.push(`Score exact: ${homeGoals}-${awayGoals} ≠ ${conditions.score.exact.home}-${conditions.score.exact.away}`);
+        scoreOk = false;
+      }
+    }
+    if (conditions.score.total_goals) {
+      const tg = conditions.score.total_goals;
+      if ((tg.min !== undefined && totalGoals < tg.min) || (tg.max !== undefined && totalGoals > tg.max)) {
+        failedConditions.push(`Total goals: ${totalGoals} (need ${tg.min ?? 0}-${tg.max ?? '∞'})`);
+        scoreOk = false;
+      }
+    }
+    if (conditions.score.home) {
+      const sh = conditions.score.home;
+      if ((sh.min !== undefined && homeGoals < sh.min) || (sh.max !== undefined && homeGoals > sh.max)) {
+        failedConditions.push(`Home goals: ${homeGoals} (need ${sh.min ?? 0}-${sh.max ?? '∞'})`);
+        scoreOk = false;
+      }
+    }
+    if (conditions.score.away) {
+      const sa = conditions.score.away;
+      if ((sa.min !== undefined && awayGoals < sa.min) || (sa.max !== undefined && awayGoals > sa.max)) {
+        failedConditions.push(`Away goals: ${awayGoals} (need ${sa.min ?? 0}-${sa.max ?? '∞'})`);
+        scoreOk = false;
+      }
+    }
+    if (conditions.score.difference) {
+      const sd = conditions.score.difference;
+      if ((sd.min !== undefined && diff < sd.min) || (sd.max !== undefined && diff > sd.max)) {
+        failedConditions.push(`Goal diff: ${diff} (need ${sd.min ?? 0}-${sd.max ?? '∞'})`);
+        scoreOk = false;
+      }
+    }
+
+    if (scoreOk) {
+      matchedConditions.push(`Score ${homeGoals}-${awayGoals}`);
+      conditionScore++;
+    }
+  }
+
+  // ========== CORNERS ==========
+  // Extended: { home: {min}, away: {min}, total: {min} } | Flat: { min, max, team }
   if (conditions.corners) {
     totalConditions++;
-    const cornersValue = conditions.corners.team === 'away' ? stats.awayCorners : stats.homeCorners;
-    const cornersTotal = stats.homeCorners + stats.awayCorners;
-
-    if (isInRange(cornersValue, conditions.corners.min, conditions.corners.max)) {
-      matchedConditions.push(`Corners (${cornersValue})`);
-      conditionScore++;
+    const c = conditions.corners;
+    if (isTeamSpecificCondition(c)) {
+      const ok = evaluateTeamSpecificCondition(stats.homeCorners, stats.awayCorners, c, 'Corners', matchedConditions, failedConditions);
+      if (ok) conditionScore++;
     } else {
-      failedConditions.push(`Corners: expected ${conditions.corners.min}-${conditions.corners.max}, got ${cornersValue}`);
+      // Flat format
+      const cornersValue = c.team === 'away' ? stats.awayCorners : c.team === 'home' ? stats.homeCorners : (stats.homeCorners + stats.awayCorners);
+      if (isInRange(cornersValue, c.min, c.max)) {
+        matchedConditions.push(`Corners (${cornersValue})`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Corners: expected ${c.min}-${c.max}, got ${cornersValue}`);
+      }
     }
   }
 
+  // ========== SHOTS ON TARGET ==========
   if (conditions.shots_on_target) {
     totalConditions++;
-    const shotsValue = stats.homeShots + stats.awayShots;
-
-    if (isInRange(shotsValue, conditions.shots_on_target.min, conditions.shots_on_target.max)) {
-      matchedConditions.push(`Shots on Target (${shotsValue})`);
-      conditionScore++;
+    const s = conditions.shots_on_target;
+    if (isTeamSpecificCondition(s)) {
+      const ok = evaluateTeamSpecificCondition(stats.homeShots, stats.awayShots, s, 'Shots', matchedConditions, failedConditions);
+      if (ok) conditionScore++;
     } else {
-      failedConditions.push(`Shots: expected ${conditions.shots_on_target.min}-${conditions.shots_on_target.max}, got ${shotsValue}`);
+      const shotsValue = s.team === 'home' ? stats.homeShots : s.team === 'away' ? stats.awayShots : (stats.homeShots + stats.awayShots);
+      if (isInRange(shotsValue, s.min, s.max)) {
+        matchedConditions.push(`Shots on Target (${shotsValue})`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Shots: expected ${s.min}-${s.max}, got ${shotsValue}`);
+      }
     }
   }
 
+  // ========== YELLOW CARDS ==========
   if (conditions.yellow_cards) {
     totalConditions++;
-    const cardsValue = stats.homeYellowCards + stats.awayYellowCards;
-
-    if (isInRange(cardsValue, conditions.yellow_cards.min, conditions.yellow_cards.max)) {
-      matchedConditions.push(`Yellow Cards (${cardsValue})`);
-      conditionScore++;
+    const yc = conditions.yellow_cards;
+    if (isTeamSpecificCondition(yc)) {
+      const ok = evaluateTeamSpecificCondition(stats.homeYellowCards, stats.awayYellowCards, yc, 'Yellow Cards', matchedConditions, failedConditions);
+      if (ok) conditionScore++;
     } else {
-      failedConditions.push(`Yellow Cards: expected ${conditions.yellow_cards.min}-${conditions.yellow_cards.max}, got ${cardsValue}`);
+      const cardsValue = yc.team === 'home' ? stats.homeYellowCards : yc.team === 'away' ? stats.awayYellowCards : (stats.homeYellowCards + stats.awayYellowCards);
+      if (isInRange(cardsValue, yc.min, yc.max)) {
+        matchedConditions.push(`Yellow Cards (${cardsValue})`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Yellow Cards: expected ${yc.min}-${yc.max}, got ${cardsValue}`);
+      }
     }
   }
 
+  // ========== RED CARDS ==========
   if (conditions.red_cards) {
     totalConditions++;
-    const redCardsValue = stats.homeRedCards + stats.awayRedCards;
-
-    if (isInRange(redCardsValue, conditions.red_cards.min, conditions.red_cards.max)) {
-      matchedConditions.push(`Red Cards (${redCardsValue})`);
-      conditionScore++;
+    const rc = conditions.red_cards;
+    if (isTeamSpecificCondition(rc)) {
+      const ok = evaluateTeamSpecificCondition(stats.homeRedCards, stats.awayRedCards, rc, 'Red Cards', matchedConditions, failedConditions);
+      if (ok) conditionScore++;
     } else {
-      failedConditions.push(`Red Cards: expected ${conditions.red_cards.min}-${conditions.red_cards.max}, got ${redCardsValue}`);
+      const redCardsValue = rc.team === 'home' ? stats.homeRedCards : rc.team === 'away' ? stats.awayRedCards : (stats.homeRedCards + stats.awayRedCards);
+      if (isInRange(redCardsValue, rc.min, rc.max)) {
+        matchedConditions.push(`Red Cards (${redCardsValue})`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Red Cards: expected ${rc.min}-${rc.max}, got ${redCardsValue}`);
+      }
     }
   }
 
-  // ========== NEW CONDITIONS (150+ filter types) ==========
+  // ========== POSSESSION ==========
+  // Extended: { home: {min,max}, away: {min,max}, dominant: 'home'|'away'|'balanced' }
+  // Flat: { min, max, team }
+  if (conditions.possession) {
+    totalConditions++;
+    const p = conditions.possession;
+    const homePos = stats.homePossession;
+    const awayPos = stats.awayPossession || (100 - homePos);
+    let posOk = true;
 
-  // Goals First Half
+    if (p.dominant !== undefined || (p.home && typeof p.home === 'object') || (p.away && typeof p.away === 'object')) {
+      // Extended format
+      if (p.home && typeof p.home === 'object') {
+        if ((p.home.min !== undefined && homePos < p.home.min) || (p.home.max !== undefined && homePos > p.home.max)) {
+          failedConditions.push(`Possession home: ${homePos}% (need ${p.home.min ?? 0}-${p.home.max ?? 100}%)`);
+          posOk = false;
+        }
+      }
+      if (p.away && typeof p.away === 'object') {
+        if ((p.away.min !== undefined && awayPos < p.away.min) || (p.away.max !== undefined && awayPos > p.away.max)) {
+          failedConditions.push(`Possession away: ${awayPos}% (need ${p.away.min ?? 0}-${p.away.max ?? 100}%)`);
+          posOk = false;
+        }
+      }
+      if (p.dominant) {
+        const balanced = Math.abs(homePos - awayPos) < 10;
+        const homeDominant = homePos > awayPos + 5;
+        const awayDominant = awayPos > homePos + 5;
+        if (p.dominant === 'home' && !homeDominant) { failedConditions.push(`Possession: home not dominant (${homePos}% vs ${awayPos}%)`); posOk = false; }
+        if (p.dominant === 'away' && !awayDominant) { failedConditions.push(`Possession: away not dominant (${awayPos}% vs ${homePos}%)`); posOk = false; }
+        if (p.dominant === 'balanced' && !balanced) { failedConditions.push(`Possession: not balanced (${homePos}% vs ${awayPos}%)`); posOk = false; }
+      }
+      if (posOk) {
+        matchedConditions.push(`Possession H${homePos}% A${awayPos}%`);
+        conditionScore++;
+      }
+    } else {
+      // Flat format
+      const posValue = p.team === 'away' ? awayPos : homePos;
+      if (isInRange(posValue, p.min, p.max)) {
+        matchedConditions.push(`Possession (${posValue}%)`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Possession: expected ${p.min}-${p.max}%, got ${posValue}%`);
+      }
+    }
+  }
+
+  // ========== TOTAL SHOTS (flat: { min, max, team }) ==========
+  if (conditions.total_shots) {
+    totalConditions++;
+    const ts = conditions.total_shots as any;
+    const totalShotsVal = ts.team === 'home' ? stats.homeShots : ts.team === 'away' ? stats.awayShots : (stats.homeShots + stats.awayShots);
+    if (isInRange(totalShotsVal, ts.min, ts.max)) {
+      matchedConditions.push(`Total Shots (${totalShotsVal})`);
+      conditionScore++;
+    } else {
+      failedConditions.push(`Total Shots: expected ${ts.min}-${ts.max}, got ${totalShotsVal}`);
+    }
+  }
+
+  // ========== DANGEROUS ATTACKS ==========
+  // Extended: { home: {min}, away: {min}, total: {min} } | Flat: { min, max, team }
+  if (conditions.dangerous_attacks) {
+    totalConditions++;
+    const da = conditions.dangerous_attacks as any;
+    if (isTeamSpecificCondition(da)) {
+      const ok = evaluateTeamSpecificCondition(stats.homeDangerousAttacks, stats.awayDangerousAttacks, da, 'Dangerous Attacks', matchedConditions, failedConditions);
+      if (ok) conditionScore++;
+    } else {
+      const daValue = da.team === 'home' ? stats.homeDangerousAttacks : da.team === 'away' ? stats.awayDangerousAttacks : (stats.homeDangerousAttacks + stats.awayDangerousAttacks);
+      if (isInRange(daValue, da.min, da.max)) {
+        matchedConditions.push(`Dangerous Attacks (${daValue})`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Dangerous Attacks: expected ${da.min}-${da.max}, got ${daValue}`);
+      }
+    }
+  }
+
+  // ========== TRENDS (corners_increasing, shots_increasing) ==========
+  // Approximated: if total corners/shots is above period-average-based threshold
+  if (conditions.trends) {
+    const tr = conditions.trends as any;
+    const totalCorners = stats.homeCorners + stats.awayCorners;
+    const totalShots = stats.homeShots + stats.awayShots;
+
+    // corners_increasing: use a pace-based check: if elapsed > 0, corners per minute > 0.08 (≈7 corners by 90min)
+    if (tr.corners_increasing !== undefined) {
+      totalConditions++;
+      const cornerPace = elapsed > 0 ? totalCorners / elapsed : 0;
+      const cornersIncreasing = cornerPace >= 0.08 || totalCorners >= 5;
+      if (cornersIncreasing) {
+        matchedConditions.push(`Corners Increasing (${totalCorners} @ ${elapsed}')`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Corners not increasing fast enough (${totalCorners} @ ${elapsed}', pace ${cornerPace.toFixed(3)}/min)`);
+      }
+    }
+
+    // shots_increasing: similar pace check
+    if (tr.shots_increasing !== undefined) {
+      totalConditions++;
+      const shotPace = elapsed > 0 ? totalShots / elapsed : 0;
+      const shotsIncreasing = shotPace >= 0.12 || totalShots >= 8;
+      if (shotsIncreasing) {
+        matchedConditions.push(`Shots Increasing (${totalShots} @ ${elapsed}')`);
+        conditionScore++;
+      } else {
+        failedConditions.push(`Shots not at high pace (${totalShots} @ ${elapsed}', pace ${shotPace.toFixed(3)}/min)`);
+      }
+    }
+  }
+
+  // ========== GOALS FIRST HALF ==========
   if (conditions.goals_first_half) {
     totalConditions++;
     const firstHalfGoals = (match.score?.halftime?.home || 0) + (match.score?.halftime?.away || 0);
@@ -126,7 +413,7 @@ export function evaluateFilterForMatch(
     }
   }
 
-  // Goals Second Half
+  // ========== GOALS SECOND HALF ==========
   if (conditions.goals_second_half) {
     totalConditions++;
     const fullGoals = (match.goals?.home || 0) + (match.goals?.away || 0);
@@ -141,22 +428,19 @@ export function evaluateFilterForMatch(
     }
   }
 
-  // Goals in Last 5 Minutes (requires elapsed time and goal events)
+  // ========== GOALS LAST 5/10 MIN ==========
   if (conditions.goals_last_5min) {
     totalConditions++;
-    // Note: This requires detailed event data which may not be available
     matchedConditions.push(`Last 5min (data pending)`);
     conditionScore++;
   }
-
-  // Goals in Last 10 Minutes
   if (conditions.goals_last_10min) {
     totalConditions++;
     matchedConditions.push(`Last 10min (data pending)`);
     conditionScore++;
   }
 
-  // Match Goals Over/Under
+  // ========== MATCH GOALS OVER/UNDER ==========
   if (conditions.match_goals) {
     totalConditions++;
     const totalGoals = (match.goals?.home || 0) + (match.goals?.away || 0);
@@ -174,7 +458,7 @@ export function evaluateFilterForMatch(
     }
   }
 
-  // First Half Over/Under
+  // ========== FIRST HALF GOALS OVER/UNDER ==========
   if (conditions.first_half_goals) {
     totalConditions++;
     const firstHalfGoals = (match.score?.halftime?.home || 0) + (match.score?.halftime?.away || 0);
@@ -192,7 +476,7 @@ export function evaluateFilterForMatch(
     }
   }
 
-  // Both Teams Score (BTTS)
+  // ========== BOTH TEAMS SCORE (BTTS) ==========
   if (conditions.both_teams_score) {
     totalConditions++;
     const homeScoredMoreThanZero = (match.goals?.home || 0) > 0;
@@ -206,7 +490,7 @@ export function evaluateFilterForMatch(
     }
   }
 
-  // Match Corners Over/Under
+  // ========== MATCH CORNERS OVER/UNDER ==========
   if (conditions.match_corners) {
     totalConditions++;
     const totalCorners = stats.homeCorners + stats.awayCorners;
@@ -224,16 +508,16 @@ export function evaluateFilterForMatch(
     }
   }
 
-  // Momentum conditions (require tracked events)
+  // ========== MOMENTUM ==========
   if (conditions.momentum_last_5min) {
     totalConditions++;
-    matchedConditions.push('Momentum Last 5min (pending)');
+    matchedConditions.push('Momentum (approx)');
     conditionScore++;
   }
 
-  // Pre-match odds (market-specific)
-  if ((conditions as any).pre_match_odds) {
-    const preMatchOdds = (conditions as any).pre_match_odds;
+  // ========== PRE-MATCH ODDS ==========
+  if (conditions.pre_match_odds) {
+    const preMatchOdds = conditions.pre_match_odds;
     const matchOdds = (match as any).odds;
 
     for (const [market, range] of Object.entries(preMatchOdds)) {
@@ -251,16 +535,21 @@ export function evaluateFilterForMatch(
     }
   }
 
-  // ========== END NEW CONDITIONS ==========
-
-  // Calculate base confidence (condition matching)
+  // ========== Calculate confidence ==========
   const baseConfidence = totalConditions > 0 ? (conditionScore / totalConditions) * 100 : 0;
+
+  // Time-weighted boost: conditions met late in the match deserve higher confidence
+  const conditionRatio = totalConditions > 0 ? conditionScore / totalConditions : 0;
+  const timeBoost =
+    elapsed >= 80 ? conditionRatio * 15 :
+    elapsed >= 65 ? conditionRatio * 10 :
+    elapsed >= 45 ? conditionRatio * 5 : 0;
 
   // Get team history factor
   const historyFactor = getTeamHistoryFactor(match, teamHistoryData);
 
-  // Combined confidence
-  const confidence = Math.round(baseConfidence * 0.7 + historyFactor * 0.3);
+  // Combined confidence (60% condition match, 20% time bonus, 20% team history)
+  const confidence = Math.min(100, Math.round(baseConfidence * 0.6 + timeBoost + historyFactor * 0.2));
 
   const isMatching = conditionScore === totalConditions && totalConditions > 0;
 
@@ -283,9 +572,13 @@ function extractMatchStats(match: LiveMatch) {
   const homeStats = stats.find(s => s.team?.id === match.teams?.home?.id);
   const awayStats = stats.find(s => s.team?.id === match.teams?.away?.id);
 
-  const findStat = (statsObj: any, type: string) => {
+  const findStat = (statsObj: any, type: string): number => {
     if (!statsObj?.statistics) return 0;
-    return statsObj.statistics.find((s: any) => s.type === type)?.value || 0;
+    const val = statsObj.statistics.find((s: any) => s.type === type)?.value;
+    if (val === null || val === undefined) return 0;
+    // Possession comes as "45%" string
+    if (typeof val === 'string' && val.endsWith('%')) return parseFloat(val);
+    return typeof val === 'number' ? val : parseFloat(val) || 0;
   };
 
   return {
@@ -295,14 +588,16 @@ function extractMatchStats(match: LiveMatch) {
     awayCorners: findStat(awayStats, 'Corner Kicks'),
     homeShots: findStat(homeStats, 'Shots on Goal'),
     awayShots: findStat(awayStats, 'Shots on Goal'),
-    homePossession: findStat(homeStats, 'Possession'),
-    awayPossession: findStat(awayStats, 'Possession'),
+    homePossession: findStat(homeStats, 'Ball Possession') || findStat(homeStats, 'Possession'),
+    awayPossession: findStat(awayStats, 'Ball Possession') || findStat(awayStats, 'Possession'),
     homeYellowCards: findStat(homeStats, 'Yellow Cards'),
     awayYellowCards: findStat(awayStats, 'Yellow Cards'),
     homeRedCards: findStat(homeStats, 'Red Cards'),
     awayRedCards: findStat(awayStats, 'Red Cards'),
     homeFouls: findStat(homeStats, 'Fouls Committed'),
     awayFouls: findStat(awayStats, 'Fouls Committed'),
+    homeDangerousAttacks: findStat(homeStats, 'Dangerous Attacks'),
+    awayDangerousAttacks: findStat(awayStats, 'Dangerous Attacks'),
   };
 }
 
@@ -388,8 +683,8 @@ function generateReasoning(
 }
 
 /**
- * Calculate predictability for entire match
- * Returns confidence that conditions will be met by end of match
+ * Calculate predictability for entire match.
+ * Time-aware: later in the match, partially-met conditions indicate higher likelihood.
  */
 export function calculateMatchPredictability(
   match: LiveMatch,
@@ -397,11 +692,27 @@ export function calculateMatchPredictability(
 ): number {
   if (matchFilters.length === 0) return 0;
 
+  const elapsed = match.fixture?.status?.elapsed || 0;
   const matchingCount = matchFilters.filter(m => m.isMatching).length;
   const avgConfidence = matchFilters.reduce((sum, m) => sum + m.confidence, 0) / matchFilters.length;
 
   // Higher confidence if some are already matching
   const matchingBonus = (matchingCount / matchFilters.length) * 30;
 
-  return Math.round(avgConfidence * 0.7 + matchingBonus);
+  // Time factor: late in the match, conditions that aren't met yet are less likely
+  // but conditions that ARE met late are very reliable
+  let timeFactor = 1.0;
+  if (matchingCount > 0) {
+    // Already triggered — very high predictability
+    if (elapsed >= 70) timeFactor = 1.3;
+    else if (elapsed >= 45) timeFactor = 1.1;
+  } else {
+    // Not yet triggered — penalize very late matches (unlikely to trigger)
+    if (elapsed >= 85) timeFactor = 0.5;
+    else if (elapsed >= 75) timeFactor = 0.7;
+    else if (elapsed >= 60) timeFactor = 0.85;
+  }
+
+  const raw = (avgConfidence * 0.7 + matchingBonus) * timeFactor;
+  return Math.min(100, Math.round(raw));
 }

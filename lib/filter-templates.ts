@@ -150,17 +150,17 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         difference: { min: 1, max: 2 },
       },
       shots_on_target: {
-        home: { min: 4 },
-        total: { min: 6 },
+        home: { min: 3 },
+        total: { min: 5 },
       },
       dangerous_attacks: {
-        home: { min: 8 },
+        home: { min: 5 },
       },
       possession: {
-        home: { min: 50 },
+        home: { min: 47 },
       },
       match_time: {
-        between: [55, 80],
+        between: [50, 82],
       },
     } as any,
   },
@@ -180,20 +180,20 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     color: 'cyan',
     conditions: {
       possession: {
-        home: { min: 55 },
+        home: { min: 53 },
         dominant: 'home',
       },
       dangerous_attacks: {
-        home: { min: 10 },
+        home: { min: 6 },
       },
       shots_on_target: {
-        home: { min: 5 },
+        home: { min: 3 },
       },
       corners: {
-        home: { min: 4 },
+        home: { min: 3 },
       },
       match_time: {
-        between: [60, 85],
+        between: [55, 87],
       },
     } as any,
   },
@@ -216,18 +216,18 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total_goals: { min: 1, max: 2 },
       },
       shots_on_target: {
-        home: { min: 3 },
-        away: { min: 3 },
-        total: { min: 8 },
-      },
-      dangerous_attacks: {
-        total: { min: 15 },
-      },
-      corners: {
+        home: { min: 2 },
+        away: { min: 2 },
         total: { min: 6 },
       },
+      dangerous_attacks: {
+        total: { min: 10 },
+      },
+      corners: {
+        total: { min: 5 },
+      },
       match_time: {
-        between: [60, 80],
+        between: [60, 82],
       },
     } as any,
   },
@@ -247,13 +247,13 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     color: 'purple',
     conditions: {
       corners: {
-        total: { min: 8 },
+        total: { min: 7 },
       },
       shots_on_target: {
-        total: { min: 6 },
+        total: { min: 5 },
       },
       dangerous_attacks: {
-        total: { min: 12 },
+        total: { min: 8 },
       },
       match_time: {
         between: [70, 88],
@@ -283,10 +283,10 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total_goals: { min: 1, max: 2 },
       },
       shots_on_target: {
-        total: { min: 8 },
+        total: { min: 5 },
       },
       dangerous_attacks: {
-        total: { min: 14 },
+        total: { min: 8 },
       },
       possession: {
         dominant: 'balanced',
@@ -312,20 +312,20 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     color: 'red',
     conditions: {
       possession: {
-        away: { max: 45 },
-        home: { min: 55 },
+        away: { max: 44 },
+        home: { min: 54 },
       },
       shots_on_target: {
-        away: { min: 4 },
+        away: { min: 3 },
       },
       dangerous_attacks: {
-        away: { min: 6 },
+        away: { min: 4 },
       },
       score: {
         difference: { max: 1 },
       },
       match_time: {
-        between: [45, 75],
+        between: [40, 78],
       },
     } as any,
   },
@@ -345,17 +345,17 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     color: 'amber',
     conditions: {
       shots_on_target: {
-        home: { min: 3 },
-        away: { min: 3 },
-        total: { min: 10 },
+        home: { min: 2 },
+        away: { min: 2 },
+        total: { min: 7 },
       },
       dangerous_attacks: {
-        home: { min: 6 },
-        away: { min: 6 },
-        total: { min: 16 },
+        home: { min: 4 },
+        away: { min: 4 },
+        total: { min: 12 },
       },
       corners: {
-        total: { min: 8 },
+        total: { min: 6 },
       },
       possession: {
         dominant: 'balanced',
@@ -384,15 +384,15 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total_goals: { max: 1 },
       },
       shots_on_target: {
-        home: { min: 3 },
-        away: { min: 3 },
-        total: { min: 8 },
+        home: { min: 2 },
+        away: { min: 2 },
+        total: { min: 6 },
       },
       dangerous_attacks: {
-        total: { min: 14 },
+        total: { min: 9 },
       },
       corners: {
-        total: { min: 8 },
+        total: { min: 6 },
       },
       match_time: {
         between: [75, 89],
@@ -418,13 +418,13 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { min: 1 },
       },
       corners: {
-        total: { min: 5 },
+        total: { min: 3 },
       },
       dangerous_attacks: {
-        total: { min: 8 },
+        total: { min: 5 },
       },
       match_time: {
-        after: 60,
+        after: 55,
       },
       trends: {
         corners_increasing: true,
@@ -447,19 +447,19 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     color: 'amber',
     conditions: {
       corners: {
-        total: { min: 9 },
-      },
-      shots_on_target: {
         total: { min: 7 },
       },
+      shots_on_target: {
+        total: { min: 5 },
+      },
       yellow_cards: {
-        total: { min: 3 },
+        total: { min: 2 },
       },
       dangerous_attacks: {
-        total: { min: 14 },
+        total: { min: 9 },
       },
       match_time: {
-        between: [80, 90],
+        between: [78, 90],
       },
       trends: {
         corners_increasing: true,
