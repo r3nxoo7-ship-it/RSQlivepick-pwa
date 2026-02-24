@@ -151,11 +151,15 @@ export async function calculateTeamStatistics(
 
 /**
  * Aggregate H2H statistics
+ * Supports both ESPN numeric IDs and TheSportsDB tsdb_* IDs.
+ * When IDs don't match, falls back to name-based matching.
  */
 export function aggregateH2HStats(
   matches: Array<{
     home_team_id?: string;
     away_team_id?: string;
+    home_team_name?: string;
+    away_team_name?: string;
     home_team?: { id: string };
     away_team?: { id: string };
     home_score: number;
@@ -164,15 +168,23 @@ export function aggregateH2HStats(
     away_corners?: number;
   }>,
   homeTeamId: string,
-  awayTeamId: string
+  awayTeamId: string,
+  homeTeamName?: string,
 ) {
   let homeWins = 0, awayWins = 0, draws = 0;
   let homeGoalsFor = 0, homeGoalsAgainst = 0;
   let totalCorners = 0;
   let bttsCount = 0;
+  const homeNameFirst = (homeTeamName || '').toLowerCase().split(' ')[0];
 
   matches.forEach((match) => {
-    const isCurrentHomeTeamAtHome = String(match.home_team_id || match.home_team?.id) === String(homeTeamId);
+    const matchHomeId = String(match.home_team_id || match.home_team?.id || '');
+    // Primary: ID match. Fallback: name match (for TheSportsDB tsdb_* IDs vs ESPN IDs)
+    let isCurrentHomeTeamAtHome = matchHomeId === String(homeTeamId);
+    if (!isCurrentHomeTeamAtHome && homeNameFirst && match.home_team_name) {
+      isCurrentHomeTeamAtHome = match.home_team_name.toLowerCase().includes(homeNameFirst) ||
+        homeNameFirst.includes(match.home_team_name.toLowerCase().split(' ')[0]);
+    }
     const currentHomeScore = isCurrentHomeTeamAtHome ? match.home_score : match.away_score;
     const currentAwayScore = isCurrentHomeTeamAtHome ? match.away_score : match.home_score;
 
@@ -323,11 +335,12 @@ export async function aggregateMatchContext(
     false
   );
 
-  // Aggregate H2H stats
+  // Aggregate H2H stats — pass team name for cross-API (TheSportsDB) name matching
   const h2hStats = aggregateH2HStats(
     h2hData,
     String(match.teams?.home?.id || ''),
-    String(match.teams?.away?.id || '')
+    String(match.teams?.away?.id || ''),
+    match.teams?.home?.name || ''
   );
 
   // Extract implied odds from whatever source is available

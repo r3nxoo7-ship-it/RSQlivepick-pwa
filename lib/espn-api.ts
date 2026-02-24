@@ -232,22 +232,133 @@ export const ALL_SOCCER_LEAGUES: Array<{ code: string; name: string }> = [
 // Leagues to sync for LIVE scoreboard (curated - top leagues + cups + continental)
 // These get synced every 30s-1min for the dashboard
 // For now, sync only the competitions requested by the user (curated list)
-export const SYNC_SOCCER_LEAGUES = [
+// All European soccer leagues we want to track.
+// The smart scanner (getActiveTodayLeagues) will filter this list daily —
+// only leagues with actual matches today get polled every 30s.
+// Adding more leagues here costs nothing unless they have live matches.
+export const ALL_EUROPEAN_SOCCER_LEAGUES = [
+  // ── Top 5 ──
   { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
   { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
   { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
   { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
+  { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
+  // ── Continental ──
   { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
   { sport: 'soccer', league: 'uefa.europa', name: 'Europa League' },
   { sport: 'soccer', league: 'uefa.europa.conf', name: 'Conference League' },
-  { sport: 'soccer', league: 'por.1', name: 'Primeira Liga' },
+  { sport: 'soccer', league: 'uefa.nations', name: 'Nations League' },
+  // ── Other top European ──
   { sport: 'soccer', league: 'ned.1', name: 'Eredivisie' },
-  // Poland Ekstraklasa removed due to recurring 4xx from ESPN
+  { sport: 'soccer', league: 'por.1', name: 'Primeira Liga' },
   { sport: 'soccer', league: 'bel.1', name: 'Belgian Pro League' },
-  { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
   { sport: 'soccer', league: 'tur.1', name: 'Turkish Super Lig' },
+  { sport: 'soccer', league: 'sco.1', name: 'Scottish Premiership' },
+  { sport: 'soccer', league: 'gre.1', name: 'Greek Super League' },
   { sport: 'soccer', league: 'aut.1', name: 'Austrian Bundesliga' },
+  { sport: 'soccer', league: 'den.1', name: 'Danish Superliga' },
+  { sport: 'soccer', league: 'swe.1', name: 'Allsvenskan' },
+  { sport: 'soccer', league: 'nor.1', name: 'Eliteserien' },
+  { sport: 'soccer', league: 'cze.1', name: 'Czech First League' },
+  { sport: 'soccer', league: 'rou.1', name: 'Romanian Liga 1' },
+  { sport: 'soccer', league: 'sui.1', name: 'Swiss Super League' },
+  { sport: 'soccer', league: 'ukr.1', name: 'Ukrainian Premier League' },
+  { sport: 'soccer', league: 'srb.1', name: 'Serbian SuperLiga' },
+  { sport: 'soccer', league: 'cro.1', name: 'Croatian HNL' },
+  { sport: 'soccer', league: 'slv.1', name: 'Slovak Fortuna Liga' },
+  { sport: 'soccer', league: 'hun.1', name: 'Hungarian NB I' },
+  { sport: 'soccer', league: 'bul.1', name: 'Bulgarian First League' },
+  // ── Second divisions (popular) ──
+  { sport: 'soccer', league: 'eng.2', name: 'Championship' },
+  { sport: 'soccer', league: 'ger.2', name: '2. Bundesliga' },
+  { sport: 'soccer', league: 'ita.2', name: 'Serie B' },
+  { sport: 'soccer', league: 'esp.2', name: 'La Liga 2' },
+  { sport: 'soccer', league: 'fra.2', name: 'Ligue 2' },
+  // ── Domestic cups ──
+  { sport: 'soccer', league: 'eng.fa', name: 'FA Cup' },
+  { sport: 'soccer', league: 'ger.dfb_pokal', name: 'DFB-Pokal' },
+  { sport: 'soccer', league: 'ita.coppa_italia', name: 'Coppa Italia' },
+  { sport: 'soccer', league: 'esp.copa_del_rey', name: 'Copa del Rey' },
+  { sport: 'soccer', league: 'fra.coupe_de_france', name: 'Coupe de France' },
 ];
+
+export type LeagueConfig = { sport: string; league: string; name: string };
+
+// Legacy alias — sync still uses this name internally
+export const SYNC_SOCCER_LEAGUES: LeagueConfig[] = ALL_EUROPEAN_SOCCER_LEAGUES;
+
+// Active leagues cache: which leagues have matches today
+// Keyed by YYYY-MM-DD, refreshed once per hour
+const _activeTodayCache: {
+  date: string;
+  checkedAt: number;
+  leagues: LeagueConfig[];
+} = { date: '', checkedAt: 0, leagues: [] };
+
+/**
+ * Smart league filter: returns only leagues that have ≥1 match today.
+ * Checks ESPN scoreboard once per hour, caches result for the rest of the day.
+ * This means adding 40 leagues costs nothing if they have no matches today.
+ */
+export async function getActiveTodayLeagues(): Promise<LeagueConfig[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const hourMs = 60 * 60 * 1000;
+  const now = Date.now();
+
+  // Return cache if same day and checked within last hour
+  if (
+    _activeTodayCache.date === today &&
+    now - _activeTodayCache.checkedAt < hourMs &&
+    _activeTodayCache.leagues.length > 0
+  ) {
+    return _activeTodayCache.leagues;
+  }
+
+  // ESPN date format: YYYYMMDD
+  const espnDate = today.replace(/-/g, '');
+  const active: LeagueConfig[] = [];
+
+  // Check all leagues in parallel — quick scoreboard HEAD-style call
+  const results = await Promise.allSettled(
+    ALL_EUROPEAN_SOCCER_LEAGUES.map(async (cfg) => {
+      try {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.league}/scoreboard?dates=${espnDate}&limit=1`;
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'LivePick-PWA/1.0' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        const count = json?.events?.length || 0;
+        return count > 0 ? cfg : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value !== null) {
+      active.push(r.value);
+    }
+  }
+
+  // Always include top 5 + continental as fallback (they always have something)
+  const alwaysInclude = ['eng.1', 'ger.1', 'ita.1', 'esp.1', 'fra.1', 'uefa.champions', 'uefa.europa'];
+  for (const cfg of ALL_EUROPEAN_SOCCER_LEAGUES) {
+    if (alwaysInclude.includes(cfg.league) && !active.find(a => a.league === cfg.league)) {
+      active.push(cfg);
+    }
+  }
+
+  _activeTodayCache.date = today;
+  _activeTodayCache.checkedAt = now;
+  _activeTodayCache.leagues = active;
+
+  console.log(`[ESPN] Active leagues today (${today}): ${active.map(l => l.name).join(', ')}`);
+  return active;
+}
 
 // Reverse map: league display name → ESPN league code (comprehensive)
 export const LEAGUE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(

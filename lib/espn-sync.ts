@@ -51,10 +51,11 @@ export async function syncAllMatches(): Promise<{ count: number; duration: numbe
   const startTime = Date.now();
 
   try {
-    console.log('⚽ [ESPN Sync] Starting soccer match sync (FIFA leagues only)...');
+    console.log('⚽ [ESPN Sync] Starting soccer match sync...');
 
-    // Use curated sync leagues (top leagues + cups + continental)
-    const soccerLeagues = ESPNAPI.SYNC_SOCCER_LEAGUES;
+    // Smart league filter: only leagues with matches today (checked once/hour, cached).
+    // ALL_EUROPEAN_SOCCER_LEAGUES has ~40 leagues but we only poll the ones active today.
+    const soccerLeagues = await ESPNAPI.getActiveTodayLeagues();
 
     const allMatches: ESPNAPI.ESPNMatch[] = [];
     const sourceCounts: Record<string, number> = {};

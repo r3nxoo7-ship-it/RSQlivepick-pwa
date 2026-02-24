@@ -71,13 +71,18 @@ export async function GET(
     const homeTeamName = match.teams.home.name || 'Home';
     const awayTeamName = match.teams.away.name || 'Away';
 
-    // 2. Fetch team form + H2H directly from ESPN (no HTTP roundtrip)
-    const [homeSchedule, awaySchedule] = await Promise.all([
+    // 2. Fetch team form (ESPN schedule) + H2H (TheSportsDB cache) in parallel
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const [homeSchedule, awaySchedule, h2hResponse] = await Promise.all([
       getTeamSchedule(String(homeTeamId)).catch(() => []),
       getTeamSchedule(String(awayTeamId)).catch(() => []),
+      // TheSportsDB H2H — cache-first, returns 20-30 past meetings
+      fetch(`${baseUrl}/api/h2h?home=${encodeURIComponent(homeTeamName)}&away=${encodeURIComponent(awayTeamName)}&limit=20`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null),
     ]);
 
-    // Convert ESPN matches to form data format
+    // Convert ESPN matches to form data format (goals + stats for Poisson model)
     const convertToFormData = (matches: any[]) =>
       matches.slice(0, 10).map((m: any) => ({
         id: m.id,
@@ -99,25 +104,43 @@ export async function GET(
     const homeForm = convertToFormData(homeSchedule);
     const awayForm = convertToFormData(awaySchedule);
 
-    // H2H: find matches from home team's schedule where opponent is away team
-    const h2hData = homeSchedule
-      .filter((m: any) => {
-        const hid = String(m.homeTeam?.id);
-        const aid = String(m.awayTeam?.id);
-        return (
-          (hid === String(homeTeamId) && aid === String(awayTeamId)) ||
-          (hid === String(awayTeamId) && aid === String(homeTeamId))
-        );
-      })
-      .slice(0, 10)
-      .map((m: any) => ({
-        home_team_id: m.homeTeam?.id,
-        away_team_id: m.awayTeam?.id,
-        home_score: m.homeScore || 0,
-        away_score: m.awayScore || 0,
-        home_corners: m.homeCorners || null,
-        away_corners: m.awayCorners || null,
+    // H2H from TheSportsDB cache (20-30 matches) with fallback to ESPN (0-1 matches)
+    let h2hData: any[] = [];
+    if (h2hResponse?.matches?.length > 0) {
+      // Use TheSportsDB cache — contains home_team_name for name-based matching
+      h2hData = h2hResponse.matches.map((m: any) => ({
+        home_team_id: m.home_team_id,   // tsdb_* format — aggregateH2HStats handles name fallback
+        away_team_id: m.away_team_id,
+        home_team_name: m.home_team_name,
+        away_team_name: m.away_team_name,
+        home_score: m.home_score || 0,
+        away_score: m.away_score || 0,
+        home_corners: m.home_corners || null,
+        away_corners: m.away_corners || null,
       }));
+      console.log(`[Predictions] H2H from TheSportsDB: ${h2hData.length} matches (cached: ${h2hResponse.cached})`);
+    } else {
+      // Fallback: ESPN schedule cross-reference (usually 0-1 matches)
+      h2hData = homeSchedule
+        .filter((m: any) => {
+          const hid = String(m.homeTeam?.id);
+          const aid = String(m.awayTeam?.id);
+          return (
+            (hid === String(homeTeamId) && aid === String(awayTeamId)) ||
+            (hid === String(awayTeamId) && aid === String(homeTeamId))
+          );
+        })
+        .slice(0, 10)
+        .map((m: any) => ({
+          home_team_id: m.homeTeam?.id,
+          away_team_id: m.awayTeam?.id,
+          home_score: m.homeScore || 0,
+          away_score: m.awayScore || 0,
+          home_corners: m.homeCorners || null,
+          away_corners: m.awayCorners || null,
+        }));
+      console.log(`[Predictions] H2H fallback ESPN: ${h2hData.length} matches`);
+    }
 
     // 3. Extract pre-match odds from ESPN match data (already in match object)
     // ESPN scoreboard includes odds in match.fixture.odds or similar
@@ -164,7 +187,7 @@ export async function GET(
         homeFormMatches: context.homeTeam.matchesAnalyzed,
         awayFormMatches: context.awayTeam.matchesAnalyzed,
         h2hMatches: context.h2hStats.totalMatches,
-        dataSources: ['ESPN Team Schedule', 'ESPN H2H', homeForm.length > 0 ? 'Real Form Stats' : 'Defaults'],
+        dataSources: ['ESPN Team Schedule', h2hData.length > 2 ? 'TheSportsDB H2H' : 'ESPN H2H', homeForm.length > 0 ? 'Real Form Stats' : 'Defaults'],
       },
     };
 
