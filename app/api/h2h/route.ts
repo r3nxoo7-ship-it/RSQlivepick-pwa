@@ -1,18 +1,23 @@
 /**
  * GET /api/h2h?home=Team+Name&away=Team+Name&limit=20
  *
- * Cache-first H2H endpoint:
- * 1. Check h2h_cache table in Supabase
- * 2. If hit (and not stale) → return cached matches immediately (0 API calls)
- * 3. If miss or stale → fetch from TheSportsDB searchevents, store in cache
+ * Cache-first H2H endpoint with two-level TheSportsDB lookup:
+ * 1. Check h2h_cache table in Supabase (cache hit → return immediately)
+ * 2. Look up TheSportsDB team IDs (via tsdb_team_lookup or searchteams.php)
+ * 3. Use eventsvs.php (team-ID-based, most reliable) if both IDs found
+ * 4. Fall back to searchevents.php (name-based) as last resort
  *
- * Past match data is immutable. Cache is permanent for FT matches.
- * Only refreshes after 7 days to catch new meetings since last fetch.
+ * Past match data is immutable. Cache refreshes after 7 days for new meetings.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import { getH2HEvents, calculateFormFromCache, type CachedMatch } from '@/lib/thesportsdb';
+import {
+  getH2HEvents,
+  getH2HByTeamIds,
+  searchTeam,
+  type CachedMatch,
+} from '@/lib/thesportsdb';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +30,34 @@ function makeCacheKey(home: string, away: string): string {
   // Always alphabetical order so "Arsenal vs Chelsea" = "Chelsea vs Arsenal"
   const [a, b] = [home.toLowerCase().trim(), away.toLowerCase().trim()].sort();
   return `${a}||${b}`;
+}
+
+/** Look up a team's TheSportsDB ID: check DB cache first, then search API */
+async function getTeamId(teamName: string): Promise<string | null> {
+  const key = teamName.toLowerCase().trim().replace(/\s+/g, '_');
+  try {
+    const { data } = await supabaseAdmin
+      .from('tsdb_team_lookup')
+      .select('tsdb_team_id')
+      .eq('team_name_key', key)
+      .single();
+    if (data?.tsdb_team_id) return data.tsdb_team_id;
+  } catch {}
+
+  // Not cached — search TheSportsDB
+  const teamData = await searchTeam(teamName);
+  if (!teamData?.idTeam) return null;
+
+  // Save to lookup cache (best-effort, fire-and-forget)
+  void supabaseAdmin.from('tsdb_team_lookup').upsert({
+    team_name_key: key,
+    team_name: teamName,
+    tsdb_team_id: teamData.idTeam,
+    tsdb_team_name: teamData.strTeam,
+    league_name: teamData.strLeague || null,
+  }, { onConflict: 'team_name_key' });
+
+  return teamData.idTeam;
 }
 
 export async function GET(request: NextRequest) {
@@ -50,15 +83,11 @@ export async function GET(request: NextRequest) {
     const isStale = cached ? new Date(cached.refresh_after) < now : true;
 
     if (cached && !isStale) {
-      // Cache hit — serve immediately
       const matches: CachedMatch[] = (cached.matches as CachedMatch[]).slice(0, limit);
       const h2hSummary = computeH2HSummary(matches, home, away);
       console.log(`[H2H] Cache hit for "${home}" vs "${away}" — ${matches.length} matches`);
       return NextResponse.json({
-        home,
-        away,
-        matches,
-        h2hSummary,
+        home, away, matches, h2hSummary,
         match_count: cached.match_count,
         source: cached.source,
         cached: true,
@@ -66,31 +95,45 @@ export async function GET(request: NextRequest) {
       }, { headers: { 'Cache-Control': 'private, max-age=300' } });
     }
 
-    // 2. Cache miss or stale — fetch from TheSportsDB
-    console.log(`[H2H] Cache ${cached ? 'stale' : 'miss'} for "${home}" vs "${away}" — fetching TheSportsDB`);
-    const freshMatches = await getH2HEvents(home, away);
+    // 2. Cache miss — try to find TheSportsDB team IDs in parallel
+    console.log(`[H2H] Cache ${cached ? 'stale' : 'miss'} for "${home}" vs "${away}" — fetching`);
+
+    const [homeId, awayId] = await Promise.all([
+      getTeamId(home),
+      getTeamId(away),
+    ]);
+
+    let freshMatches: CachedMatch[] = [];
+
+    if (homeId && awayId) {
+      // Best method: eventsvs.php — team-ID based, returns full H2H history
+      console.log(`[H2H] Using eventsvs.php for IDs ${homeId} vs ${awayId}`);
+      freshMatches = await getH2HByTeamIds(homeId, awayId);
+    }
+
+    if (freshMatches.length === 0) {
+      // Fallback: searchevents.php — name based, less reliable
+      console.log(`[H2H] Falling back to searchevents.php for "${home}" vs "${away}"`);
+      freshMatches = await getH2HEvents(home, away);
+    }
 
     let finalMatches = freshMatches;
 
-    // If TheSportsDB returned nothing, keep the old cached data if we have it
-    if (freshMatches.length === 0 && cached && cached.matches) {
-      console.log(`[H2H] TheSportsDB returned 0 results, keeping stale cache`);
+    if (freshMatches.length === 0 && cached?.matches) {
+      console.log(`[H2H] No new results, keeping stale cache (${(cached.matches as any[]).length} matches)`);
       finalMatches = cached.matches as CachedMatch[];
     } else if (freshMatches.length > 0) {
-      // Upsert into cache
-      const refreshAfter = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      await supabaseAdmin
-        .from('h2h_cache')
-        .upsert({
-          cache_key: cacheKey,
-          home_team_name: home,
-          away_team_name: away,
-          matches: freshMatches,
-          match_count: freshMatches.length,
-          source: 'thesportsdb',
-          fetched_at: now.toISOString(),
-          refresh_after: refreshAfter.toISOString(),
-        }, { onConflict: 'cache_key' });
+      const refreshAfter = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      await supabaseAdmin.from('h2h_cache').upsert({
+        cache_key: cacheKey,
+        home_team_name: home,
+        away_team_name: away,
+        matches: freshMatches,
+        match_count: freshMatches.length,
+        source: 'thesportsdb',
+        fetched_at: now.toISOString(),
+        refresh_after: refreshAfter.toISOString(),
+      }, { onConflict: 'cache_key' });
       console.log(`[H2H] Cached ${freshMatches.length} matches for "${home}" vs "${away}"`);
     }
 
@@ -98,10 +141,7 @@ export async function GET(request: NextRequest) {
     const h2hSummary = computeH2HSummary(matches, home, away);
 
     return NextResponse.json({
-      home,
-      away,
-      matches,
-      h2hSummary,
+      home, away, matches, h2hSummary,
       match_count: finalMatches.length,
       source: 'thesportsdb',
       cached: false,
@@ -130,12 +170,5 @@ function computeH2HSummary(matches: CachedMatch[], home: string, away: string) {
     else awayWins++;
   }
 
-  return {
-    total: matches.length,
-    homeWins,
-    draws,
-    awayWins,
-    homeGoals,
-    awayGoals,
-  };
+  return { total: matches.length, homeWins, draws, awayWins, homeGoals, awayGoals };
 }
