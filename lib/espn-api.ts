@@ -389,12 +389,12 @@ async function fetchWithRetryRaw(url: string, retries = 2, timeoutMs = 8000): Pr
   }
 }
 
-async function espnFetch(path: string, retriesPerHost = 2): Promise<any> {
+async function espnFetch(path: string, retriesPerHost = 2, timeoutMs = 8000): Promise<any> {
   let lastErr: any = null;
   for (const base of BASE_URLS) {
     const url = `${base}${path}`;
     try {
-      const json = await fetchWithRetryRaw(url, retriesPerHost);
+      const json = await fetchWithRetryRaw(url, retriesPerHost, timeoutMs);
       return json;
     } catch (err) {
       lastErr = err;
@@ -589,12 +589,14 @@ export async function getLeagueTeams(
 export async function getMatchSummary(
   sport: string,
   league: string,
-  eventId: string
+  eventId: string,
+  timeoutMs = 8000
 ): Promise<Record<string, any> | null> {
   try {
     const path = `/${sport}/${league}/summary?event=${eventId}`;
     try {
-      const data = await espnFetch(path);
+      // Use 1 retry when probing many leagues (caller passes short timeout)
+      const data = await espnFetch(path, 1, timeoutMs);
       return data;
     } catch (err) {
       return null;

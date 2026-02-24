@@ -173,21 +173,30 @@ export interface CachedMatch {
 }
 
 // --- API fetch helper ---
-async function tsdbGet<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
+async function tsdbGet<T>(endpoint: string, params: Record<string, string> = {}, timeoutMs = 4000): Promise<T | null> {
   const qs = new URLSearchParams(params).toString();
   const url = `${BASE_URL}/${API_KEY}${endpoint}${qs ? '?' + qs : ''}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       next: { revalidate: 0 }, // no Next.js cache
       headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) {
       console.error(`[TheSportsDB] ${endpoint} returned ${res.status}`);
       return null;
     }
     return res.json() as Promise<T>;
   } catch (err) {
-    console.error(`[TheSportsDB] fetch error for ${endpoint}:`, err);
+    clearTimeout(timer);
+    if ((err as any)?.name === 'AbortError') {
+      console.warn(`[TheSportsDB] ${endpoint} timed out after ${timeoutMs}ms`);
+    } else {
+      console.error(`[TheSportsDB] fetch error for ${endpoint}:`, err);
+    }
     return null;
   }
 }

@@ -20,6 +20,8 @@ import {
 } from '@/lib/thesportsdb';
 
 export const dynamic = 'force-dynamic';
+// Hard deadline — must complete well within Vercel's 10s function timeout
+const ROUTE_DEADLINE_MS = 7500;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,7 +74,7 @@ export async function GET(request: NextRequest) {
   const cacheKey = makeCacheKey(home, away);
 
   try {
-    // 1. Check cache
+    // 1. Check cache — always do this first (fast Supabase query)
     const { data: cached } = await supabaseAdmin
       .from('h2h_cache')
       .select('matches, match_count, source, fetched_at, refresh_after')
@@ -95,28 +97,64 @@ export async function GET(request: NextRequest) {
       }, { headers: { 'Cache-Control': 'private, max-age=300' } });
     }
 
-    // 2. Cache miss — try to find TheSportsDB team IDs in parallel
+    // 2. Cache miss — race external fetch against a hard deadline
+    // If the fetch doesn't resolve in time, return stale cache rather than timing out Vercel
     console.log(`[H2H] Cache ${cached ? 'stale' : 'miss'} for "${home}" vs "${away}" — fetching`);
 
-    const [homeId, awayId] = await Promise.all([
-      getTeamId(home),
-      getTeamId(away),
-    ]);
+    const startTime = Date.now();
 
-    let freshMatches: CachedMatch[] = [];
+    const deadline = new Promise<'timeout'>((resolve) =>
+      setTimeout(() => resolve('timeout'), ROUTE_DEADLINE_MS - (Date.now() - startTime))
+    );
 
-    if (homeId && awayId) {
-      // Best method: eventsvs.php — team-ID based, returns full H2H history
-      console.log(`[H2H] Using eventsvs.php for IDs ${homeId} vs ${awayId}`);
-      freshMatches = await getH2HByTeamIds(homeId, awayId);
+    const fetchResult = (async (): Promise<CachedMatch[]> => {
+      const [homeId, awayId] = await Promise.all([
+        getTeamId(home),
+        getTeamId(away),
+      ]);
+
+      // Check remaining time budget before making more external calls
+      if (Date.now() - startTime > ROUTE_DEADLINE_MS - 2000) return [];
+
+      let freshMatches: CachedMatch[] = [];
+
+      if (homeId && awayId) {
+        console.log(`[H2H] Using eventsvs.php for IDs ${homeId} vs ${awayId}`);
+        freshMatches = await getH2HByTeamIds(homeId, awayId);
+      }
+
+      if (freshMatches.length === 0 && Date.now() - startTime < ROUTE_DEADLINE_MS - 2000) {
+        console.log(`[H2H] Falling back to searchevents.php for "${home}" vs "${away}"`);
+        freshMatches = await getH2HEvents(home, away);
+      }
+
+      return freshMatches;
+    })();
+
+    const raceResult = await Promise.race([fetchResult, deadline]);
+
+    if (raceResult === 'timeout') {
+      console.warn(`[H2H] Deadline exceeded for "${home}" vs "${away}" — returning stale/empty`);
+      if (cached?.matches) {
+        const matches = (cached.matches as CachedMatch[]).slice(0, limit);
+        return NextResponse.json({
+          home, away,
+          matches,
+          h2hSummary: computeH2HSummary(matches, home, away),
+          match_count: cached.match_count,
+          source: cached.source,
+          cached: true,
+          stale: true,
+          fetched_at: cached.fetched_at,
+        }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+      }
+      return NextResponse.json({
+        home, away, matches: [], h2hSummary: { total: 0, homeWins: 0, draws: 0, awayWins: 0, homeGoals: 0, awayGoals: 0 },
+        match_count: 0, source: 'thesportsdb', cached: false, timeout: true,
+      });
     }
 
-    if (freshMatches.length === 0) {
-      // Fallback: searchevents.php — name based, less reliable
-      console.log(`[H2H] Falling back to searchevents.php for "${home}" vs "${away}"`);
-      freshMatches = await getH2HEvents(home, away);
-    }
-
+    const freshMatches = raceResult as CachedMatch[];
     let finalMatches = freshMatches;
 
     if (freshMatches.length === 0 && cached?.matches) {
@@ -124,7 +162,8 @@ export async function GET(request: NextRequest) {
       finalMatches = cached.matches as CachedMatch[];
     } else if (freshMatches.length > 0) {
       const refreshAfter = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      await supabaseAdmin.from('h2h_cache').upsert({
+      // Fire-and-forget cache write (don't block the response)
+      void supabaseAdmin.from('h2h_cache').upsert({
         cache_key: cacheKey,
         home_team_name: home,
         away_team_name: away,
