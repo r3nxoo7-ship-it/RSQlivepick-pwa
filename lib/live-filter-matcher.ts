@@ -349,21 +349,26 @@ export function evaluateFilterForMatch(
 
   // ========== DANGEROUS ATTACKS ==========
   // Extended: { home: {min}, away: {min}, total: {min} } | Flat: { min, max, team }
+  // Soft-skip: if ESPN data source doesn't provide DA (both = 0), skip silently instead of failing
   if (conditions.dangerous_attacks) {
-    totalConditions++;
-    const da = conditions.dangerous_attacks as any;
-    if (isTeamSpecificCondition(da)) {
-      const ok = evaluateTeamSpecificCondition(stats.homeDangerousAttacks, stats.awayDangerousAttacks, da, 'Dangerous Attacks', matchedConditions, failedConditions);
-      if (ok) conditionScore++;
-    } else {
-      const daValue = da.team === 'home' ? stats.homeDangerousAttacks : da.team === 'away' ? stats.awayDangerousAttacks : (stats.homeDangerousAttacks + stats.awayDangerousAttacks);
-      if (isInRange(daValue, da.min, da.max)) {
-        matchedConditions.push(`Dangerous Attacks (${daValue})`);
-        conditionScore++;
+    const noDaData = stats.homeDangerousAttacks === 0 && stats.awayDangerousAttacks === 0;
+    if (!noDaData) {
+      totalConditions++;
+      const da = conditions.dangerous_attacks as any;
+      if (isTeamSpecificCondition(da)) {
+        const ok = evaluateTeamSpecificCondition(stats.homeDangerousAttacks, stats.awayDangerousAttacks, da, 'Dangerous Attacks', matchedConditions, failedConditions);
+        if (ok) conditionScore++;
       } else {
-        failedConditions.push(`Dangerous Attacks: expected ${da.min}-${da.max}, got ${daValue}`);
+        const daValue = da.team === 'home' ? stats.homeDangerousAttacks : da.team === 'away' ? stats.awayDangerousAttacks : (stats.homeDangerousAttacks + stats.awayDangerousAttacks);
+        if (isInRange(daValue, da.min, da.max)) {
+          matchedConditions.push(`Dangerous Attacks (${daValue})`);
+          conditionScore++;
+        } else {
+          failedConditions.push(`Dangerous Attacks: expected ${da.min}-${da.max}, got ${daValue}`);
+        }
       }
     }
+    // else: DA data not available from this source — skip condition
   }
 
   // ========== TRENDS (corners_increasing, shots_increasing) ==========
@@ -584,8 +589,8 @@ function extractMatchStats(match: LiveMatch) {
   return {
     homeGoals: match.goals?.home || 0,
     awayGoals: match.goals?.away || 0,
-    homeCorners: findStat(homeStats, 'Corner Kicks'),
-    awayCorners: findStat(awayStats, 'Corner Kicks'),
+    homeCorners: findStat(homeStats, 'Corner Kicks') || findStat(homeStats, 'Corners'),
+    awayCorners: findStat(awayStats, 'Corner Kicks') || findStat(awayStats, 'Corners'),
     homeShots: findStat(homeStats, 'Shots on Goal'),
     awayShots: findStat(awayStats, 'Shots on Goal'),
     homePossession: findStat(homeStats, 'Ball Possession') || findStat(homeStats, 'Possession'),
@@ -594,8 +599,8 @@ function extractMatchStats(match: LiveMatch) {
     awayYellowCards: findStat(awayStats, 'Yellow Cards'),
     homeRedCards: findStat(homeStats, 'Red Cards'),
     awayRedCards: findStat(awayStats, 'Red Cards'),
-    homeFouls: findStat(homeStats, 'Fouls Committed'),
-    awayFouls: findStat(awayStats, 'Fouls Committed'),
+    homeFouls: findStat(homeStats, 'Fouls Committed') || findStat(homeStats, 'Fouls'),
+    awayFouls: findStat(awayStats, 'Fouls Committed') || findStat(awayStats, 'Fouls'),
     homeDangerousAttacks: findStat(homeStats, 'Dangerous Attacks'),
     awayDangerousAttacks: findStat(awayStats, 'Dangerous Attacks'),
   };

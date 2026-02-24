@@ -924,6 +924,11 @@ function buildStatisticsArray(row: any): any[] {
   const awayFouls = raw.awayFouls || 0;
   const homeOffsides = raw.homeOffsides || 0;
   const awayOffsides = raw.awayOffsides || 0;
+  // Dangerous Attacks / Attacks: not provided by ESPN but may come from API-Football via raw_data
+  const homeDangerousAttacks = row.home_dangerous_attacks || raw.homeDangerousAttacks || 0;
+  const awayDangerousAttacks = row.away_dangerous_attacks || raw.awayDangerousAttacks || 0;
+  const homeAttacks = row.home_attacks || raw.homeAttacks || 0;
+  const awayAttacks = row.away_attacks || raw.awayAttacks || 0;
 
   // Only return stats if at least some data exists
   const hasAnyStats = homePoss || awayPoss || homeSoT || awaySoT || homeCorners || awayCorners;
@@ -941,6 +946,8 @@ function buildStatisticsArray(row: any): any[] {
         { type: 'Red Cards', value: homeRed },
         { type: 'Fouls', value: homeFouls },
         { type: 'Offsides', value: homeOffsides },
+        { type: 'Dangerous Attacks', value: homeDangerousAttacks },
+        { type: 'Attacks', value: homeAttacks },
       ],
     },
     {
@@ -954,6 +961,8 @@ function buildStatisticsArray(row: any): any[] {
         { type: 'Red Cards', value: awayRed },
         { type: 'Fouls', value: awayFouls },
         { type: 'Offsides', value: awayOffsides },
+        { type: 'Dangerous Attacks', value: awayDangerousAttacks },
+        { type: 'Attacks', value: awayAttacks },
       ],
     },
   ];

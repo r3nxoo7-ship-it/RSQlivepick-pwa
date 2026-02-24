@@ -250,9 +250,23 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const successRate = finishedTriggers.length > 0
+        const scoreBasedRate = finishedTriggers.length > 0
           ? Math.round((successCount / finishedTriggers.length) * 10000) / 100
           : 0;
+
+        // Check if user has given feedback — feedback-based rate takes priority
+        const { data: feedbackTriggers } = await supabaseAdmin
+          .from('triggered_matches')
+          .select('user_feedback')
+          .eq('filter_id', filter.id)
+          .eq('user_id', user_id)
+          .not('user_feedback', 'is', null);
+
+        let successRate = scoreBasedRate;
+        if (feedbackTriggers && feedbackTriggers.length > 0) {
+          const positive = feedbackTriggers.filter((t: any) => t.user_feedback === true).length;
+          successRate = Math.round((positive / feedbackTriggers.length) * 10000) / 100;
+        }
 
         // Update filter success_rate
         await supabaseAdmin

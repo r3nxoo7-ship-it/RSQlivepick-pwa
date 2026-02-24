@@ -340,14 +340,22 @@ export async function matchesFilter(
   // 10. ATTACKS
   // ============================================
   if (conditions.attacks && stats.attacks) {
-    evaluateStat(stats.attacks.home, stats.attacks.away, conditions.attacks, 'Attacks', matchedConditions, failedConditions);
+    // Soft-skip: if data source doesn't provide attacks (both = 0), don't fail the filter
+    if (stats.attacks.home > 0 || stats.attacks.away > 0) {
+      evaluateStat(stats.attacks.home, stats.attacks.away, conditions.attacks, 'Attacks', matchedConditions, failedConditions);
+    }
+    // else: skip silently — data source (ESPN) doesn't track Attacks
   }
 
   // ============================================
   // 11. DANGEROUS ATTACKS
   // ============================================
   if (conditions.dangerous_attacks && stats.dangerous_attacks) {
-    evaluateStat(stats.dangerous_attacks.home, stats.dangerous_attacks.away, conditions.dangerous_attacks, 'Dangerous attacks', matchedConditions, failedConditions);
+    // Soft-skip: ESPN doesn't provide Dangerous Attacks — if both values are 0, treat as unavailable
+    if (stats.dangerous_attacks.home > 0 || stats.dangerous_attacks.away > 0) {
+      evaluateStat(stats.dangerous_attacks.home, stats.dangerous_attacks.away, conditions.dangerous_attacks, 'Dangerous attacks', matchedConditions, failedConditions);
+    }
+    // else: skip silently — DA not available from this data source
   }
 
   // ============================================
