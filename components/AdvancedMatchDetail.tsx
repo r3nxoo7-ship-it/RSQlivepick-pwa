@@ -110,29 +110,29 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
   useEffect(() => {
     async function fetchForm() {
       setFormLoading(true);
-      try {
-        const homeId = match.teams?.home?.id;
-        const awayId = match.teams?.away?.id;
-        const homeIdStr = homeId !== undefined && homeId !== null ? String(homeId) : '';
-        const awayIdStr = awayId !== undefined && awayId !== null ? String(awayId) : '';
-        // Map league name to ESPN code for faster lookup
-        const leagueMap: Record<string, string> = {
-          'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
-          'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
-          'Champions League': 'uefa.champions',
-        };
-        const leagueCode = leagueMap[match.league?.name || ''] || '';
-        const leagueParam = leagueCode ? `&league=${leagueCode}` : '';
+      const homeName = match.teams?.home?.name || '';
+      const awayName = match.teams?.away?.name || '';
+      const homeIdStr = match.teams?.home?.id != null ? String(match.teams.home.id) : '';
+      const awayIdStr = match.teams?.away?.id != null ? String(match.teams.away.id) : '';
 
+      try {
+        // Parallel: TheSportsDB team form (cache-first) + H2H (cache-first)
+        // Falls back gracefully if team names missing
         const [homeRes, awayRes, h2hRes] = await Promise.all([
-          homeId ? fetch(`/api/espn/team-form?teamId=${encodeURIComponent(homeIdStr)}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
-          awayId ? fetch(`/api/espn/team-form?teamId=${encodeURIComponent(awayIdStr)}&limit=10${leagueParam}`).then(r => r.ok ? r.json() : null) : null,
-          (homeId && awayId) ? fetch(`/api/espn/h2h?homeId=${encodeURIComponent(homeIdStr)}&awayId=${encodeURIComponent(awayIdStr)}&limit=10`).then(r => r.ok ? r.json() : null) : null,
+          homeName
+            ? fetch(`/api/team-form?team=${encodeURIComponent(homeName)}&limit=10`).then(r => r.ok ? r.json() : null)
+            : null,
+          awayName
+            ? fetch(`/api/team-form?team=${encodeURIComponent(awayName)}&limit=10`).then(r => r.ok ? r.json() : null)
+            : null,
+          (homeName && awayName)
+            ? fetch(`/api/h2h?home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}&limit=20`).then(r => r.ok ? r.json() : null)
+            : null,
         ]);
 
-        if (homeRes) setHomeForm({ teamId: homeIdStr || '', matches: homeRes.matches || [], form: homeRes.form });
-        if (awayRes) setAwayForm({ teamId: awayIdStr || '', matches: awayRes.matches || [], form: awayRes.form });
-        if (h2hRes && h2hRes.matches) setH2HMatches(h2hRes.matches || []);
+        if (homeRes) setHomeForm({ teamId: homeRes.teamId || homeIdStr, matches: homeRes.matches || [], form: homeRes.form });
+        if (awayRes) setAwayForm({ teamId: awayRes.teamId || awayIdStr, matches: awayRes.matches || [], form: awayRes.form });
+        if (h2hRes?.matches) setH2HMatches(h2hRes.matches || []);
       } catch (err) {
         console.error('Error fetching team form:', err);
       } finally {
@@ -140,7 +140,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
       }
     }
     fetchForm();
-  }, [match.teams?.home?.id, match.teams?.away?.id, match.league?.name]);
+  }, [match.teams?.home?.name, match.teams?.away?.name]);
 
   // Extract statistics from match.statistics array if available
   const homeStats = {
@@ -978,13 +978,18 @@ function UnifiedPreviousGames({
 
   const homeName = match.teams?.home?.name || 'Home';
   const awayName = match.teams?.away?.name || 'Away';
-  const homeTeamId = String(match.teams?.home?.id || '');
-  const awayTeamId = String(match.teams?.away?.id || '');
+  const homeTeamId = homeForm?.teamId || String(match.teams?.home?.id || '');
+  const awayTeamId = awayForm?.teamId || String(match.teams?.away?.id || '');
+  const homeNameLower = homeName.toLowerCase();
 
-  // Compute H2H summary
+  // Compute H2H summary — use name matching since TheSportsDB uses tsdb_* IDs
   let homeWins = 0, awayWins = 0, draws = 0;
   h2hMatches.forEach(m => {
-    const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
+    // Determine if current home team is listed as home in this historical match
+    const mHomeNameLower = m.home_team_name.toLowerCase();
+    const isCurrentHomeAtHome =
+      mHomeNameLower.includes(homeNameLower.split(' ')[0].toLowerCase()) ||
+      homeNameLower.includes(mHomeNameLower.split(' ')[0].toLowerCase());
     if (m.home_score > m.away_score) {
       if (isCurrentHomeAtHome) homeWins++; else awayWins++;
     } else if (m.away_score > m.home_score) {
@@ -994,11 +999,13 @@ function UnifiedPreviousGames({
     }
   });
 
+  const [h2hShowAll, setH2hShowAll] = useState(false);
+
   // Get matches for current tab
   const getDisplayMatches = (): RecentMatchData[] => {
-    if (activeSection === 'h2h') return h2hMatches.slice(0, 10);
-    if (activeSection === 'home') return homeForm?.matches?.slice(0, 5) || [];
-    return awayForm?.matches?.slice(0, 5) || [];
+    if (activeSection === 'h2h') return h2hShowAll ? h2hMatches : h2hMatches.slice(0, 10);
+    if (activeSection === 'home') return homeForm?.matches?.slice(0, 10) || [];
+    return awayForm?.matches?.slice(0, 10) || [];
   };
 
   const getActiveTeamId = (): string => {
@@ -1142,13 +1149,19 @@ function UnifiedPreviousGames({
             const isExpanded = expandedMatchId === matchKey;
 
             if (activeSection === 'h2h') {
-              // H2H row: show both teams with scores
-              const isCurrentHomeAtHome = String(m.home_team_id) === homeTeamId;
-              const homeTeamWon = isCurrentHomeAtHome
-                ? m.home_score > m.away_score
-                : m.away_score > m.home_score;
-              const awayTeamWon = !homeTeamWon && m.home_score !== m.away_score;
-              const isDraw = m.home_score === m.away_score;
+              // H2H row: use name matching (TheSportsDB uses tsdb_* IDs, not ESPN IDs)
+              const mHomeNameLower = m.home_team_name.toLowerCase();
+              const isCurrentHomeAtHome =
+                mHomeNameLower.includes(homeNameLower.split(' ')[0]) ||
+                homeNameLower.includes(mHomeNameLower.split(' ')[0]);
+              const homeScore = isCurrentHomeAtHome ? m.home_score : m.away_score;
+              const awayScore = isCurrentHomeAtHome ? m.away_score : m.home_score;
+              const homeTeamWon = homeScore > awayScore;
+              const awayTeamWon = awayScore > homeScore;
+              const isDraw = homeScore === awayScore;
+              // season/round info from TheSportsDB (stored in raw_data or league field)
+              const seasonInfo = (m as any).season ? (m as any).season : '';
+              const roundInfo = (m as any).round ? `R${(m as any).round}` : '';
 
               return (
                 <div key={matchKey}>
@@ -1158,27 +1171,28 @@ function UnifiedPreviousGames({
                       isExpanded ? 'bg-white/10' : 'hover:bg-white/5'
                     }`}
                   >
-                    <span className="text-[9px] text-text-muted w-[50px] shrink-0">
-                      {m.league || ''}
-                    </span>
+                    <div className="text-[9px] text-text-muted w-[55px] shrink-0 leading-tight">
+                      <div className="truncate">{m.league || ''}</div>
+                      {(seasonInfo || roundInfo) && (
+                        <div className="opacity-60">{[seasonInfo, roundInfo].filter(Boolean).join(' ')}</div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0 text-right truncate">
                       <span className={homeTeamWon ? 'text-accent-green font-bold' : 'text-white'}>
-                        {isCurrentHomeAtHome ? homeName : awayName}
+                        {m.home_team_name}
                       </span>
                     </div>
-                    <span className={`font-bold text-xs px-2 shrink-0 ${
+                    <span className={`font-bold text-xs px-2 shrink-0 tabular-nums ${
                       isDraw ? 'text-accent-yellow' : homeTeamWon ? 'text-accent-cyan' : 'text-accent-blue'
                     }`}>
-                      {isCurrentHomeAtHome ? m.home_score : m.away_score}
-                      {' - '}
-                      {isCurrentHomeAtHome ? m.away_score : m.home_score}
+                      {homeScore} - {awayScore}
                     </span>
                     <div className="flex-1 min-w-0 truncate">
                       <span className={awayTeamWon ? 'text-accent-green font-bold' : 'text-white'}>
-                        {isCurrentHomeAtHome ? awayName : homeName}
+                        {m.away_team_name}
                       </span>
                     </div>
-                    <span className="text-[10px] text-text-muted shrink-0 w-[50px] text-right">
+                    <span className="text-[10px] text-text-muted shrink-0 w-[46px] text-right">
                       {formatDate(m.date)}
                     </span>
                   </div>
@@ -1226,6 +1240,19 @@ function UnifiedPreviousGames({
           })
         )}
       </div>
+
+      {/* Show more / less for H2H */}
+      {activeSection === 'h2h' && h2hMatches.length > 10 && (
+        <button
+          type="button"
+          onClick={() => setH2hShowAll(v => !v)}
+          className="w-full py-2 text-[11px] text-text-muted hover:text-white border-t border-white/8 transition"
+        >
+          {h2hShowAll
+            ? `Show less (${h2hMatches.length} total)`
+            : `Show all ${h2hMatches.length} meetings`}
+        </button>
+      )}
     </div>
   );
 }
