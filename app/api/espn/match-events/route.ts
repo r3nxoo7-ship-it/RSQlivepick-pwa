@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LEAGUE_NAME_TO_CODE } from '@/lib/espn-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,24 +18,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Map league display names to ESPN codes
-    const leagueMap: Record<string, string> = {
-      'Premier League': 'eng.1',
-      'La Liga': 'esp.1',
-      'Serie A': 'ita.1',
-      'Bundesliga': 'ger.1',
-      'Ligue 1': 'fra.1',
-      'MLS': 'usa.1',
-      'Champions League': 'uefa.champions',
-      'Europa League': 'uefa.europa',
-      'Turkish Super Lig': 'tur.1',
-      'Super Lig': 'tur.1',
-      'Eredivisie': 'ned.1',
-      'Primeira Liga': 'por.1',
-      'Scottish Premiership': 'sco.1',
-    };
-
-    const leagueCode = leagueMap[league] || league;
+    // Map league display names to ESPN codes (full list from espn-api.ts)
+    const leagueCode = LEAGUE_NAME_TO_CODE[league] || league;
 
     const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventId}`;
     const controller = new AbortController();
