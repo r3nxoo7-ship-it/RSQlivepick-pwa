@@ -56,9 +56,12 @@ export async function GET(request: NextRequest) {
         awayFouls: parsed.away['foulsCommitted'] || 0,
         homeOffsides: parsed.home['offsides'] || 0,
         awayOffsides: parsed.away['offsides'] || 0,
+        // Halftime scores from linescores (period 1)
+        homeHalfScore: parsed.homeHalfScore,
+        awayHalfScore: parsed.awayHalfScore,
       };
 
-      const hasAnyStats = Object.values(stats).some(v => v > 0);
+      const hasAnyStats = Object.values(stats).some(v => v != null && v > 0);
       return hasAnyStats ? { league: leagueCode, stats } : null;
     } catch {
       return null;

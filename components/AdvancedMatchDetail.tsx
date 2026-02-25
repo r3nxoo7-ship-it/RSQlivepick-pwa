@@ -915,6 +915,12 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
     );
   }
 
+  const hasHalftime = stats.homeHalfScore != null && stats.awayHalfScore != null;
+  const h1Home = stats.homeHalfScore ?? 0;
+  const h1Away = stats.awayHalfScore ?? 0;
+  const h2Home = Math.max(0, (match.home_score || 0) - h1Home);
+  const h2Away = Math.max(0, (match.away_score || 0) - h1Away);
+
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
@@ -922,14 +928,22 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
       exit={{ opacity: 0, height: 0 }}
       className="rounded-b px-3 py-3 mb-1 space-y-2 bg-[rgba(15,23,42,0.6)]"
     >
-      {/* Match header */}
-      <div className="flex items-center justify-between text-[10px] text-text-muted mb-2">
-        <span className="truncate">{match.home_team_name}</span>
-        <span className="font-bold text-white text-xs px-2">{match.home_score} - {match.away_score}</span>
-        <span className="truncate text-right">{match.away_team_name}</span>
+      {/* Score + halftime breakdown */}
+      <div className="flex items-center justify-between text-[10px] text-text-muted mb-1">
+        <span className="truncate font-medium">{match.home_team_name}</span>
+        <div className="flex flex-col items-center gap-0.5 px-2">
+          <span className="font-bold text-white text-xs">{match.home_score} - {match.away_score}</span>
+          {hasHalftime && (
+            <div className="flex gap-2 text-[9px] text-text-muted">
+              <span className="text-accent-cyan/70">1H: {h1Home}-{h1Away}</span>
+              <span>2H: {h2Home}-{h2Away}</span>
+            </div>
+          )}
+        </div>
+        <span className="truncate text-right font-medium">{match.away_team_name}</span>
       </div>
 
-      {/* Stats rows */}
+      {/* Full-match stats (ESPN doesn't provide per-half breakdown for these) */}
       {stats.homePoss > 0 && <MiniStatRow label="Possession" home={stats.homePoss} away={stats.awayPoss} unit="%" />}
       {(stats.homeSoT > 0 || stats.awaySoT > 0) && <MiniStatRow label="On Target" home={stats.homeSoT} away={stats.awaySoT} />}
       {(stats.homeShots > 0 || stats.awayShots > 0) && <MiniStatRow label="Total Shots" home={stats.homeShots} away={stats.awayShots} />}

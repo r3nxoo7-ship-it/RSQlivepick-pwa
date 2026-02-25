@@ -26,6 +26,9 @@ export interface ESPNMatch {
   awayScore?: number;
   homeGoals?: number;
   awayGoals?: number;
+  // Halftime scores (from linescores in ESPN summary)
+  homeHalfScore?: number;
+  awayHalfScore?: number;
   homeCorners?: number;
   awayCorners?: number;
   homeShotsOnTarget?: number;
@@ -615,21 +618,48 @@ export function parseSummaryStats(
   summary: Record<string, any>,
   homeTeamId: string,
   awayTeamId: string
-): { home: Record<string, number>; away: Record<string, number> } {
-  const result = { home: {} as Record<string, number>, away: {} as Record<string, number> };
-  const teams = summary?.boxscore?.teams || [];
+): {
+  home: Record<string, number>;
+  away: Record<string, number>;
+  homeHalfScore?: number;
+  awayHalfScore?: number;
+} {
+  const result: {
+    home: Record<string, number>;
+    away: Record<string, number>;
+    homeHalfScore?: number;
+    awayHalfScore?: number;
+  } = { home: {}, away: {} };
 
+  // --- Full-match statistics from boxscore ---
+  const teams = summary?.boxscore?.teams || [];
   for (const [idx, teamData] of teams.entries()) {
     const teamId = teamData.team?.id;
-    const homeAway = teamData.homeAway; // ESPN sometimes has this field
+    const homeAway = teamData.homeAway;
     const isHome = homeTeamId ? String(teamId) === String(homeTeamId) : (homeAway === 'home' || idx === 0);
     const isAway = awayTeamId ? String(teamId) === String(awayTeamId) : (homeAway === 'away' || idx === 1);
     const target = isHome ? result.home : isAway ? result.away : null;
     if (!target) continue;
-
     for (const stat of teamData.statistics || []) {
       const val = parseFloat(stat.displayValue || stat.value) || 0;
       target[stat.name] = val;
+    }
+  }
+
+  // --- Halftime scores from linescores ---
+  // ESPN summary header.competitions[0].competitors[].linescores[]
+  // linescores[0] = period 1 (1st half), linescores[1] = period 2 (2nd half)
+  const competitors: any[] = summary?.header?.competitions?.[0]?.competitors || [];
+  for (const comp of competitors) {
+    const compId = comp.team?.id;
+    const homeAway = comp.homeAway;
+    const isHome = homeTeamId ? String(compId) === String(homeTeamId) : homeAway === 'home';
+    const isAway = awayTeamId ? String(compId) === String(awayTeamId) : homeAway === 'away';
+    const linescores: any[] = comp.linescores || [];
+    const halfScore = linescores[0] != null ? (parseFloat(linescores[0].value) || 0) : undefined;
+    if (halfScore !== undefined) {
+      if (isHome) result.homeHalfScore = halfScore;
+      if (isAway) result.awayHalfScore = halfScore;
     }
   }
 
@@ -647,6 +677,8 @@ export function enrichMatchWithSummary(
 
   return {
     ...match,
+    homeHalfScore: stats.homeHalfScore ?? match.homeHalfScore,
+    awayHalfScore: stats.awayHalfScore ?? match.awayHalfScore,
     homeCorners: stats.home['wonCorners'] || match.homeCorners || 0,
     awayCorners: stats.away['wonCorners'] || match.awayCorners || 0,
     homeShotsOnTarget: stats.home['shotsOnTarget'] || match.homeShotsOnTarget || 0,

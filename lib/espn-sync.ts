@@ -1033,8 +1033,9 @@ export function convertESPNMatchToLiveMatch(row: any): any {
     },
     score: {
       halftime: {
-        home: null,
-        away: null,
+        // ESPN linescores stored in raw_data.homeHalfScore / awayHalfScore by enrichMatchWithSummary
+        home: row.raw_data?.homeHalfScore ?? null,
+        away: row.raw_data?.awayHalfScore ?? null,
       },
       fulltime: {
         home: row.home_score || null,
