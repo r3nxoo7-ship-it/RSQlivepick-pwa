@@ -113,10 +113,33 @@ function poissonPDF(k: number, lambda: number): number {
     if (n <= 1) return 1;
     return n * javaFactorial(n - 1);
   };
-  
+
   const numerator = Math.pow(lambda, k) * Math.exp(-lambda);
   const denominator = javaFactorial(k);
   return numerator / denominator;
+}
+
+/**
+ * Poisson CDF: P(X <= k) = sum of P(X=i) for i=0..k
+ * Used to derive "over N" probabilities from H2H average goals
+ */
+function poissonCDF(k: number, lambda: number): number {
+  let cdf = 0;
+  for (let i = 0; i <= k; i++) {
+    cdf += poissonPDF(i, lambda);
+  }
+  return Math.min(1, cdf);
+}
+
+/**
+ * Convert H2H average goals into over/under probabilities (continuous, not binary).
+ * Returns P(goals > threshold) based on historical average using Poisson CDF.
+ * Falls back to neutral 50% when insufficient H2H data.
+ */
+function h2hToOverProb(avgGoals: number, threshold: number, h2hMatches: number): number {
+  if (h2hMatches < 3) return 50; // too few meetings to trust
+  const prob = (1 - poissonCDF(Math.floor(threshold), avgGoals)) * 100;
+  return Math.round(Math.max(5, Math.min(95, prob)));
 }
 
 /**
@@ -355,44 +378,69 @@ export function predictYellowCards(context: MatchContext): {
 // ============================================
 
 /**
- * Blend model prediction with implied odds probability
- * Formula: 0.4*model + 0.4*odds + 0.2*h2h_pattern
+ * Blend model prediction with implied odds + H2H pattern.
+ * Weights are dynamic based on data quality:
+ *  - Good form + good H2H: 45% form, 35% odds, 20% H2H
+ *  - No form data (new leagues): 20% form, 30% odds, 50% H2H (lean on history)
+ *  - No H2H data: 55% form, 45% odds, 0% H2H
+ *  - Neither: 50% odds, 50% form-defaults
  */
 export function blendPredictions(
   modelProbability: number,
   impliedOddsProbability: number,
   h2hProbability: number = 50,
-  confidence: number = 75
+  confidence: number = 75,
+  dataWeights?: { formMatches: number; h2hMatches: number }
 ): {
   blended: number;
   confidence: number;
   reasoning: string;
 } {
-  const blended = (
-    modelProbability * 0.4 +
-    impliedOddsProbability * 0.4 +
-    h2hProbability * 0.2
-  );
-  
-  // Confidence increases if sources agree
+  const formMatches = dataWeights?.formMatches ?? 10;
+  const h2hMatches = dataWeights?.h2hMatches ?? 5;
+
+  const hasGoodForm = formMatches >= 5;
+  const hasGoodH2H  = h2hMatches >= 3;
+
+  let wModel: number, wOdds: number, wH2H: number;
+  if (hasGoodForm && hasGoodH2H) {
+    // Both sources available — balanced, slight form preference
+    wModel = 0.45; wOdds = 0.35; wH2H = 0.20;
+  } else if (hasGoodForm && !hasGoodH2H) {
+    // Form only — ignore H2H, boost form
+    wModel = 0.55; wOdds = 0.45; wH2H = 0.00;
+  } else if (!hasGoodForm && hasGoodH2H) {
+    // New league / no recent data — lean heavily on H2H history
+    wModel = 0.20; wOdds = 0.30; wH2H = 0.50;
+  } else {
+    // Neither — split evenly between model defaults and odds
+    wModel = 0.50; wOdds = 0.50; wH2H = 0.00;
+  }
+
+  const blended = modelProbability * wModel + impliedOddsProbability * wOdds + h2hProbability * wH2H;
+
+  // Confidence: penalise when form & H2H disagree strongly
   const maxDiff = Math.max(
     Math.abs(modelProbability - impliedOddsProbability),
     Math.abs(modelProbability - h2hProbability),
     Math.abs(impliedOddsProbability - h2hProbability)
   );
-  
-  const agreementBonus = Math.max(0, 25 - (maxDiff / 10)); // ±25% swing based on disagreement
+  const agreementBonus = Math.max(0, 25 - maxDiff / 10);
   const finalConfidence = Math.min(100, confidence + agreementBonus);
-  
+
   let reasoning = '';
-  if (modelProbability > impliedOddsProbability + 10) {
-    reasoning = 'Model suggests value vs market odds';
+  if (!hasGoodForm && hasGoodH2H) {
+    reasoning = `H2H history dominates (${h2hMatches} meetings, limited recent form)`;
+  } else if (hasGoodForm && !hasGoodH2H) {
+    reasoning = `Recent form dominates (${formMatches} matches, no H2H data)`;
+  } else if (modelProbability > impliedOddsProbability + 10) {
+    reasoning = 'Recent form suggests value vs market odds';
   } else if (impliedOddsProbability > modelProbability + 10) {
-    reasoning = 'Market odds suggest value bet';
+    reasoning = 'Market odds suggest value';
   } else {
-    reasoning = 'Model and odds agree';
+    reasoning = 'Form and H2H agree';
   }
-  
+
   return {
     blended: Math.round(blended),
     confidence: Math.round(finalConfidence),
@@ -420,23 +468,41 @@ export function generateFullPredictions(
   const bttsResults = predictBTTS(context);
   const cornersResults = predictCorners(context);
   const cardsResults = predictYellowCards(context);
-  
-  // Get H2H probabilities for blending
-  const h2hOverUnderProb = (context.h2hStats.avgGoalsHome + context.h2hStats.avgGoalsAway) > 2.5 ? 65 : 35;
-  
-  // Blend each market
+
+  // Data availability metadata — drives dynamic blend weights
+  const formMatches = Math.min(context.homeTeam.matchesAnalyzed, context.awayTeam.matchesAnalyzed);
+  const h2hMatches  = context.h2hStats.totalMatches;
+  const dataWeights = { formMatches, h2hMatches };
+
+  // Continuous H2H goal probabilities (Poisson CDF, not binary 65/35)
+  const h2hTotalGoals = context.h2hStats.avgGoalsHome + context.h2hStats.avgGoalsAway;
+  const h2hOver1_5Prob = h2hToOverProb(h2hTotalGoals, 1, h2hMatches);
+  const h2hOver2_5Prob = h2hToOverProb(h2hTotalGoals, 2, h2hMatches);
+  const h2hBTTSProb    = Math.round(context.h2hStats.bttsFrequency * 100);
+
+  // Blend each market with dynamic weights
   const over1_5_Full = blendPredictions(
     fullMatchGoals.over1_5,
-    (context.impliedOdds.over1_5 * 100),
-    h2hOverUnderProb,
-    80
+    context.impliedOdds.over1_5 * 100,
+    h2hOver1_5Prob,
+    80,
+    dataWeights
   );
-  
+
+  const over2_5_Full = blendPredictions(
+    fullMatchGoals.over2_5,
+    context.impliedOdds.over2_5 * 100,
+    h2hOver2_5Prob,
+    70,
+    dataWeights
+  );
+
   const bttsBlended = blendPredictions(
     bttsResults.yes,
-    (context.impliedOdds.bttsYes * 100),
-    ((context.h2hStats.bttsFrequency) * 100),
-    85
+    context.impliedOdds.bttsYes * 100,
+    h2hBTTSProb,
+    85,
+    dataWeights
   );
   
   return {
@@ -475,9 +541,9 @@ export function generateFullPredictions(
         },
         over2_5: {
           market: 'Over 2.5 Goals',
-          probability: fullMatchGoals.over2_5,
-          confidence: 65,
-          reasoning: `H2H average: ${context.h2hStats.avgGoalsHome + context.h2hStats.avgGoalsAway} goals`,
+          probability: over2_5_Full.blended,
+          confidence: over2_5_Full.confidence,
+          reasoning: over2_5_Full.reasoning,
         },
       },
       btts: {
@@ -517,12 +583,17 @@ export function generateFullPredictions(
         },
       },
     },
-    overallConfidence: 75,
+    overallConfidence: Math.round((over1_5_Full.confidence + bttsBlended.confidence) / 2),
     bestValue: [
       {
         market: 'Over 1.5 Goals',
         probability: over1_5_Full.blended,
-        reason: 'Model slightly favors over vs market odds',
+        reason: over1_5_Full.reasoning,
+      },
+      {
+        market: 'BTTS Yes',
+        probability: bttsBlended.blended,
+        reason: bttsBlended.reasoning,
       },
     ],
   };
