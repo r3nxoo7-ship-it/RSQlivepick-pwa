@@ -20,6 +20,7 @@ import {
 } from '@/lib/prediction-data-aggregation';
 import { getMatchStats, convertESPNMatchToLiveMatch, getTeamRecentMatches } from '@/lib/espn-sync';
 import { getTeamSchedule } from '@/lib/espn-api';
+import { findBzzoiroPrediction, type BzzoiroMatchedPrediction } from '@/lib/bzzoiro';
 
 export const dynamic = 'force-dynamic';
 
@@ -193,7 +194,7 @@ export async function GET(
       sourceAgreement: h2hData.length > 2 ? 80 : 60, // Higher if good H2H data
     });
 
-    // 6. Generate predictions
+    // 6. Generate base predictions (Poisson + H2H engine)
     const predictions = generateFullPredictions(
       parseInt(fixtureId),
       homeTeamName,
@@ -202,21 +203,93 @@ export async function GET(
       new Date(match.fixture?.date || new Date())
     );
 
+    // 7. Fetch Bzzoiro ML predictions and override markets where available
+    let bzzoiro: BzzoiroMatchedPrediction | null = null;
+    try {
+      const bzzoiroRes = await fetch(
+        `${baseUrl}/api/bzzoiro/predictions`,
+        { signal: AbortSignal.timeout(4000) }
+      ).then(r => r.ok ? r.json() : null).catch(() => null);
+
+      if (bzzoiroRes?.predictions?.length) {
+        bzzoiro = findBzzoiroPrediction(
+          homeTeamName,
+          awayTeamName,
+          bzzoiroRes.predictions,
+          match.fixture?.date,
+        );
+        if (bzzoiro) {
+          console.log(`[Predictions] Bzzoiro match found for ${homeTeamName} vs ${awayTeamName} (score: ${bzzoiro.matchScore?.toFixed(2)}, confidence: ${bzzoiro.confidence})`);
+        }
+      }
+    } catch {
+      // Bzzoiro is optional enrichment — never block the response
+    }
+
+    // Override Poisson-computed markets with Bzzoiro ML probabilities
+    // confidence is already 0-1 (normalized in lib/bzzoiro.ts)
+    // Bzzoiro covers: over1_5, over2_5, btts_yes — local engine keeps corners, cards, 1st half
+    if (bzzoiro && bzzoiro.confidence >= 0.45) {
+      // Use confidence as blend weight: e.g. 0.75 confidence → 75% Bzzoiro, 25% Poisson
+      const w = bzzoiro.confidence;
+      const wPct = Math.round(w * 100);
+
+      // Blend: Bzzoiro * w + local * (1-w)
+      const blend = (bzzoiroProb: number, localProb: number) =>
+        Math.round(bzzoiroProb * w + localProb * (1 - w));
+
+      predictions.predictions.fullMatch.over1_5.probability = blend(
+        bzzoiro.prob_over_15,
+        predictions.predictions.fullMatch.over1_5.probability
+      );
+      predictions.predictions.fullMatch.over1_5.reasoning =
+        `Bzzoiro ML (${wPct}% weight) + Poisson blend`;
+
+      predictions.predictions.fullMatch.over2_5.probability = blend(
+        bzzoiro.prob_over_25,
+        predictions.predictions.fullMatch.over2_5.probability
+      );
+      predictions.predictions.fullMatch.over2_5.reasoning =
+        `Bzzoiro ML (${wPct}% weight) + Poisson blend`;
+
+      predictions.predictions.btts.yes.probability = blend(
+        bzzoiro.prob_btts_yes,
+        predictions.predictions.btts.yes.probability
+      );
+      predictions.predictions.btts.yes.reasoning =
+        `Bzzoiro ML (${wPct}% weight) + Poisson blend`;
+
+      // Boost overall confidence
+      predictions.overallConfidence = Math.min(95, predictions.overallConfidence + (w >= 0.7 ? 10 : 5));
+    }
+
     // Attach data quality info
+    const dataSources = [
+      homeDBMatches.length >= 4 ? 'Supabase DB (home form)' : 'ESPN API (home form)',
+      awayDBMatches.length >= 4 ? 'Supabase DB (away form)' : 'ESPN API (away form)',
+      h2hData.length > 2 ? 'TheSportsDB H2H' : 'ESPN H2H fallback',
+      ...(bzzoiro ? [`Bzzoiro ML (confidence: ${Math.round(bzzoiro.confidence * 100)}%)`] : []),
+    ];
+
     const response = {
       ...predictions,
       overallConfidence: Math.round((confidenceScore + predictions.overallConfidence) / 2),
+      // Bzzoiro 1X2 predictions attached directly (new fields, not in FullPredictions type)
+      bzzoiro: bzzoiro ? {
+        prob_home_win: bzzoiro.prob_home_win,
+        prob_draw: bzzoiro.prob_draw,
+        prob_away_win: bzzoiro.prob_away_win,
+        predicted_result: bzzoiro.predicted_result,
+        confidence: bzzoiro.confidence,
+        model_version: bzzoiro.model_version,
+      } : null,
       dataQuality: {
         quality: quality.quality,
         warnings: quality.warnings,
         homeFormMatches: context.homeTeam.matchesAnalyzed,
         awayFormMatches: context.awayTeam.matchesAnalyzed,
         h2hMatches: context.h2hStats.totalMatches,
-        dataSources: [
-          homeDBMatches.length >= 4 ? 'Supabase DB (home form)' : 'ESPN API (home form)',
-          awayDBMatches.length >= 4 ? 'Supabase DB (away form)' : 'ESPN API (away form)',
-          h2hData.length > 2 ? 'TheSportsDB H2H' : 'ESPN H2H fallback',
-        ],
+        dataSources,
       },
     };
 

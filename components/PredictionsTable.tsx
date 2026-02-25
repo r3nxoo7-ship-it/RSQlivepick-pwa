@@ -1,15 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Cpu } from 'lucide-react';
 import type { LiveMatch } from '@/lib/unified-api';
 import type { FullPredictions } from '@/lib/prediction-engine';
+
+interface BzzoiroData {
+  prob_home_win: number;
+  prob_draw: number;
+  prob_away_win: number;
+  predicted_result: 'H' | 'D' | 'A';
+  confidence: number;
+  model_version: string;
+}
+
+interface PredictionResponse extends FullPredictions {
+  bzzoiro?: BzzoiroData | null;
+}
 
 interface PredictionsTableProps {
   matches: LiveMatch[];
 }
 
-const MARKET_GROUPS = [
+// Poisson-engine markets (existing)
+const POISSON_GROUPS = [
   {
     group: 'Goals',
     markets: [
@@ -42,14 +56,28 @@ const MARKET_GROUPS = [
   },
 ];
 
-const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets);
+// Bzzoiro 1X2 columns (shown first, before Poisson markets)
+const ML_GROUPS = [
+  {
+    group: '1X2 ML',
+    markets: [
+      { key: 'bzzoiro.prob_home_win', label: '1' },
+      { key: 'bzzoiro.prob_draw',     label: 'X' },
+      { key: 'bzzoiro.prob_away_win', label: '2' },
+    ],
+  },
+];
 
-function getPredictionValue(
-  predictions: FullPredictions['predictions'],
-  key: string
-): number | null {
+function getPredictionValue(pred: PredictionResponse, key: string): number | null {
+  // Bzzoiro fields: bzzoiro.prob_home_win etc.
+  if (key.startsWith('bzzoiro.')) {
+    const field = key.slice('bzzoiro.'.length) as keyof BzzoiroData;
+    const val = pred.bzzoiro?.[field];
+    return typeof val === 'number' ? val : null;
+  }
+  // Poisson engine fields: fullMatch.over2_5.probability etc.
   const parts = key.split('.');
-  let current: any = predictions;
+  let current: any = pred.predictions;
   for (const part of parts) {
     if (!current || typeof current !== 'object') return null;
     current = current[part];
@@ -68,10 +96,22 @@ function getProbStyle(prob: number): string {
   return 'bg-red-500/10 text-red-400';
 }
 
+function ConfidenceDot({ confidence }: { confidence: number }) {
+  const pct = Math.round(confidence * 100);
+  const color =
+    pct >= 70 ? 'bg-green-400' :
+    pct >= 50 ? 'bg-amber-400' :
+    'bg-red-400';
+  return (
+    <span
+      title={`ML confidence: ${pct}%`}
+      className={`inline-block w-1.5 h-1.5 rounded-full ${color} ml-1 shrink-0`}
+    />
+  );
+}
+
 export default function PredictionsTable({ matches }: PredictionsTableProps) {
-  const [predictions, setPredictions] = useState<
-    Map<number, FullPredictions>
-  >(new Map());
+  const [predictions, setPredictions] = useState<Map<number, PredictionResponse>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadedCount, setLoadedCount] = useState(0);
 
@@ -86,9 +126,8 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
 
     async function fetchAll() {
       setLoading(true);
-      const results = new Map<number, FullPredictions>();
+      const results = new Map<number, PredictionResponse>();
 
-      // Fetch in batches of 5 to avoid overwhelming the API
       const batchSize = 5;
       for (let i = 0; i < matches.length; i += batchSize) {
         if (controller.signal.aborted) break;
@@ -97,16 +136,13 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
         const promises = batch.map(async (match) => {
           const fixtureId = match.fixture?.id;
           if (!fixtureId) return;
-
           try {
             const res = await fetch(`/api/predictions/match/${fixtureId}`, {
               signal: controller.signal,
             });
             if (res.ok) {
-              const data = await res.json();
+              const data: PredictionResponse = await res.json();
               results.set(fixtureId, data);
-            } else {
-              console.warn(`[Predictions] Failed for fixture ${fixtureId}: ${res.status}`);
             }
           } catch (err: any) {
             if (err?.name !== 'AbortError') {
@@ -118,7 +154,6 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
         });
 
         await Promise.allSettled(promises);
-        // Update progressively
         setPredictions(new Map(results));
       }
 
@@ -126,7 +161,6 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
     }
 
     fetchAll();
-
     return () => controller.abort();
   }, [matches]);
 
@@ -141,6 +175,11 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
     );
   }
 
+  const ALL_GROUPS = [...ML_GROUPS, ...POISSON_GROUPS];
+
+  // Count matches that have Bzzoiro data loaded
+  const mlCount = [...predictions.values()].filter(p => p.bzzoiro).length;
+
   return (
     <div className="glass-card overflow-hidden">
       <div className="p-4 border-b border-glass-lighter flex items-center justify-between">
@@ -148,11 +187,19 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
           <TrendingUp className="w-5 h-5 text-accent-cyan" />
           Today&apos;s Predictions
         </h3>
-        {loading && (
-          <span className="text-xs text-text-muted">
-            Loading {loadedCount}/{matches.length}...
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {mlCount > 0 && (
+            <span className="flex items-center gap-1 text-[10px] text-accent-cyan bg-accent-cyan/10 px-2 py-0.5 rounded-full font-semibold">
+              <Cpu className="w-3 h-3" />
+              ML: {mlCount}/{predictions.size}
+            </span>
+          )}
+          {loading && (
+            <span className="text-xs text-text-muted">
+              {loadedCount}/{matches.length}...
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -160,14 +207,22 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
           <thead>
             {/* Group headers */}
             <tr className="border-b border-glass-lighter">
-              <th className="sticky left-0 z-10 bg-[#0f1729] px-3 py-2 text-left text-xs text-text-muted font-normal" />
-              {MARKET_GROUPS.map((g) => (
+              <th className="sticky left-0 z-10 bg-[#0f1729] px-3 py-2 text-left text-xs text-text-muted font-normal" scope="col" aria-label="Match" />
+              {ALL_GROUPS.map((g) => (
                 <th
                   key={g.group}
                   colSpan={g.markets.length}
-                  className="px-2 py-2 text-center text-[11px] font-bold text-accent-cyan uppercase tracking-wider border-l border-glass-medium"
+                  className={`px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider border-l border-glass-medium ${
+                    g.group === '1X2 ML'
+                      ? 'text-accent-cyan bg-accent-cyan/5'
+                      : 'text-text-secondary'
+                  }`}
                 >
-                  {g.group}
+                  {g.group === '1X2 ML' ? (
+                    <span className="flex items-center justify-center gap-1">
+                      <Cpu className="w-3 h-3" /> 1X2
+                    </span>
+                  ) : g.group}
                 </th>
               ))}
             </tr>
@@ -176,13 +231,13 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
               <th className="sticky left-0 z-10 bg-[#0f1729] px-3 py-2 text-left text-xs text-text-muted font-semibold min-w-[170px]">
                 Match
               </th>
-              {MARKET_GROUPS.map((g) =>
+              {ALL_GROUPS.map((g) =>
                 g.markets.map((m, idx) => (
                   <th
                     key={m.key}
-                    className={`px-2 py-1.5 text-center text-[11px] text-text-secondary font-bold min-w-[48px] ${
+                    className={`px-2 py-1.5 text-center text-[11px] font-bold min-w-[44px] ${
                       idx === 0 ? 'border-l border-glass-medium' : ''
-                    }`}
+                    } ${g.group === '1X2 ML' ? 'text-accent-cyan' : 'text-text-secondary'}`}
                   >
                     {m.label}
                   </th>
@@ -202,6 +257,7 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
                     minute: '2-digit',
                   })
                 : '';
+              const hasBzzoiro = !!pred?.bzzoiro;
 
               return (
                 <tr
@@ -210,11 +266,14 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
                 >
                   {/* Match info - sticky */}
                   <td className="sticky left-0 z-10 bg-[#0f1729] px-3 py-2.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white text-xs truncate">
+                        <p className="font-semibold text-white text-xs truncate flex items-center gap-1">
                           {match.teams?.home?.name || '?'} vs{' '}
                           {match.teams?.away?.name || '?'}
+                          {hasBzzoiro && (
+                            <ConfidenceDot confidence={pred!.bzzoiro!.confidence} />
+                          )}
                         </p>
                         <p className="text-[10px] text-text-muted truncate">
                           {kickoff && <span className="text-accent-cyan">{kickoff}</span>}
@@ -226,26 +285,23 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
                   </td>
 
                   {/* Market cells */}
-                  {MARKET_GROUPS.map((g) =>
+                  {ALL_GROUPS.map((g) =>
                     g.markets.map((m, idx) => {
-                      const prob = pred
-                        ? getPredictionValue(pred.predictions, m.key)
-                        : null;
+                      const prob = pred ? getPredictionValue(pred, m.key) : null;
+                      const isML = g.group === '1X2 ML';
 
                       return (
                         <td
                           key={m.key}
                           className={`px-1.5 py-2 text-center ${
                             idx === 0 ? 'border-l border-glass-medium' : ''
-                          }`}
+                          } ${isML ? 'bg-accent-cyan/[0.03]' : ''}`}
                         >
                           {isLoading ? (
                             <div className="w-10 h-5 mx-auto rounded bg-glass-light animate-pulse" />
                           ) : prob !== null ? (
                             <span
-                              className={`inline-block min-w-[38px] px-1 py-0.5 rounded text-[11px] font-bold tabular-nums ${getProbStyle(
-                                prob
-                              )}`}
+                              className={`inline-block min-w-[36px] px-1 py-0.5 rounded text-[11px] font-bold tabular-nums ${getProbStyle(prob)}`}
                             >
                               {Math.round(prob)}
                             </span>
@@ -264,7 +320,7 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2.5 border-t border-glass-lighter flex items-center gap-4 text-[10px] text-text-muted">
+      <div className="px-4 py-2.5 border-t border-glass-lighter flex items-center flex-wrap gap-x-4 gap-y-1 text-[10px] text-text-muted">
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-green-500/20" /> High (75+)
         </span>
@@ -274,7 +330,16 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-red-500/10" /> Low (&lt;50)
         </span>
-        <span className="ml-auto italic">Based on team form &amp; recent results</span>
+        <span className="flex items-center gap-1 ml-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-400" /> ML high
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> ML mid
+        </span>
+        <span className="ml-auto italic">
+          <Cpu className="w-3 h-3 inline mr-1 text-accent-cyan" />
+          1X2 powered by Bzzoiro CatBoost ML
+        </span>
       </div>
     </div>
   );
