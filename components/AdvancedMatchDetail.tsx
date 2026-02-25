@@ -116,20 +116,34 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
       const awayIdStr = match.teams?.away?.id != null ? String(match.teams.away.id) : '';
 
       try {
-        // Parallel: ESPN team form (12-15 matches with stats) + TheSportsDB H2H (20-30 meetings)
-        // ESPN used for form (more matches, includes corners/shots/possession)
-        // TheSportsDB used for H2H (much more historical data than ESPN's 0-1)
-        const [homeRes, awayRes, h2hRes] = await Promise.all([
+        // Round 1: ESPN form (12-15 matches with stats) + TheSportsDB H2H (20-30 meetings) in parallel
+        const [homeEspn, awayEspn, h2hRes] = await Promise.all([
           homeIdStr
-            ? fetch(`/api/espn/team-form?teamId=${homeIdStr}&limit=10`).then(r => r.ok ? r.json() : null)
+            ? fetch(`/api/espn/team-form?teamId=${homeIdStr}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
           awayIdStr
-            ? fetch(`/api/espn/team-form?teamId=${awayIdStr}&limit=10`).then(r => r.ok ? r.json() : null)
+            ? fetch(`/api/espn/team-form?teamId=${awayIdStr}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
           (homeName && awayName)
-            ? fetch(`/api/h2h?home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}&limit=20`).then(r => r.ok ? r.json() : null)
+            ? fetch(`/api/h2h?home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}&limit=20`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
         ]);
+
+        // Round 2: TheSportsDB fallback for teams ESPN doesn't know (new leagues)
+        // Only triggered if ESPN returned 0 matches — adds up to 5 historical matches
+        const needHomeFallback = !homeEspn?.matches?.length && !!homeName;
+        const needAwayFallback = !awayEspn?.matches?.length && !!awayName;
+        const [homeTsdb, awayTsdb] = await Promise.all([
+          needHomeFallback
+            ? fetch(`/api/team-form?team=${encodeURIComponent(homeName)}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
+            : null,
+          needAwayFallback
+            ? fetch(`/api/team-form?team=${encodeURIComponent(awayName)}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
+            : null,
+        ]);
+
+        const homeRes = homeEspn?.matches?.length > 0 ? homeEspn : homeTsdb;
+        const awayRes = awayEspn?.matches?.length > 0 ? awayEspn : awayTsdb;
 
         if (homeRes?.matches?.length > 0) setHomeForm({ teamId: homeRes.teamId || homeIdStr, matches: homeRes.matches, form: homeRes.form });
         if (awayRes?.matches?.length > 0) setAwayForm({ teamId: awayRes.teamId || awayIdStr, matches: awayRes.matches, form: awayRes.form });
