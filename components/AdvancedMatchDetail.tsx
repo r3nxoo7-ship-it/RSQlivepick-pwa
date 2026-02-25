@@ -514,6 +514,7 @@ interface MatchEvent {
   teamId: string | null;
   teamName: string | null;
   player: string | null;
+  playerOut: string | null;
   isScoring: boolean;
   text: string;
 }
@@ -717,11 +718,18 @@ function EventRow({ event, isHome }: { event: MatchEvent; isHome: boolean }) {
           <span className="text-[10px] text-red-400 font-bold leading-none">{'\u25BC'}</span>
         </div>
       );
+      // Show "PlayerIn / PlayerOut" for substitutions
+      if (event.playerOut) {
+        const inName = label.length > 14 ? label.substring(0, 13) + '.' : label;
+        const outName = event.playerOut.length > 14 ? event.playerOut.substring(0, 13) + '.' : event.playerOut;
+        label = inName;
+        extraLabel = `↓ ${outName}`;
+      }
       break;
   }
 
-  // Truncate long names
-  if (label.length > 22) label = label.substring(0, 20) + '..';
+  // Truncate long names (non-sub events)
+  if (event.type !== 'substitution' && label.length > 22) label = label.substring(0, 20) + '..';
 
   return (
     <div className="flex items-center px-4 py-1.5 text-[11px]">

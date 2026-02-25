@@ -54,7 +54,15 @@ export async function GET(request: NextRequest) {
       const period = evt.period?.number || 1;
       const teamId = evt.team?.id ? String(evt.team.id) : null;
       const teamName = evt.team?.displayName || null;
-      const player = evt.participants?.[0]?.athlete?.displayName || null;
+      // For substitutions extract both players (in/out)
+      let player = evt.participants?.[0]?.athlete?.displayName || null;
+      let playerOut: string | null = null;
+      if (eventType === 'substitution' && evt.participants?.length >= 2) {
+        const inP = evt.participants.find((p: any) => p.type?.type === 'subbedIn' || p.type?.name === 'subbedIn');
+        const outP = evt.participants.find((p: any) => p.type?.type === 'subbedOut' || p.type?.name === 'subbedOut');
+        player = inP?.athlete?.displayName || evt.participants[0]?.athlete?.displayName || null;
+        playerOut = outP?.athlete?.displayName || evt.participants[1]?.athlete?.displayName || null;
+      }
 
       events.push({
         minute,
@@ -63,6 +71,7 @@ export async function GET(request: NextRequest) {
         teamId,
         teamName,
         player,
+        playerOut,
         isScoring: evt.scoringPlay || false,
         text: evt.shortText || evt.text || '',
       });
@@ -114,6 +123,7 @@ interface MatchEvent {
   teamId: string | null;
   teamName: string | null;
   player: string | null;
+  playerOut: string | null;
   isScoring: boolean;
   text: string;
 }
