@@ -32,7 +32,9 @@
       "WebFetch(domain:www.football-data.co.uk)",
       "WebFetch(domain:rapidapi.com)",
       "WebFetch(domain:goatscore.com)",
-      "WebFetch(domain:footystats.org)"
+      "WebFetch(domain:footystats.org)",
+      "WebFetch(domain:docs.sportsapipro.com)",
+      "WebFetch(domain:www.postman.com)"
     ]
   }
 }
