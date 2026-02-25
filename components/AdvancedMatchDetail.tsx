@@ -566,9 +566,9 @@ function MomentumSection({
   const hasEvents = events.length > 0;
   const hasStats = match.statistics && match.statistics.length > 0;
 
-  // Filter to key events only (goals, cards, subs - not shots)
+  // Filter to key events only (goals, cards, subs, corners - not shots)
   const keyEvents = events.filter(e =>
-    ['goal', 'penalty-goal', 'own-goal', 'penalty-miss', 'yellow-card', 'red-card', 'substitution'].includes(e.type)
+    ['goal', 'penalty-goal', 'own-goal', 'penalty-miss', 'yellow-card', 'red-card', 'substitution', 'corner'].includes(e.type)
   ).sort((a, b) => a.minute - b.minute);
 
   // Calculate goals by half from events
@@ -710,6 +710,9 @@ function EventRow({ event, isHome }: { event: MatchEvent; isHome: boolean }) {
       break;
     case 'red-card':
       icon = <div className="w-2.5 h-3.5 rounded-[1px] bg-red-500 shadow-sm" />;
+      break;
+    case 'corner':
+      icon = <span className="text-[12px] leading-none">🚩</span>;
       break;
     case 'substitution':
       icon = (

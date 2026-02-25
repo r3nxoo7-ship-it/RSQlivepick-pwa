@@ -138,6 +138,8 @@ function mapEventType(espnType: string): string | null {
     case 'red-card': return 'red-card';
     case 'second-yellow-card': return 'red-card';
     case 'substitution': return 'substitution';
+    case 'corner-kick':
+    case 'corner': return 'corner';
     case 'var': return 'var';
     case 'shot-on-target': return 'shot-on-target';
     case 'shot-off-target': return 'shot-off-target';
