@@ -20,7 +20,7 @@ import {
 } from '@/lib/prediction-data-aggregation';
 import { getMatchStats, convertESPNMatchToLiveMatch, getTeamRecentMatches } from '@/lib/espn-sync';
 import { getTeamSchedule } from '@/lib/espn-api';
-import { findBzzoiroPrediction, type BzzoiroMatchedPrediction } from '@/lib/bzzoiro';
+import { findBzzoiroPrediction, fetchBzzoiroPredictions, type BzzoiroMatchedPrediction } from '@/lib/bzzoiro';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +74,10 @@ export async function GET(
 
     // 2. Fetch team form: Supabase DB first (fast, no external calls, 10 recent completed matches)
     // Fall back to live ESPN schedule only if DB has < 4 matches for this team
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // VERCEL_URL is set automatically by Vercel on all deployments (without https://);
+    // NEXT_PUBLIC_APP_URL overrides it when explicitly configured
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
     // Convert ESPN schedule match → form data (both DB rows and live ESPN matches share same fields)
     const convertDBRowToFormData = (rows: any[]) =>
@@ -203,27 +206,39 @@ export async function GET(
       new Date(match.fixture?.date || new Date())
     );
 
-    // 7. Fetch Bzzoiro ML predictions and override markets where available
+    // 7. Fetch Bzzoiro ML predictions directly (no HTTP round-trip — avoids baseUrl issues on Vercel)
+    // Shares the same 30-min in-memory cache used by /api/bzzoiro/predictions
     let bzzoiro: BzzoiroMatchedPrediction | null = null;
     try {
-      const bzzoiroRes = await fetch(
-        `${baseUrl}/api/bzzoiro/predictions`,
-        { signal: AbortSignal.timeout(4000) }
-      ).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (process.env.BZZOIRO_API_TOKEN) {
+        const BZZOIRO_CACHE_TTL = 30 * 60 * 1000;
+        const globalCache = (global as any).__bzzoiroCache as { data: any[]; fetchedAt: number } | undefined;
+        let bzzoiroPredictions: any[] | null = null;
 
-      if (bzzoiroRes?.predictions?.length) {
-        bzzoiro = findBzzoiroPrediction(
-          homeTeamName,
-          awayTeamName,
-          bzzoiroRes.predictions,
-          match.fixture?.date,
-        );
-        if (bzzoiro) {
-          console.log(`[Predictions] Bzzoiro match found for ${homeTeamName} vs ${awayTeamName} (score: ${bzzoiro.matchScore?.toFixed(2)}, confidence: ${bzzoiro.confidence})`);
+        if (globalCache && Date.now() - globalCache.fetchedAt < BZZOIRO_CACHE_TTL) {
+          bzzoiroPredictions = globalCache.data;
+          console.log(`[Predictions] Bzzoiro: using cached ${bzzoiroPredictions!.length} predictions`);
+        } else {
+          bzzoiroPredictions = await fetchBzzoiroPredictions();
+          (global as any).__bzzoiroCache = { data: bzzoiroPredictions, fetchedAt: Date.now() };
+          console.log(`[Predictions] Bzzoiro: fetched ${bzzoiroPredictions.length} fresh predictions`);
+        }
+
+        if (bzzoiroPredictions?.length) {
+          bzzoiro = findBzzoiroPrediction(
+            homeTeamName,
+            awayTeamName,
+            bzzoiroPredictions,
+            match.fixture?.date,
+          );
+          if (bzzoiro) {
+            console.log(`[Predictions] Bzzoiro match found for ${homeTeamName} vs ${awayTeamName} (score: ${bzzoiro.matchScore?.toFixed(2)}, confidence: ${bzzoiro.confidence})`);
+          }
         }
       }
-    } catch {
+    } catch (e) {
       // Bzzoiro is optional enrichment — never block the response
+      console.warn('[Predictions] Bzzoiro fetch failed (non-fatal):', e instanceof Error ? e.message : e);
     }
 
     // Override Poisson-computed markets with Bzzoiro ML probabilities
