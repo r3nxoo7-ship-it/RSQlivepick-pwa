@@ -168,11 +168,15 @@ function getHeaders(): HeadersInit {
 }
 
 /**
- * Fetch ALL upcoming predictions, handling pagination automatically.
- * Bzzoiro returns ~100 results per page; fetches up to 3 pages (300 predictions).
+ * Fetch ALL upcoming + live predictions, handling pagination automatically.
+ * Upcoming: paginated, up to 3 pages (~300 predictions for future matches)
+ * Live:     single call, returns in-progress matches (so live matches aren't missed)
+ * Both are merged and deduplicated by event_id.
  */
 export async function fetchBzzoiroPredictions(): Promise<BzzoiroPrediction[]> {
-  const all: BzzoiroPrediction[] = [];
+  const byEventId = new Map<number, BzzoiroPrediction>();
+
+  // Fetch upcoming (paginated)
   let url: string | null = `${BASE_URL}/api/predictions/?upcoming=true`;
   let page = 0;
   const MAX_PAGES = 3;
@@ -183,17 +187,33 @@ export async function fetchBzzoiroPredictions(): Promise<BzzoiroPrediction[]> {
       next: { revalidate: 1800 },
     });
     if (!res.ok) throw new Error(`Bzzoiro predictions error: ${res.status}`);
-
     const data: BzzoiroPaginatedResponse = await res.json();
     for (const raw of data.results) {
-      all.push(normalizePrediction(raw));
+      const p = normalizePrediction(raw);
+      byEventId.set(p.event_id, p);
     }
-
     url = data.next;
     page++;
   }
 
-  return all;
+  // Also fetch live matches so predictions for in-progress games aren't missed
+  try {
+    const liveRes = await fetch(`${BASE_URL}/api/predictions/?status=live`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (liveRes.ok) {
+      const liveData: BzzoiroPaginatedResponse = await liveRes.json();
+      for (const raw of liveData.results || []) {
+        const p = normalizePrediction(raw);
+        if (!byEventId.has(p.event_id)) byEventId.set(p.event_id, p);
+      }
+    }
+  } catch {
+    // Live fetch is best-effort — upcoming is enough for pre-match
+  }
+
+  return [...byEventId.values()];
 }
 
 /**
