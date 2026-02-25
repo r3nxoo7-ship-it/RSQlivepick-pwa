@@ -44,7 +44,7 @@ const POISSON_GROUPS = [
     markets: [{ key: 'btts.yes', label: 'Yes' }],
   },
   {
-    group: 'Corners',
+    group: '🚩',
     markets: [
       { key: 'corners.over8', label: '+8' },
       { key: 'corners.over9', label: '+9' },
