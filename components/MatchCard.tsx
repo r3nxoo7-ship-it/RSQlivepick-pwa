@@ -142,7 +142,7 @@ function MatchCard({
             <div className="flex items-center justify-between pt-1 text-[10px]">
               {corners.home + corners.away > 0 && (
                 <div className="flex items-center gap-1">
-                  <span className="text-text-muted">CRN</span>
+                  <span className="text-text-muted">🚩</span>
                   <span className="font-bold text-accent-cyan">{corners.home}</span>
                   <span className="text-text-muted">-</span>
                   <span className="font-bold text-accent-blue">{corners.away}</span>
