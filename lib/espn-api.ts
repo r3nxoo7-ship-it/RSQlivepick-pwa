@@ -650,16 +650,19 @@ export function parseSummaryStats(
   // ESPN summary header.competitions[0].competitors[].linescores[]
   // linescores[0] = period 1 (1st half), linescores[1] = period 2 (2nd half)
   const competitors: any[] = summary?.header?.competitions?.[0]?.competitors || [];
-  for (const comp of competitors) {
+  for (const [idx, comp] of competitors.entries()) {
     const compId = comp.team?.id;
     const homeAway = comp.homeAway;
-    const isHome = homeTeamId ? String(compId) === String(homeTeamId) : homeAway === 'home';
-    const isAway = awayTeamId ? String(compId) === String(awayTeamId) : homeAway === 'away';
+    // Use index fallback (idx 0 = home, idx 1 = away) when team IDs are not provided
+    const isHome = homeTeamId ? String(compId) === String(homeTeamId) : (homeAway === 'home' || idx === 0);
+    const isAway = awayTeamId ? String(compId) === String(awayTeamId) : (homeAway === 'away' || idx === 1);
     const linescores: any[] = comp.linescores || [];
-    const halfScore = linescores[0] != null ? (parseFloat(linescores[0].value) || 0) : undefined;
-    if (halfScore !== undefined) {
-      if (isHome) result.homeHalfScore = halfScore;
-      if (isAway) result.awayHalfScore = halfScore;
+    // parseFloat can return 0 for "0", which is a valid halftime score — don't use || 0 fallback
+    const halfVal = linescores[0]?.value;
+    const halfScore = halfVal != null ? parseFloat(halfVal) : undefined;
+    if (halfScore != null && !isNaN(halfScore)) {
+      if (isHome && !isAway) result.homeHalfScore = halfScore;
+      if (isAway && !isHome) result.awayHalfScore = halfScore;
     }
   }
 

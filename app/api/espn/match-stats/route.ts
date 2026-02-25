@@ -61,7 +61,11 @@ export async function GET(request: NextRequest) {
         awayHalfScore: parsed.awayHalfScore,
       };
 
-      const hasAnyStats = Object.values(stats).some(v => v != null && v > 0);
+      // Check non-halftime stats for > 0 (halftime 0-0 is valid, don't require > 0 for those)
+      const { homeHalfScore, awayHalfScore, ...otherStats } = stats;
+      const hasOtherStats = Object.values(otherStats).some(v => v != null && v > 0);
+      const hasHalfScores = homeHalfScore != null || awayHalfScore != null;
+      const hasAnyStats = hasOtherStats || hasHalfScores;
       return hasAnyStats ? { league: leagueCode, stats } : null;
     } catch {
       return null;
