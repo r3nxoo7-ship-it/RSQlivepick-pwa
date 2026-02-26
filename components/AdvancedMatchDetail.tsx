@@ -100,7 +100,7 @@ function getSecondHalfGoals(match: LiveMatch, team: 'home' | 'away'): number {
 }
 
 export default function AdvancedMatchDetail({ match, onClose, filterResults }: AdvancedMatchDetailProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'history'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'history' | 'predictions'>('stats');
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [homeForm, setHomeForm] = useState<TeamRecentFormResult | null>(null);
   const [awayForm, setAwayForm] = useState<TeamRecentFormResult | null>(null);
@@ -334,10 +334,10 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
         )}
 
         {/* Tab Navigation */}
-        <div className="sticky top-[88px] z-10 bg-background/95 backdrop-blur-sm border-b border-accent-cyan/20 px-6 pt-4 pb-0 flex gap-1">
+        <div className="sticky top-[88px] z-10 bg-background/95 backdrop-blur-sm border-b border-accent-cyan/20 px-4 pt-3 pb-0 flex gap-1 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('stats')}
-            className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
+            className={`shrink-0 px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
               activeTab === 'stats'
                 ? 'bg-accent-cyan/10 text-accent-cyan border-b-2 border-accent-cyan'
                 : 'text-text-muted hover:text-white hover:bg-glass-light'
@@ -348,14 +348,25 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
+            className={`shrink-0 px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
               activeTab === 'history'
                 ? 'bg-accent-cyan/10 text-accent-cyan border-b-2 border-accent-cyan'
                 : 'text-text-muted hover:text-white hover:bg-glass-light'
             }`}
           >
             <Clock className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-            Previous Games
+            Previous
+          </button>
+          <button
+            onClick={() => setActiveTab('predictions')}
+            className={`shrink-0 px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
+              activeTab === 'predictions'
+                ? 'bg-accent-cyan/10 text-accent-cyan border-b-2 border-accent-cyan'
+                : 'text-text-muted hover:text-white hover:bg-glass-light'
+            }`}
+          >
+            <Target className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+            Predictions
           </button>
         </div>
 
@@ -408,9 +419,6 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                   awayName={match.teams?.away?.name || 'Away'}
                 />
               )}
-
-              {/* AI Predictions */}
-              <MatchPredictionsWrapper match={match} />
             </>
           )}
 
@@ -423,6 +431,11 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
               h2hMatches={h2hMatches}
               loading={formLoading}
             />
+          )}
+
+          {/* ===== PREDICTIONS TAB ===== */}
+          {activeTab === 'predictions' && (
+            <MatchPredictionsWrapper match={match} />
           )}
 
         </div>

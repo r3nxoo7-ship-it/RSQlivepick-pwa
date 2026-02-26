@@ -7,7 +7,6 @@ import { LiveMatch } from '@/lib/unified-api';
 import { Filter } from '@/lib/supabase';
 import { getMatchingFiltersForMatch, calculateMatchPredictability, FilterMatchDetails } from '@/lib/live-filter-matcher';
 import AdvancedMatchDetail from './AdvancedMatchDetail';
-import MatchPredictionsWrapper from './MatchPredictionsWrapper';
 
 interface LiveMatchesDashboardProps {
   matches?: LiveMatch[];
@@ -511,8 +510,7 @@ function MatchCard({
           </div>
         )}
 
-        {/* AI Predictions */}
-        <MatchPredictionsWrapper match={match} />
+        {/* Click card to open Details → Predictions tab for AI forecasts */}
 
         {/* Prediction badge */}
         {match.matchingCount! > 0 && (
