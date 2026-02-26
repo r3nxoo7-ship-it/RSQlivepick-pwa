@@ -85,8 +85,9 @@ export async function GET(request: NextRequest) {
     const todayMatches = todayRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
     const scheduledMatches = scheduledRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
 
-    // Fetch recent form for teams in live + today matches (parallel, not sequential)
-    const currentMatches = [...liveRaw, ...todayRaw];
+    // Fetch recent form for teams in live + today + first 2 days of scheduled matches
+    const scheduledSample = scheduledRaw.slice(0, 40); // limit to avoid excessive DB queries
+    const currentMatches = [...liveRaw, ...todayRaw, ...scheduledSample];
     const teamIds = new Set<string>();
     currentMatches.forEach(m => {
       if (m.home_team_id) teamIds.add(m.home_team_id);

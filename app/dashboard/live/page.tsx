@@ -206,8 +206,10 @@ export default function LiveMatchesPage() {
     
     try {
       console.log('🔍 Fetching live + upcoming matches...');
-      const { live, upcoming, teamForm } = await getLiveAndUpcomingMatches();
-      const allMatches = [...live, ...upcoming];
+      const { live, upcoming, scheduled, teamForm } = await getLiveAndUpcomingMatches();
+      // Show live + today's upcoming + next 50 scheduled (tomorrow onwards)
+      const scheduledToShow = (scheduled || []).slice(0, 50);
+      const allMatches = [...live, ...upcoming, ...scheduledToShow];
 
       setMatches(allMatches);
       setLastUpdate(new Date());
@@ -215,10 +217,10 @@ export default function LiveMatchesPage() {
       // Store team form keyed by team ID (string)
       setTeamFormMap(teamForm || {});
 
-      console.log(`✅ Loaded ${allMatches.length} matches (${live.length} live, ${upcoming.length} upcoming)`);
+      console.log(`✅ Loaded ${allMatches.length} matches (${live.length} live, ${upcoming.length} upcoming today, ${scheduledToShow.length} scheduled)`);
 
       // Fetch pre-match odds for today (best-effort, silently skip on error)
-      if (upcoming.length > 0) {
+      if (upcoming.length > 0 || scheduledToShow.length > 0) {
         try {
           const oddsRes = await fetch('/api/odds/upcoming');
           if (oddsRes.ok) {
@@ -625,45 +627,98 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
           )}
           
           {/* ========== MECIURI ========== */}
-{!loading && !error && filteredMatches.length > 0 && (
-  <>
-    {/* Main matches grid */}
+{!loading && !error && filteredMatches.length > 0 && (() => {
+  // Group matches: live/finished vs upcoming-today vs scheduled-future
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const liveFinished = filteredMatches.filter(m => {
+    const s = m.fixture?.status?.short;
+    return s === 'LIVE' || s === '1H' || s === '2H' || s === 'HT' || s === 'ET' || s === 'P' || s === 'FT' || s === 'AET' || s === 'PEN';
+  });
+  const upcomingToday = filteredMatches.filter(m => {
+    const s = m.fixture?.status?.short;
+    const isUpcomingSt = s !== 'LIVE' && s !== '1H' && s !== '2H' && s !== 'HT' && s !== 'ET' && s !== 'P' && s !== 'FT' && s !== 'AET' && s !== 'PEN';
+    if (!isUpcomingSt) return false;
+    const d = new Date(m.fixture?.date || '');
+    return d.toDateString() === todayStr;
+  });
+  const scheduledFuture = filteredMatches.filter(m => {
+    const s = m.fixture?.status?.short;
+    const isUpcomingSt = s !== 'LIVE' && s !== '1H' && s !== '2H' && s !== 'HT' && s !== 'ET' && s !== 'P' && s !== 'FT' && s !== 'AET' && s !== 'PEN';
+    if (!isUpcomingSt) return false;
+    const d = new Date(m.fixture?.date || '');
+    return d.toDateString() !== todayStr;
+  });
+
+  const renderCard = (match: LiveMatch, index: number) => (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+      key={match.fixture?.id || index}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.04, 0.4) }}
     >
-      {filteredMatches.map((match, index) => (
-        <motion.div
-          key={match.fixture?.id || index}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05 }}
-        >
-          <MatchCard
-            match={match}
-            onClick={() => setSelectedMatch(match)}
-            showStatistics={true}
-            filterResults={
-              match.fixture?.id ? filterResults.get(match.fixture.id) : undefined
-            }
-            homeForm={teamFormMap[String(match.teams?.home?.id)]}
-            awayForm={teamFormMap[String(match.teams?.away?.id)]}
-            odds={(() => {
-              // Try to find odds by normalized team name pair
-              if (!matchOddsMap) return undefined;
-              const hName = (match.teams?.home?.name || '').trim().toLowerCase();
-              const aName = (match.teams?.away?.name || '').trim().toLowerCase();
-              const entry = matchOddsMap[`${hName}|${aName}`];
-              if (!entry) return undefined;
-              return { fixture_id: match.fixture?.id ?? 0, odds: [], timestamp: 0, bookmakers: entry };
-            })()}
-          />
-        </motion.div>
-      ))}
+      <MatchCard
+        match={match}
+        onClick={() => setSelectedMatch(match)}
+        showStatistics={true}
+        filterResults={
+          match.fixture?.id ? filterResults.get(match.fixture.id) : undefined
+        }
+        homeForm={teamFormMap[String(match.teams?.home?.id)]}
+        awayForm={teamFormMap[String(match.teams?.away?.id)]}
+        odds={(() => {
+          if (!matchOddsMap) return undefined;
+          const hName = (match.teams?.home?.name || '').trim().toLowerCase();
+          const aName = (match.teams?.away?.name || '').trim().toLowerCase();
+          const entry = matchOddsMap[`${hName}|${aName}`];
+          if (!entry) return undefined;
+          return { fixture_id: match.fixture?.id ?? 0, odds: [], timestamp: 0, bookmakers: entry };
+        })()}
+      />
     </motion.div>
-  </>
-)}
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Live & Finished */}
+      {liveFinished.length > 0 && (
+        <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            {liveFinished.map((match, idx) => renderCard(match, idx))}
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming Today */}
+      {upcomingToday.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <Clock className="w-4 h-4 text-accent-cyan" />
+            <span className="text-sm font-semibold text-accent-cyan uppercase tracking-wide">Today&apos;s Upcoming</span>
+            <span className="text-xs text-text-muted">({upcomingToday.length} matches)</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            {upcomingToday.map((match, idx) => renderCard(match, idx))}
+          </div>
+        </div>
+      )}
+
+      {/* Scheduled (tomorrow+) */}
+      {scheduledFuture.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <Trophy className="w-4 h-4 text-accent-amber" />
+            <span className="text-sm font-semibold text-accent-amber uppercase tracking-wide">Scheduled</span>
+            <span className="text-xs text-text-muted">({scheduledFuture.length} matches)</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            {scheduledFuture.map((match, idx) => renderCard(match, idx))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+})()}
 
 
           {/* Floating Action Button for New Filter */}

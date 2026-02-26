@@ -65,10 +65,17 @@ function MatchCard({
   const homeGoals = match.goals?.home ?? 0;
   const awayGoals = match.goals?.away ?? 0;
 
-  // Kickoff time for upcoming
-  const kickoffTime = match.fixture?.date
-    ? new Date(match.fixture.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : null;
+  // Kickoff time for upcoming — show date prefix if not today
+  const kickoffTime = (() => {
+    if (!match.fixture?.date) return null;
+    const d = new Date(match.fixture.date);
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (isToday) return timeStr;
+    const dateStr = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+    return `${dateStr} ${timeStr}`;
+  })();
 
   // Extract key stats for inline display
   const hasStats = match.statistics && match.statistics.length > 0;
