@@ -240,16 +240,22 @@ class BackgroundScannerService {
 
       // Send Telegram notification
       if (filter.telegram_enabled && currentUser) {
-        const telegramMatchData = {
-          homeTeam: match.teams.home.name,
-          awayTeam: match.teams.away.name,
-          league: match.league.name,
-          score: `${match.goals.home || 0}-${match.goals.away || 0}`,
-          minute: match.fixture.status.elapsed || null,
-          filters: [filter.name],
-          triggeredMatchId: triggeredMatchId,
-        };
-        await sendTelegramMatchNotification(currentUser.id, telegramMatchData);
+        const profile = await dbHelpers.getUserProfile(currentUser.id);
+        const chatId = profile?.telegram_chat_id;
+        if (chatId) {
+          const telegramMatchData = {
+            homeTeam: match.teams.home.name,
+            awayTeam: match.teams.away.name,
+            league: match.league.name,
+            score: `${match.goals.home || 0}-${match.goals.away || 0}`,
+            minute: match.fixture.status.elapsed || null,
+            filters: [filter.name],
+            triggeredMatchId: triggeredMatchId,
+          };
+          await sendTelegramMatchNotification(chatId, telegramMatchData);
+        } else {
+          console.warn('[Scanner] Telegram enabled on filter but user has no telegram_chat_id configured');
+        }
       }
 
       // Log notification
