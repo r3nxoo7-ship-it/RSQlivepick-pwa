@@ -355,10 +355,46 @@ export default function MatchPredictionCard({
       </div>
 
       {/* Data Quality Indicator */}
-      <div className="bg-black/20 border-t border-glass-light/10 px-4 py-2 md:px-6 text-xs text-text-muted">
-        <p>
-          ℹ️ Predictions based on: Team form • H2H history • Live odds • Statistical models
-        </p>
+      <div className="bg-black/20 border-t border-glass-light/10 px-4 py-2 md:px-6 text-xs text-text-muted space-y-1">
+        {(() => {
+          const raw = predictions as any;
+          const bzzoiro = raw.bzzoiro;
+          const quality = raw.dataQuality;
+          const sources: string[] = quality?.dataSources ?? [];
+          const hasBzzoiro = !!bzzoiro;
+          const bzzoiroConf = hasBzzoiro ? Math.round((bzzoiro.confidence ?? 0) * 100) : 0;
+
+          return (
+            <>
+              <p>
+                ℹ️ Sources:{' '}
+                {hasBzzoiro ? (
+                  <span className="text-green-400 font-medium">
+                    🤖 Bzzoiro ML ({bzzoiroConf}% confidence) + Poisson + H2H
+                  </span>
+                ) : (
+                  <span className="text-amber-400/80">
+                    Poisson model + H2H history
+                    {sources.length === 0 && ' (Bzzoiro: no match found)'}
+                  </span>
+                )}
+              </p>
+              {quality && (
+                <p className="text-text-muted/70">
+                  Form: {quality.homeFormMatches ?? '?'}+{quality.awayFormMatches ?? '?'} matches
+                  {' • '}H2H: {quality.h2hMatches ?? '?'} games
+                  {' • '}Quality:{' '}
+                  <span className={
+                    quality.quality === 'high' ? 'text-green-400' :
+                    quality.quality === 'medium' ? 'text-amber-400' : 'text-red-400'
+                  }>
+                    {quality.quality}
+                  </span>
+                </p>
+              )}
+            </>
+          );
+        })()}
       </div>
     </motion.div>
   );

@@ -426,7 +426,19 @@ export function blendPredictions(
     Math.abs(impliedOddsProbability - h2hProbability)
   );
   const agreementBonus = Math.max(0, 25 - maxDiff / 10);
-  const finalConfidence = Math.min(100, confidence + agreementBonus);
+
+  // Cap maximum confidence based on data quality:
+  // - No H2H + sparse form → max 72% (we really don't know)
+  // - Good form but no H2H → max 85%
+  // - Good H2H but sparse form → max 82%
+  // - Both available → allow up to 95%
+  let maxConfidence: number;
+  if (!hasGoodForm && !hasGoodH2H) maxConfidence = 72;
+  else if (!hasGoodH2H) maxConfidence = 85;
+  else if (!hasGoodForm) maxConfidence = 82;
+  else maxConfidence = 95;
+
+  const finalConfidence = Math.min(maxConfidence, confidence + agreementBonus);
 
   let reasoning = '';
   if (!hasGoodForm && hasGoodH2H) {
