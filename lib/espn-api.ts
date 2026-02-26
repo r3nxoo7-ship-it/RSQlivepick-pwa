@@ -460,7 +460,25 @@ export async function getTeamSchedule(
   // Step 1: Primary league (specified or top domestic leagues)
   // Step 2: UEFA competitions (teams may play in CL/EL/ECL)
   const uefaComps = ['uefa.champions', 'uefa.europa', 'uefa.europa.conf'];
-  const topDomestic = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'ned.1', 'por.1'];
+  // Extended domestic list — includes Scottish, Turkish, Belgian, Greek etc.
+  // so Celtic, Rangers, Galatasaray etc. get their domestic form correctly
+  const topDomestic = [
+    'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', // Top 5
+    'ned.1', 'por.1',                              // Netherlands, Portugal
+    'sco.1',                                       // Scottish Premiership (Celtic, Rangers)
+    'bel.1',                                       // Belgian Pro League (Club Brugge, Anderlecht)
+    'tur.1',                                       // Turkish Süper Lig (Galatasaray, Fenerbahçe)
+    'gre.1',                                       // Greek Super League (Olympiacos, PAOK)
+    'ukr.1',                                       // Ukrainian Premier League (Shakhtar, Dynamo)
+    'cze.1',                                       // Czech First League (Sparta Prague, Slavia Prague)
+    'aut.1',                                       // Austrian Bundesliga (Salzburg, Sturm Graz)
+    'sui.1',                                       // Swiss Super League (Young Boys, Basel)
+    'swe.1',                                       // Allsvenskan
+    'den.1',                                       // Danish Superliga
+    'nor.1',                                       // Norwegian Eliteserien
+    'srb.1',                                       // Serbian SuperLiga (Red Star Belgrade)
+    'hrv.1',                                       // Croatian First League (Dinamo Zagreb)
+  ];
 
   let leaguesToTry: string[];
   if (league) {

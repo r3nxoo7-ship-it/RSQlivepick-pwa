@@ -169,6 +169,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
     attacks: getStatValue(match.statistics, match.teams?.home?.name, 'attacks'),
     dangerousAttacks: getStatValue(match.statistics, match.teams?.home?.name, 'dangerous attacks'),
     fouls: getStatValue(match.statistics, match.teams?.home?.name, 'fouls'),
+    offsides: getStatValue(match.statistics, match.teams?.home?.name, 'offsides'),
     firstHalf: getFirstHalfGoals(match, 'home'),
     secondHalf: getSecondHalfGoals(match, 'home'),
   };
@@ -184,6 +185,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
     attacks: getStatValue(match.statistics, match.teams?.away?.name, 'attacks'),
     dangerousAttacks: getStatValue(match.statistics, match.teams?.away?.name, 'dangerous attacks'),
     fouls: getStatValue(match.statistics, match.teams?.away?.name, 'fouls'),
+    offsides: getStatValue(match.statistics, match.teams?.away?.name, 'offsides'),
     firstHalf: getFirstHalfGoals(match, 'away'),
     secondHalf: getSecondHalfGoals(match, 'away'),
   };
@@ -304,6 +306,23 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
 
               {/* Live Statistics */}
               <div className="space-y-4">
+                {/* Halftime goals split (when match has started) */}
+                {(homeStats.firstHalf > 0 || awayStats.firstHalf > 0 ||
+                  homeStats.secondHalf > 0 || awayStats.secondHalf > 0 ||
+                  match.fixture?.status?.short === 'HT' ||
+                  (match.fixture?.status?.elapsed && match.fixture.status.elapsed > 45)) && (
+                  <div className="flex items-center justify-center gap-4 py-2 rounded-lg bg-white/[0.03] border border-white/8 text-xs">
+                    <span className="text-text-muted">1st Half:</span>
+                    <span className="font-bold text-accent-cyan tabular-nums">
+                      {homeStats.firstHalf} - {awayStats.firstHalf}
+                    </span>
+                    <span className="text-white/20">|</span>
+                    <span className="text-text-muted">2nd Half:</span>
+                    <span className="font-bold text-accent-blue tabular-nums">
+                      {homeStats.secondHalf} - {awayStats.secondHalf}
+                    </span>
+                  </div>
+                )}
                 <StatRow label="Possession" home={homeStats.possession} away={awayStats.possession} unit="%" compare={true} />
                 <StatRow label="Shots on Target" home={homeStats.shotsOnTarget} away={awayStats.shotsOnTarget} compare={true} />
                 <StatRow label="Shots Off Target" home={homeStats.shotsOffTarget} away={awayStats.shotsOffTarget} compare={true} />
@@ -311,6 +330,8 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                 <StatRow label="Attacks" home={homeStats.attacks} away={awayStats.attacks} compare={true} />
                 <StatRow label="Dangerous Attacks" home={homeStats.dangerousAttacks} away={awayStats.dangerousAttacks} compare={true} />
                 <StatRow label="Corners" home={homeStats.corners} away={awayStats.corners} compare={true} />
+                <StatRow label="Fouls" home={homeStats.fouls} away={awayStats.fouls} compare={true} />
+                <StatRow label="Offsides" home={homeStats.offsides} away={awayStats.offsides} compare={true} />
                 <StatRow label="Yellow Cards" home={homeStats.yellowCards} away={awayStats.yellowCards} compare={true} />
                 <StatRow label="Red Cards" home={homeStats.redCards} away={awayStats.redCards} compare={false} />
               </div>
@@ -867,6 +888,15 @@ function StatsBreakdown({ homeStats, awayStats, match }: { homeStats: Record<str
 /**
  * Determine match result relative to the team
  */
+/** Returns true when a league name belongs to a UEFA/continental competition */
+function isEuropeanComp(leagueName?: string | null): boolean {
+  if (!leagueName) return false;
+  const l = leagueName.toLowerCase();
+  return l.includes('champions') || l.includes('europa') || l.includes('conference') ||
+    l.includes('ucl') || l.includes('uel') || l.includes('uecl') || l.includes('uefa') ||
+    l.includes('cup') && (l.includes('inter') || l.includes('continental'));
+}
+
 function getMatchResult(match: RecentMatchData, teamId: string): 'W' | 'D' | 'L' {
   const isHome = match.home_team_id === teamId;
   const teamScore = isHome ? match.home_score : match.away_score;
@@ -1149,33 +1179,59 @@ function UnifiedPreviousGames({
       )}
 
       {/* Form W/D/L badges (for team tabs) */}
-      {activeSection !== 'h2h' && formSummary && (
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/8 bg-white/[0.02]">
-          <div className="flex items-center gap-2">
-            {(activeSection === 'home' ? homeForm : awayForm)?.matches?.slice(0, 5).map((m, i) => {
-              const tid = activeSection === 'home' ? homeTeamId : awayTeamId;
-              const result = getMatchResult(m, tid);
-              return (
-                <div
-                  key={i}
-                  className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[9px] ${
-                    result === 'W' ? 'bg-accent-green/30 text-accent-green'
-                      : result === 'D' ? 'bg-accent-yellow/30 text-accent-yellow'
-                        : 'bg-accent-red/30 text-accent-red'
-                  }`}
-                >
-                  {result}
-                </div>
-              );
-            })}
+      {activeSection !== 'h2h' && formSummary && (() => {
+        const activeMatches = (activeSection === 'home' ? homeForm : awayForm)?.matches || [];
+        const domMatches = activeMatches.filter(m => !isEuropeanComp(m.league));
+        const eurMatches = activeMatches.filter(m => isEuropeanComp(m.league));
+        const hasEurOnly = eurMatches.length > 0 && domMatches.length === 0;
+        const hasMix = eurMatches.length > 0 && domMatches.length > 0;
+        return (
+          <div className="border-b border-white/8 bg-white/[0.02]">
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <div className="flex items-center gap-1.5">
+                {activeMatches.slice(0, 5).map((m, i) => {
+                  const tid = activeSection === 'home' ? homeTeamId : awayTeamId;
+                  const result = getMatchResult(m, tid);
+                  const isEur = isEuropeanComp(m.league);
+                  return (
+                    <div
+                      key={i}
+                      title={m.league || ''}
+                      className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[9px] relative ${
+                        result === 'W' ? 'bg-accent-green/30 text-accent-green'
+                          : result === 'D' ? 'bg-accent-yellow/30 text-accent-yellow'
+                            : 'bg-accent-red/30 text-accent-red'
+                      } ${isEur ? 'ring-1 ring-orange-400/60' : ''}`}
+                    >
+                      {result}
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="text-[11px] text-text-secondary">
+                <span className="text-accent-green font-bold">W{formSummary.wins}</span>{' '}
+                <span className="text-accent-yellow font-bold">D{formSummary.draws}</span>{' '}
+                <span className="text-accent-red font-bold">L{formSummary.losses}</span>
+              </span>
+            </div>
+            {/* Competition mix warning */}
+            {hasEurOnly && (
+              <div className="px-4 pb-2 text-[10px] text-orange-400/80 flex items-center gap-1">
+                <span>⚠</span>
+                <span>Only European games available — domestic form not fetched yet</span>
+              </div>
+            )}
+            {hasMix && (
+              <div className="px-4 pb-2 text-[10px] text-text-muted flex items-center gap-2">
+                <span className="text-text-secondary">Competitions:</span>
+                <span className="px-1.5 py-0.5 rounded bg-accent-cyan/10 text-accent-cyan">{domMatches.length} domestic</span>
+                <span className="px-1.5 py-0.5 rounded bg-orange-400/10 text-orange-400">{eurMatches.length} European</span>
+                <span className="opacity-50 text-[9px]">(🟠 = UEFA)</span>
+              </div>
+            )}
           </div>
-          <span className="text-[11px] text-text-secondary">
-            <span className="text-accent-green font-bold">W{formSummary.wins}</span>{' '}
-            <span className="text-accent-yellow font-bold">D{formSummary.draws}</span>{' '}
-            <span className="text-accent-red font-bold">L{formSummary.losses}</span>
-          </span>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Match rows */}
       <div className="divide-y divide-white/8">
@@ -1211,7 +1267,7 @@ function UnifiedPreviousGames({
                       isExpanded ? 'bg-white/10' : 'hover:bg-white/5'
                     }`}
                   >
-                    <div className="text-[9px] text-text-muted w-[55px] shrink-0 leading-tight">
+                    <div className={`text-[9px] w-[55px] shrink-0 leading-tight ${isEuropeanComp(m.league) ? 'text-orange-400/80' : 'text-text-muted'}`}>
                       <div className="truncate">{m.league || ''}</div>
                       {(seasonInfo || roundInfo) && (
                         <div className="opacity-60">{[seasonInfo, roundInfo].filter(Boolean).join(' ')}</div>
@@ -1253,7 +1309,7 @@ function UnifiedPreviousGames({
                     isExpanded ? 'bg-white/10' : 'hover:bg-white/5'
                   }`}
                 >
-                  <span className="text-[9px] text-text-muted w-[50px] shrink-0 truncate">
+                  <span className={`text-[9px] w-[50px] shrink-0 truncate ${isEuropeanComp(m.league) ? 'text-orange-400/80' : 'text-text-muted'}`}>
                     {m.league || ''}
                   </span>
                   <span className={`text-[9px] font-bold w-3 shrink-0 ${isHome ? 'text-accent-cyan' : 'text-text-muted'}`}>
