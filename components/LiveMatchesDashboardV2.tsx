@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, AlertCircle, BarChart3, Search, X, ChevronDown, Check } from 'lucide-react';
+import { TrendingUp, AlertCircle, BarChart3, Search, X, ChevronDown, Check, Clock } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
 import { Filter } from '@/lib/supabase';
 import { getMatchingFiltersForMatch, calculateMatchPredictability, FilterMatchDetails } from '@/lib/live-filter-matcher';
@@ -16,6 +16,7 @@ interface LiveMatchesDashboardProps {
   teamForm?: Record<string, any>;
   userFilters?: Filter[];
   loading?: boolean;
+  matchOdds?: Record<string, any>; // normKey(home|away) → ParsedBookmakerOdds entry
 }
 
 interface MatchWithPredictions extends LiveMatch {
@@ -80,6 +81,7 @@ export default function LiveMatchesDashboardV2({
   teamForm = {},
   userFilters = [],
   loading = false,
+  matchOdds = {},
 }: LiveMatchesDashboardProps) {
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set());
@@ -358,6 +360,10 @@ export default function LiveMatchesDashboardV2({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {dayMatches.map((match, idx) => {
             const isLive = match.fixture?.status?.short === 'LIVE';
+            // Compute match odds from normKey
+            const hName = (match.teams?.home?.name || '').trim().toLowerCase();
+            const aName = (match.teams?.away?.name || '').trim().toLowerCase();
+            const oddsEntry = matchOdds?.[`${hName}|${aName}`] ?? null;
             return (
               <MatchCard
                 key={match.fixture?.id || idx}
@@ -368,6 +374,7 @@ export default function LiveMatchesDashboardV2({
                 teamForm={teamForm}
                 isLive={isLive}
                 showTime={selectedDay !== todayKey}
+                oddsEntry={oddsEntry}
               />
             );
           })}
@@ -405,6 +412,7 @@ interface MatchCardProps {
   teamForm: Record<string, any>;
   isLive: boolean;
   showTime?: boolean;
+  oddsEntry?: any | null;
 }
 
 function MatchCard({
@@ -415,11 +423,16 @@ function MatchCard({
   teamForm,
   isLive,
   showTime = false,
+  oddsEntry = null,
 }: MatchCardProps) {
   const homeTeamId = match.teams?.home?.id?.toString();
   const awayTeamId = match.teams?.away?.id?.toString();
   const homeForm = teamForm?.[homeTeamId] || null;
   const awayForm = teamForm?.[awayTeamId] || null;
+
+  const statusShort = match.fixture?.status?.short || 'NS';
+  const isFinished = statusShort === 'FT' || statusShort === 'AET' || statusShort === 'PEN';
+  const isUpcoming = !isLive && !isFinished;
 
   const getStatValue = (stats: any[] | undefined, statType: string): string => {
     if (!stats || stats.length === 0) return '—';
@@ -439,6 +452,13 @@ function MatchCard({
   const timeStr = matchTime
     ? matchTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     : '';
+
+  const hasOdds = oddsEntry && (oddsEntry.home_win || oddsEntry.draw || oddsEntry.away_win);
+  const hasOU25 = oddsEntry && (oddsEntry.goals_over_2_5 || oddsEntry.goals_under_2_5);
+  const hasAH = oddsEntry && (oddsEntry.asian_handicap_home_odd || oddsEntry.asian_handicap_away_odd);
+
+  const homeName = match.teams?.home?.name || 'Home';
+  const awayName = match.teams?.away?.name || 'Away';
 
   return (
     <motion.div
@@ -467,8 +487,13 @@ function MatchCard({
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-red animate-pulse" />
                 LIVE {match.fixture?.status?.elapsed && `${match.fixture.status.elapsed}'`}
               </span>
+            ) : isFinished ? (
+              <span className="shrink-0 text-[10px] text-text-muted font-bold">FT</span>
             ) : (
-              <span className="shrink-0 text-[10px] text-accent-blue font-semibold">{timeStr}</span>
+              <span className="shrink-0 flex items-center gap-1 text-[10px] text-accent-cyan/80 font-semibold">
+                <Clock className="w-3 h-3" />
+                {timeStr}
+              </span>
             )}
           </div>
           <span className="text-[10px] text-text-muted group-hover:text-accent-cyan transition shrink-0 ml-2">
@@ -476,41 +501,125 @@ function MatchCard({
           </span>
         </div>
 
-        {/* Teams & Score */}
-        <div className="space-y-1.5 mb-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-white text-sm truncate">{match.teams?.home?.name || 'Unknown'}</p>
-              {homeForm && <TeamFormBadge form={homeForm} />}
+        {isUpcoming ? (
+          /* ===== UPCOMING LAYOUT: side-by-side + form + odds ===== */
+          <>
+            <div className="flex items-start gap-2 mb-3">
+              {/* Home */}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-white text-sm truncate">{homeName}</p>
+                {homeForm && homeForm.played > 0 && (
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    {homeForm.wins > 0 && <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-[9px] font-bold text-green-400">{homeForm.wins}W</span>}
+                    {homeForm.draws > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-[9px] font-bold text-yellow-400">{homeForm.draws}D</span>}
+                    {homeForm.losses > 0 && <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-[9px] font-bold text-red-400">{homeForm.losses}L</span>}
+                  </div>
+                )}
+              </div>
+              {/* VS */}
+              <span className="text-xs font-bold text-text-muted/60 shrink-0 px-1 pt-0.5">vs</span>
+              {/* Away */}
+              <div className="flex-1 min-w-0 text-right">
+                <p className="font-semibold text-white text-sm truncate">{awayName}</p>
+                {awayForm && awayForm.played > 0 && (
+                  <div className="flex items-center gap-1 mt-1 justify-end flex-wrap">
+                    {awayForm.wins > 0 && <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-[9px] font-bold text-green-400">{awayForm.wins}W</span>}
+                    {awayForm.draws > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-[9px] font-bold text-yellow-400">{awayForm.draws}D</span>}
+                    {awayForm.losses > 0 && <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-[9px] font-bold text-red-400">{awayForm.losses}L</span>}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className={`text-2xl font-bold min-w-[2rem] text-right ${isLive ? 'text-white' : 'text-accent-cyan'}`}>
-              {match.goals?.home ?? 0}
-            </div>
-          </div>
 
-          <div className="h-px bg-glass-light/30" />
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-white text-sm truncate">{match.teams?.away?.name || 'Unknown'}</p>
-              {awayForm && <TeamFormBadge form={awayForm} />}
+            {/* Odds Section */}
+            {hasOdds ? (
+              <div className="border-t border-white/8 pt-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-accent-amber">
+                  <TrendingUp className="w-3 h-3" />
+                  <span>Decimal Odds</span>
+                </div>
+                {/* 1X2 */}
+                <div>
+                  <div className="text-[9px] text-text-muted mb-1 uppercase tracking-wide">Match Result (1X2)</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <OddsCell label={`1 ${homeName.split(' ')[0]}`} value={oddsEntry.home_win} color="cyan" />
+                    <OddsCell label="X Draw" value={oddsEntry.draw} color="yellow" />
+                    <OddsCell label={`2 ${awayName.split(' ')[0]}`} value={oddsEntry.away_win} color="blue" />
+                  </div>
+                </div>
+                {/* O/U 2.5 */}
+                {hasOU25 && (
+                  <div>
+                    <div className="text-[9px] text-text-muted mb-1 uppercase tracking-wide">Goals Over/Under 2.5</div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <OddsCell label="Over 2.5" value={oddsEntry.goals_over_2_5} color="green" />
+                      <OddsCell label="Under 2.5" value={oddsEntry.goals_under_2_5} color="red" />
+                    </div>
+                  </div>
+                )}
+                {/* Asian Handicap */}
+                {hasAH && (
+                  <div>
+                    <div className="text-[9px] text-text-muted mb-1 uppercase tracking-wide">Asian Handicap</div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <OddsCell
+                        label={`${homeName.split(' ')[0]} (${oddsEntry.asian_handicap_line !== undefined ? (oddsEntry.asian_handicap_line >= 0 ? '+' : '') + oddsEntry.asian_handicap_line : '-0.5'})`}
+                        value={oddsEntry.asian_handicap_home_odd}
+                        color="cyan"
+                      />
+                      <OddsCell
+                        label={`${awayName.split(' ')[0]} (${oddsEntry.asian_handicap_line !== undefined ? ((-oddsEntry.asian_handicap_line) >= 0 ? '+' : '') + (-oddsEntry.asian_handicap_line) : '+0.5'})`}
+                        value={oddsEntry.asian_handicap_away_odd}
+                        color="blue"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="border-t border-white/8 pt-2">
+                <div className="flex items-center gap-1.5 text-[10px] text-text-muted/60">
+                  <TrendingUp className="w-3 h-3" />
+                  <span>Odds unavailable</span>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* ===== LIVE / FINISHED LAYOUT: stacked with score ===== */
+          <>
+            <div className="space-y-1.5 mb-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-white text-sm truncate">{homeName}</p>
+                  {homeForm && <TeamFormBadge form={homeForm} />}
+                </div>
+                <div className={`text-2xl font-bold min-w-[2rem] text-right ${isLive ? 'text-white' : 'text-accent-cyan'}`}>
+                  {match.goals?.home ?? 0}
+                </div>
+              </div>
+              <div className="h-px bg-glass-light/30" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-white text-sm truncate">{awayName}</p>
+                  {awayForm && <TeamFormBadge form={awayForm} />}
+                </div>
+                <div className={`text-2xl font-bold min-w-[2rem] text-right ${isLive ? 'text-white' : 'text-accent-blue'}`}>
+                  {match.goals?.away ?? 0}
+                </div>
+              </div>
             </div>
-            <div className={`text-2xl font-bold min-w-[2rem] text-right ${isLive ? 'text-white' : 'text-accent-blue'}`}>
-              {match.goals?.away ?? 0}
-            </div>
-          </div>
-        </div>
 
-        {/* Quick Stats (live matches only) */}
-        {isLive && match.statistics && match.statistics.length > 0 && (
-          <div className="flex gap-3 text-[10px] text-text-muted mt-2 pt-2 border-t border-glass-light/30">
-            <span>Poss: {getStatValue(match.statistics, 'possession')}</span>
-            <span>Shots: {getStatValue(match.statistics, 'shots')}</span>
-            <span>Corners: {getStatValue(match.statistics, 'corner')}</span>
-          </div>
+            {/* Quick Stats (live only) */}
+            {isLive && match.statistics && match.statistics.length > 0 && (
+              <div className="flex gap-3 text-[10px] text-text-muted mt-2 pt-2 border-t border-glass-light/30">
+                <span>Poss: {getStatValue(match.statistics, 'possession')}</span>
+                <span>Shots: {getStatValue(match.statistics, 'shots')}</span>
+                <span>Corners: {getStatValue(match.statistics, 'corner')}</span>
+              </div>
+            )}
+          </>
         )}
-
-        {/* Click card to open Details → Predictions tab for AI forecasts */}
 
         {/* Prediction badge */}
         {match.matchingCount! > 0 && (
@@ -529,6 +638,18 @@ function MatchCard({
         )}
       </div>
     </motion.div>
+  );
+}
+
+function OddsCell({ label, value, color }: { label: string; value: number | undefined; color: 'cyan' | 'blue' | 'yellow' | 'green' | 'red' }) {
+  const colorMap = { cyan: 'text-accent-cyan', blue: 'text-accent-blue', yellow: 'text-yellow-400', green: 'text-green-400', red: 'text-red-400' };
+  return (
+    <div className="text-center px-2 py-2 rounded-lg bg-white/5 border border-white/10">
+      <div className={`font-bold text-[13px] tabular-nums ${colorMap[color]}`}>
+        {value ? value.toFixed(2) : '-'}
+      </div>
+      <div className="text-[9px] text-text-muted mt-0.5 truncate leading-tight" title={label}>{label}</div>
+    </div>
   );
 }
 

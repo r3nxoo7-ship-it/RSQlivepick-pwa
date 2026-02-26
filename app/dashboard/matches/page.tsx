@@ -11,8 +11,7 @@ export default function MatchesAnalyticsPage() {
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<LiveMatch[]>([]);
   const [scheduledMatches, setScheduledMatches] = useState<LiveMatch[]>([]);
-  const [teamForm, setTeamForm] = useState<Record<string, any>>({});
-  const [userFilters, setUserFilters] = useState<Filter[]>([]);
+  const [teamForm, setTeamForm] = useState<Record<string, any>>({});  const [matchOdds, setMatchOdds] = useState<Record<string, any>>({});  const [userFilters, setUserFilters] = useState<Filter[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string>('');
@@ -39,6 +38,17 @@ export default function MatchesAnalyticsPage() {
         setScheduledMatches(separated.scheduled);
         setTeamForm(separated.teamForm || {});
         setMatches([...separated.upcoming]);
+
+        // Fetch pre-match odds (best-effort)
+        try {
+          const oddsRes = await fetch('/api/odds/upcoming');
+          if (oddsRes.ok) {
+            const oddsData = await oddsRes.json();
+            setMatchOdds(oddsData.oddsMap || {});
+          }
+        } catch (_) {
+          // silently ignore odds errors
+        }
       } else {
         // Fallback to old format
         const allMatches = await getLiveMatches();
@@ -120,6 +130,7 @@ export default function MatchesAnalyticsPage() {
           teamForm={teamForm}
           userFilters={userFilters}
           loading={loading}
+          matchOdds={matchOdds}
         />
       </div>
     </div>
