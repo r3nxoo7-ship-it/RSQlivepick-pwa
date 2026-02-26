@@ -116,8 +116,17 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
       const awayIdStr = match.teams?.away?.id != null ? String(match.teams.away.id) : '';
 
       try {
-        // Round 1: ESPN form (12-15 matches with stats) + TheSportsDB H2H (20-30 meetings) in parallel
-        const [homeEspn, awayEspn, h2hRes] = await Promise.all([
+        // Round 1: SofaScore find-event + ESPN form + TheSportsDB H2H all in parallel
+        // SofaScore find-event resolves SofaScore IDs so we can fetch richer data in Round 2.
+        const matchDate = match.fixture?.date
+          ? new Date(match.fixture.date).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0];
+
+        const [ssEventRes, homeEspn, awayEspn, h2hRes] = await Promise.all([
+          (homeName && awayName)
+            ? fetch(`/api/sofascore/find-event?home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}&date=${matchDate}`)
+                .then(r => r.ok ? r.json() : null).catch(() => null)
+            : null,
           homeIdStr
             ? fetch(`/api/espn/team-form?teamId=${homeIdStr}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
@@ -129,11 +138,22 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
             : null,
         ]);
 
-        // Round 2: TheSportsDB fallback for teams ESPN doesn't know (new leagues)
-        // Only triggered if ESPN returned 0 matches — adds up to 5 historical matches
-        const needHomeFallback = !homeEspn?.matches?.length && !!homeName;
-        const needAwayFallback = !awayEspn?.matches?.length && !!awayName;
-        const [homeTsdb, awayTsdb] = await Promise.all([
+        const ssHomeTeamId: number | null = ssEventRes?.homeTeamId ?? null;
+        const ssAwayTeamId: number | null = ssEventRes?.awayTeamId ?? null;
+        const ssEventId: number | null = ssEventRes?.eventId ?? null;
+
+        // Round 2: SofaScore team form (using IDs from Round 1) + TheSportsDB fallback
+        // TheSportsDB is only fetched if neither ESPN nor SofaScore can cover the team.
+        const needHomeFallback = !homeEspn?.matches?.length && !ssHomeTeamId && !!homeName;
+        const needAwayFallback = !awayEspn?.matches?.length && !ssAwayTeamId && !!awayName;
+
+        const [ssHomeForm, ssAwayForm, homeTsdb, awayTsdb] = await Promise.all([
+          ssHomeTeamId
+            ? fetch(`/api/sofascore/team-form?teamId=${ssHomeTeamId}`).then(r => r.ok ? r.json() : null).catch(() => null)
+            : null,
+          ssAwayTeamId
+            ? fetch(`/api/sofascore/team-form?teamId=${ssAwayTeamId}`).then(r => r.ok ? r.json() : null).catch(() => null)
+            : null,
           needHomeFallback
             ? fetch(`/api/team-form?team=${encodeURIComponent(homeName)}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
@@ -142,8 +162,13 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
             : null,
         ]);
 
-        const homeRes = homeEspn?.matches?.length > 0 ? homeEspn : homeTsdb;
-        const awayRes = awayEspn?.matches?.length > 0 ? awayEspn : awayTsdb;
+        // Priority: SofaScore (best coverage) > ESPN > TheSportsDB
+        const homeRes = ssHomeForm?.matches?.length > 0 ? ssHomeForm
+          : homeEspn?.matches?.length > 0 ? homeEspn
+          : homeTsdb;
+        const awayRes = ssAwayForm?.matches?.length > 0 ? ssAwayForm
+          : awayEspn?.matches?.length > 0 ? awayEspn
+          : awayTsdb;
 
         if (homeRes?.matches?.length > 0) setHomeForm({ teamId: homeRes.teamId || homeIdStr, matches: homeRes.matches, form: homeRes.form });
         if (awayRes?.matches?.length > 0) setAwayForm({ teamId: awayRes.teamId || awayIdStr, matches: awayRes.matches, form: awayRes.form });
@@ -151,8 +176,6 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
         let resolvedH2H: any[] = h2hRes?.matches || [];
 
         // Round 3: ESPN H2H fallback when TheSportsDB returns 0 meetings
-        // ESPN uses live team schedules — better coverage for recent European meetings
-        // (e.g. Stuttgart vs Celtic 2026 Europa League)
         if (resolvedH2H.length === 0 && homeIdStr && awayIdStr) {
           try {
             const espnH2h = await fetch(
@@ -164,6 +187,29 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
           } catch { /* ESPN H2H fallback failed — keep empty */ }
         }
 
+        // Round 4: SofaScore H2H fallback — cross-references both teams' form histories
+        // Best for European meetings ESPN/TheSportsDB both miss.
+        if (resolvedH2H.length === 0 && ssEventId && ssHomeTeamId && ssAwayTeamId) {
+          try {
+            const ssH2h = await fetch(
+              `/api/sofascore/h2h?eventId=${ssEventId}&homeTeamId=${ssHomeTeamId}&awayTeamId=${ssAwayTeamId}`
+            ).then(r => r.ok ? r.json() : null).catch(() => null);
+            if (ssH2h?.matches?.length > 0) {
+              resolvedH2H = ssH2h.matches;
+            }
+          } catch { /* SofaScore H2H fallback failed */ }
+        }
+
+        // Bonus: if SofaScore form was fetched but TSDB/ESPN H2H is still empty,
+        // extract H2H from the home team's SofaScore event list.
+        if (resolvedH2H.length === 0 && ssHomeForm?.allEvents && ssAwayTeamId) {
+          const h2hFromForm = (ssHomeForm.allEvents as any[]).filter((m: any) =>
+            m.home_team_id === String(ssAwayTeamId) ||
+            m.away_team_id === String(ssAwayTeamId)
+          );
+          if (h2hFromForm.length > 0) resolvedH2H = h2hFromForm;
+        }
+
         setH2HMatches(resolvedH2H);
       } catch (err) {
         console.error('Error fetching team form:', err);
@@ -172,7 +218,8 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
       }
     }
     fetchForm();
-  }, [match.teams?.home?.name, match.teams?.away?.name]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.teams?.home?.name, match.teams?.away?.name, match.fixture?.date]);
 
   // Extract statistics from match.statistics array if available
   const homeStats = {
@@ -951,6 +998,25 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
     async function fetchStats() {
       if (!match.id) { setLoading(false); return; }
       try {
+        // SofaScore first: richest data (xG, big chances, pass accuracy, etc.)
+        const sofascoreId = match.raw_data?.sofascoreEventId;
+        if (sofascoreId) {
+          const qp = new URLSearchParams({ eventId: String(sofascoreId) });
+          const ht1 = match.raw_data?.period1Home;
+          const ht2 = match.raw_data?.period1Away;
+          if (ht1 != null) qp.set('halftimeHome', String(ht1));
+          if (ht2 != null) qp.set('halftimeAway', String(ht2));
+          const ssRes = await fetch(`/api/sofascore/match-stats?${qp.toString()}`);
+          if (ssRes.ok) {
+            const ssData = await ssRes.json();
+            if (ssData.found && ssData.stats) {
+              setStats(ssData.stats);
+              setLoading(false);
+              return; // SofaScore succeeded — skip ESPN
+            }
+          }
+        }
+        // ESPN fallback (for matches without a SofaScore ID, or when SS has no stats)
         const leagueCode = match.raw_data?.leagueCode;
         const res = await fetch(`/api/espn/match-stats?eventId=${match.id}${leagueCode ? `&league=${leagueCode}` : ''}`);
         if (res.ok) {
@@ -961,7 +1027,8 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
       setLoading(false);
     }
     fetchStats();
-  }, [match.id, isTsdbMatch, match.raw_data?.leagueCode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.id, isTsdbMatch, match.raw_data?.sofascoreEventId, match.raw_data?.period1Home, match.raw_data?.period1Away, match.raw_data?.leagueCode]);
 
   // TheSportsDB match: show inline data stored on the match object
   if (isTsdbMatch) {
@@ -1053,6 +1120,26 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
       {(stats.homeOffsides > 0 || stats.awayOffsides > 0) && <MiniStatRow label="Offsides" home={stats.homeOffsides} away={stats.awayOffsides} />}
       {(stats.homeYellow > 0 || stats.awayYellow > 0) && <MiniStatRow label="Yellow Cards" home={stats.homeYellow} away={stats.awayYellow} />}
       {(stats.homeRed > 0 || stats.awayRed > 0) && <MiniStatRow label="Red Cards" home={stats.homeRed} away={stats.awayRed} />}
+      {/* SofaScore-exclusive rich metrics — only shown when SofaScore is the data source */}
+      {(stats as any)._source === 'sofascore' && (
+        <>
+          {((stats as any).homeXg > 0 || (stats as any).awayXg > 0) && (
+            <MiniStatRow label="xG" home={parseFloat(((stats as any).homeXg ?? 0).toFixed(2))} away={parseFloat(((stats as any).awayXg ?? 0).toFixed(2))} />
+          )}
+          {((stats as any).homeBigChances > 0 || (stats as any).awayBigChances > 0) && (
+            <MiniStatRow label="Big Chances" home={(stats as any).homeBigChances ?? 0} away={(stats as any).awayBigChances ?? 0} />
+          )}
+          {((stats as any).homeShotsInBox > 0 || (stats as any).awayShotsInBox > 0) && (
+            <MiniStatRow label="Shots In Box" home={(stats as any).homeShotsInBox ?? 0} away={(stats as any).awayShotsInBox ?? 0} />
+          )}
+          {((stats as any).homePassPct > 0 || (stats as any).awayPassPct > 0) && (
+            <MiniStatRow label="Pass Accuracy" home={(stats as any).homePassPct ?? 0} away={(stats as any).awayPassPct ?? 0} unit="%" />
+          )}
+        </>
+      )}
+      {(stats as any)._source === 'sofascore' && (
+        <div className="text-[9px] text-text-muted text-right mt-1 opacity-50">via SofaScore</div>
+      )}
     </motion.div>
   );
 }
