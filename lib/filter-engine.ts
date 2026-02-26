@@ -22,6 +22,13 @@ function extractStatsFromMatch(match: LiveMatch): ReturnType<typeof parseMatchSt
   return parseMatchStatsCompat(match.statistics);
 }
 
+/** Simple min/max range check for ML probability values */
+function matchesSimpleRange(value: number, range: { min?: number; max?: number }): boolean {
+  if (range.min !== undefined && value < range.min) return false;
+  if (range.max !== undefined && value > range.max) return false;
+  return true;
+}
+
 function parseMatchStatsCompat(statistics: any[] | undefined) {
   if (!statistics || statistics.length === 0) return null;
 
@@ -175,7 +182,18 @@ function evaluateStat(
 export async function matchesFilter(
   match: LiveMatch,
   filter: Filter,
-  stats?: any
+  stats?: any,
+  mlPrediction?: {
+    prob_home_win?: number; prob_draw?: number; prob_away_win?: number;
+    predicted_result?: string;
+    prob_over_15?: number; prob_over_25?: number; prob_over_35?: number;
+    prob_btts_yes?: number;
+    confidence?: number;        // 0-1 normalized
+    over_25_recommend?: boolean; btts_recommend?: boolean; winner_recommend?: boolean;
+    resolved_odds_home?: number | null; resolved_odds_draw?: number | null;
+    resolved_odds_away?: number | null; resolved_odds_over_25?: number | null;
+    resolved_odds_btts_yes?: number | null;
+  } | null
 ): Promise<FilterMatchResult> {
 
   const matchedConditions: string[] = [];
@@ -462,7 +480,144 @@ export async function matchesFilter(
   }
 
   // ============================================
-  // 16. TRENDS (cannot evaluate without historical snapshots - log as info)
+  // 16. ML PREDICTIONS (Bzzoiro CatBoost)
+  // ============================================
+  if (conditions.ml_predictions) {
+    const ml = conditions.ml_predictions;
+
+    if (!mlPrediction) {
+      // If filter requires ML conditions but no prediction data available, skip (don't fail)
+      // This prevents filters from silently never triggering when Bzzoiro is unconfigured
+      console.log('[filter-engine] ml_predictions condition present but no Bzzoiro data — skipping ML check');
+    } else {
+      let mlPassed = true;
+
+      // 1X2 probabilities (stored 0-100 in Bzzoiro, confidence is 0-1)
+      const mlConfidence0to100 = (mlPrediction.confidence ?? 0) * 100;
+
+      if (ml.prob_home_win) {
+        const v = mlPrediction.prob_home_win ?? 0;
+        if (!matchesSimpleRange(v, ml.prob_home_win)) {
+          failedConditions.push(`ML home win prob: ${v.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.prob_draw) {
+        const v = mlPrediction.prob_draw ?? 0;
+        if (!matchesSimpleRange(v, ml.prob_draw)) {
+          failedConditions.push(`ML draw prob: ${v.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.prob_away_win) {
+        const v = mlPrediction.prob_away_win ?? 0;
+        if (!matchesSimpleRange(v, ml.prob_away_win)) {
+          failedConditions.push(`ML away win prob: ${v.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.predicted_result !== undefined) {
+        if (mlPrediction.predicted_result !== ml.predicted_result) {
+          failedConditions.push(`ML predicted result: ${mlPrediction.predicted_result} ≠ ${ml.predicted_result}`);
+          mlPassed = false;
+        }
+      }
+      if (ml.prob_over_15) {
+        const v = mlPrediction.prob_over_15 ?? 0;
+        if (!matchesSimpleRange(v, ml.prob_over_15)) {
+          failedConditions.push(`ML over 1.5 prob: ${v.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.prob_over_25) {
+        const v = mlPrediction.prob_over_25 ?? 0;
+        if (!matchesSimpleRange(v, ml.prob_over_25)) {
+          failedConditions.push(`ML over 2.5 prob: ${v.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.prob_over_35) {
+        const v = mlPrediction.prob_over_35 ?? 0;
+        if (!matchesSimpleRange(v, ml.prob_over_35)) {
+          failedConditions.push(`ML over 3.5 prob: ${v.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.prob_btts_yes) {
+        const v = mlPrediction.prob_btts_yes ?? 0;
+        if (!matchesSimpleRange(v, ml.prob_btts_yes)) {
+          failedConditions.push(`ML BTTS prob: ${v.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.confidence) {
+        if (!matchesSimpleRange(mlConfidence0to100, ml.confidence)) {
+          failedConditions.push(`ML confidence: ${mlConfidence0to100.toFixed(1)}% not in range`);
+          mlPassed = false;
+        }
+      }
+      // Recommendation flags
+      if (ml.over_25_recommend === true && !mlPrediction.over_25_recommend) {
+        failedConditions.push('ML over 2.5 not recommended by model');
+        mlPassed = false;
+      }
+      if (ml.btts_recommend === true && !mlPrediction.btts_recommend) {
+        failedConditions.push('ML BTTS not recommended by model');
+        mlPassed = false;
+      }
+      if (ml.winner_recommend === true && !mlPrediction.winner_recommend) {
+        failedConditions.push('ML winner not recommended by model');
+        mlPassed = false;
+      }
+      // Bookmaker odds
+      if (ml.odds_home) {
+        const v = mlPrediction.resolved_odds_home;
+        if (v != null && !matchesSimpleRange(v, ml.odds_home)) {
+          failedConditions.push(`Bzzoiro home odds: ${v.toFixed(2)} not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.odds_draw) {
+        const v = mlPrediction.resolved_odds_draw;
+        if (v != null && !matchesSimpleRange(v, ml.odds_draw)) {
+          failedConditions.push(`Bzzoiro draw odds: ${v.toFixed(2)} not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.odds_away) {
+        const v = mlPrediction.resolved_odds_away;
+        if (v != null && !matchesSimpleRange(v, ml.odds_away)) {
+          failedConditions.push(`Bzzoiro away odds: ${v.toFixed(2)} not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.odds_over_25) {
+        const v = mlPrediction.resolved_odds_over_25;
+        if (v != null && !matchesSimpleRange(v, ml.odds_over_25)) {
+          failedConditions.push(`Bzzoiro over 2.5 odds: ${v.toFixed(2)} not in range`);
+          mlPassed = false;
+        }
+      }
+      if (ml.odds_btts_yes) {
+        const v = mlPrediction.resolved_odds_btts_yes;
+        if (v != null && !matchesSimpleRange(v, ml.odds_btts_yes)) {
+          failedConditions.push(`Bzzoiro BTTS odds: ${v.toFixed(2)} not in range`);
+          mlPassed = false;
+        }
+      }
+
+      if (mlPassed) {
+        const summary: string[] = [];
+        if (mlPrediction.prob_over_25 != null) summary.push(`O2.5:${mlPrediction.prob_over_25.toFixed(0)}%`);
+        if (mlPrediction.prob_btts_yes != null) summary.push(`BTTS:${mlPrediction.prob_btts_yes.toFixed(0)}%`);
+        if (mlPrediction.predicted_result) summary.push(`→${mlPrediction.predicted_result}`);
+        matchedConditions.push(`ML predictions: ${summary.join(' ') || 'met'}`);
+      }
+    }
+  }
+
+  // ============================================
+  // 17. TRENDS (cannot evaluate without historical snapshots - log as info)
   // Trends are informational only - they don't cause match/fail
   // ============================================
 
@@ -478,7 +633,8 @@ export async function matchesFilter(
 
 export async function applyFiltersToMatch(
   match: LiveMatch,
-  filters: Filter[]
+  filters: Filter[],
+  mlPrediction?: any | null
 ): Promise<FilterMatchResult[]> {
 
   const results: FilterMatchResult[] = [];
@@ -494,7 +650,7 @@ export async function applyFiltersToMatch(
   const stats = extractStatsFromMatch(match);
 
   for (const filter of activeFilters) {
-    const result = await matchesFilter(match, filter, stats);
+    const result = await matchesFilter(match, filter, stats, mlPrediction ?? null);
     if (result.matches) {
       results.push(result);
     }
@@ -505,7 +661,9 @@ export async function applyFiltersToMatch(
 
 export async function applyFiltersToMatches(
   matches: LiveMatch[],
-  filters: Filter[]
+  filters: Filter[],
+  /** Optional map of match predictions keyed by "homeTeamName|awayTeamName" (normalised) */
+  mlPredictionMap?: Map<string, any>
 ): Promise<Map<number, FilterMatchResult[]>> {
 
   const resultsMap = new Map<number, FilterMatchResult[]>();
@@ -516,7 +674,14 @@ export async function applyFiltersToMatches(
       continue;
     }
 
-    const matchResults = await applyFiltersToMatch(match, filters);
+    // Look up ML prediction for this match if map provided
+    let mlPrediction: any | null = null;
+    if (mlPredictionMap && match.teams?.home?.name && match.teams?.away?.name) {
+      const key = `${match.teams.home.name.toLowerCase().trim()}|${match.teams.away.name.toLowerCase().trim()}`;
+      mlPrediction = mlPredictionMap.get(key) ?? null;
+    }
+
+    const matchResults = await applyFiltersToMatch(match, filters, mlPrediction);
     if (matchResults.length > 0) {
       resultsMap.set(match.fixture.id, matchResults);
     }

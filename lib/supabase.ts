@@ -300,6 +300,36 @@ export interface FilterConditions {
     min?: number;
     max?: number;
   };
+
+  // ============ ML PREDICTIONS (Bzzoiro) ============
+  // Trigger filter based on CatBoost ML probability thresholds.
+  // Probabilities are 0-100. Use recommended=true to only trigger on model-recommended bets.
+  ml_predictions?: {
+    // 1X2 win probabilities (0-100)
+    prob_home_win?: { min?: number; max?: number };
+    prob_draw?: { min?: number; max?: number };
+    prob_away_win?: { min?: number; max?: number };
+    // Specific predicted result ('H', 'D', 'A')
+    predicted_result?: 'H' | 'D' | 'A';
+    // Goal O/U probabilities (0-100)
+    prob_over_15?: { min?: number; max?: number };
+    prob_over_25?: { min?: number; max?: number };
+    prob_over_35?: { min?: number; max?: number };
+    // BTTS probability (0-100)
+    prob_btts_yes?: { min?: number; max?: number };
+    // Overall model confidence (0-100, normalized from favorite probability)
+    confidence?: { min?: number; max?: number };
+    // Model recommendation flags (true = model recommends this bet)
+    over_25_recommend?: boolean;
+    btts_recommend?: boolean;
+    winner_recommend?: boolean;
+    // Pre-match bookmaker odds from Bzzoiro events API (decimal)
+    odds_home?: { min?: number; max?: number };
+    odds_draw?: { min?: number; max?: number };
+    odds_away?: { min?: number; max?: number };
+    odds_over_25?: { min?: number; max?: number };
+    odds_btts_yes?: { min?: number; max?: number };
+  };
 }
 
 export interface MatchHistory {

@@ -316,6 +316,7 @@ export default function FilterTemplatesPage() {
               >
                 <option value="all">📊 All Templates ({allTemplates.length})</option>
                 <option value="popular">⭐ Popular ({categoryCounts.popular || 0})</option>
+                <option value="ml_powered">🤖 AI/ML ({categoryCounts.ml_powered || 0})</option>
                 <option value="corners">🎯 Corners ({categoryCounts.corners || 0})</option>
                 <option value="shots">🔫 Shots ({categoryCounts.shots || 0})</option>
                 <option value="cards">🟨 Cards ({categoryCounts.cards || 0})</option>

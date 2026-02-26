@@ -111,6 +111,42 @@ class BackgroundScannerService {
       this.state.activeFilters = activeFilters.length;
       this.state.matchesScanned = matches.length;
 
+      // ── Bzzoiro enriched ML predictions (best-effort, non-blocking) ──────────
+      // Fetched once per scan cycle via the server-side route so the BZZOIRO_API_TOKEN
+      // never leaks to the browser. Cached 10 min server-side.
+      let bzzoiroPredMap: Map<string, any> | null = null;
+      const hasMLFilters = activeFilters.some(
+        f => f.is_active && (f.conditions as any)?.ml_predictions
+      );
+      if (hasMLFilters) {
+        try {
+          const bzRes = await fetch('/api/bzzoiro/enriched', {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (bzRes.ok) {
+            const bzData = await bzRes.json();
+            if (bzData.configured && Array.isArray(bzData.predictions) && bzData.predictions.length > 0) {
+              bzzoiroPredMap = new Map<string, any>();
+              for (const pred of bzData.predictions) {
+                // Build normalised "home|away" key (mirrors lib/bzzoiro normalizeTeamName)
+                const norm = (s: string) =>
+                  s.toLowerCase().trim()
+                    .replace(/\b(fc|afc|cf|sc|fk|sk|ac|as|us|ss|cd|bk|if|ff|hif|ik|united|city|town)\b/g, '')
+                    .replace(/[^a-z0-9\s]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                const key = `${norm(pred.home_team)}|${norm(pred.away_team)}`;
+                bzzoiroPredMap.set(key, pred);
+              }
+              console.log(`[Scanner] Bzzoiro enriched: ${bzzoiroPredMap.size} predictions loaded for ML filter matching`);
+            }
+          }
+        } catch (bzErr) {
+          console.warn('[Scanner] Bzzoiro enriched fetch failed (non-fatal):', bzErr instanceof Error ? bzErr.message : bzErr);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       let notificationsSentThisScan = 0;
       const completedMatches: { match_id: string; score_home: number; score_away: number }[] = [];
 
@@ -132,8 +168,31 @@ class BackgroundScannerService {
           continue;
         }
 
-        const matchResults = await applyFiltersToMatch(match, activeFilters);
+        // Look up Bzzoiro ML prediction for this match (used by ml_predictions filter conditions)
+        let matchMlPred: any | null = null;
+        if (bzzoiroPredMap && match.teams.home.name && match.teams.away.name) {
+          const normMatch = (s: string) =>
+            s.toLowerCase().trim()
+              .replace(/\b(fc|afc|cf|sc|fk|sk|ac|as|us|ss|cd|bk|if|ff|hif|ik|united|city|town)\b/g, '')
+              .replace(/[^a-z0-9\s]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+          const matchKey = `${normMatch(match.teams.home.name)}|${normMatch(match.teams.away.name)}`;
+          matchMlPred = bzzoiroPredMap.get(matchKey) ?? null;
+          // Fuzzy fallback: try partial name matching if exact key not found
+          if (!matchMlPred) {
+            const homeN = normMatch(match.teams.home.name);
+            const awayN = normMatch(match.teams.away.name);
+            for (const [k, v] of bzzoiroPredMap) {
+              const [kh, ka] = k.split('|');
+              const hScore = kh && homeN && (kh.includes(homeN) || homeN.includes(kh)) ? 0.8 : 0;
+              const aScore = ka && awayN && (ka.includes(awayN) || awayN.includes(ka)) ? 0.8 : 0;
+              if (hScore > 0 && aScore > 0) { matchMlPred = v; break; }
+            }
+          }
+        }
 
+        const matchResults = await applyFiltersToMatch(match, activeFilters, matchMlPred);
         if (matchResults && matchResults.length > 0) {
           console.log(`✅ Match ${match.fixture.id} triggered ${matchResults.length} filter(s)`);
 

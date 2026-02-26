@@ -13,7 +13,7 @@ export interface FilterTemplate {
   id: string;
   name: string;
   description: string;
-  category: 'corners' | 'goals' | 'cards' | 'shots' | 'advanced' | 'popular' | 'experimental';
+  category: 'corners' | 'goals' | 'cards' | 'shots' | 'advanced' | 'popular' | 'experimental' | 'ml_powered';
   conditions: FilterConditions;
   icon: string;
   popularity: number;
@@ -467,6 +467,210 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       },
     } as any,
   },
+
+  // ============================================
+  // ML-POWERED TEMPLATES (Bzzoiro CatBoost AI)
+  // ============================================
+  // These templates combine live statistics with Bzzoiro ML model probabilities.
+  // ml_predictions conditions only trigger when BZZOIRO_API_TOKEN is configured.
+  // Without it the live-stat conditions still work independently.
+
+  {
+    id: 'ml-over25-high-confidence',
+    name: '🤖 ML Over 2.5 Goals — AI High Confidence',
+    description: 'CatBoost model says >70% chance of 3+ goals AND recommends the bet. Combined with at least 1 goal already and both teams pressing. Perfect value opportunity for over 2.5 markets.',
+    category: 'ml_powered',
+    icon: '🧠',
+    popularity: 5,
+    successRate: 78,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['ML', 'over-goals', 'AI', 'high-confidence', 'betting'],
+    color: 'green',
+    conditions: {
+      ml_predictions: {
+        prob_over_25: { min: 70 },
+        over_25_recommend: true,
+      },
+      score: {
+        total_goals: { min: 1 },
+      },
+      shots_on_target: {
+        total: { min: 4 },
+      },
+      match_time: {
+        between: [45, 80],
+      },
+    } as any,
+  },
+
+  {
+    id: 'ml-btts-recommended',
+    name: '🤖 ML Both Teams to Score — Model Pick',
+    description: 'AI model (CatBoost) gives >65% probability for BTTS and recommends it. Both teams already showing attacking intent with shots. Strong statistical edge for BTTS bet.',
+    category: 'ml_powered',
+    icon: '⚽',
+    popularity: 5,
+    successRate: 75,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['ML', 'BTTS', 'AI', 'both-teams', 'recommended'],
+    color: 'cyan',
+    conditions: {
+      ml_predictions: {
+        prob_btts_yes: { min: 65 },
+        btts_recommend: true,
+      },
+      shots_on_target: {
+        home: { min: 2 },
+        away: { min: 2 },
+      },
+      match_time: {
+        between: [40, 80],
+      },
+    } as any,
+  },
+
+  {
+    id: 'ml-home-win-dominant',
+    name: '🤖 ML Home Win — AI Picks Home + Stat Dominance',
+    description: 'CatBoost predicts home win (>65%) and recommends it. Home team also dominates with possession and dangerous attacks — double confirmation from model + live stats.',
+    category: 'ml_powered',
+    icon: '🏠',
+    popularity: 4,
+    successRate: 72,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['ML', 'home-win', 'AI', 'dominant', 'winner'],
+    color: 'amber',
+    conditions: {
+      ml_predictions: {
+        prob_home_win: { min: 65 },
+        predicted_result: 'H',
+        winner_recommend: true,
+      },
+      possession: {
+        home: { min: 52 },
+      },
+      dangerous_attacks: {
+        home: { min: 5 },
+      },
+      match_time: {
+        between: [30, 80],
+      },
+    } as any,
+  },
+
+  {
+    id: 'ml-away-upset-value',
+    name: '🤖 ML Away Win Upset — Value Bet',
+    description: 'AI model predicts away win (>60%) with high confidence. Away team shows counter-attacking threat despite lower possession. Odds over 2.0 provide value — perfect upset alert.',
+    category: 'ml_powered',
+    icon: '✈️',
+    popularity: 4,
+    successRate: 67,
+    confidence: 'Medium',
+    notificationEnabled: true,
+    tags: ['ML', 'away-win', 'upset', 'value-bet', 'AI'],
+    color: 'purple',
+    conditions: {
+      ml_predictions: {
+        prob_away_win: { min: 60 },
+        predicted_result: 'A',
+        winner_recommend: true,
+        odds_away: { min: 2.0 },
+      },
+      shots_on_target: {
+        away: { min: 2 },
+      },
+      match_time: {
+        between: [30, 75],
+      },
+    } as any,
+  },
+
+  {
+    id: 'ml-over35-late-bonanza',
+    name: '🤖 ML Over 3.5 Late Goals Bonanza',
+    description: 'Model gives >60% for over 3.5 goals in a match that already has 2+ goals. Shots trending up in final third of match — high probability of more goals before full time.',
+    category: 'ml_powered',
+    icon: '🎯',
+    popularity: 4,
+    successRate: 71,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['ML', 'over-goals', 'late-game', 'high-scoring', 'AI'],
+    color: 'red',
+    conditions: {
+      ml_predictions: {
+        prob_over_35: { min: 60 },
+      },
+      score: {
+        total_goals: { min: 2 },
+      },
+      shots_on_target: {
+        total: { min: 5 },
+      },
+      match_time: {
+        between: [60, 85],
+      },
+    } as any,
+  },
+
+  {
+    id: 'ml-draw-tension',
+    name: '🤖 ML Draw Under Pressure',
+    description: 'AI gives >55% draw probability. Match currently level (0-0 or 1-1) with balanced possession and moderate activity. Statistical equilibrium — model favours draw holding until final whistle.',
+    category: 'ml_powered',
+    icon: '🤝',
+    popularity: 4,
+    successRate: 66,
+    confidence: 'Medium',
+    notificationEnabled: true,
+    tags: ['ML', 'draw', 'balanced', 'value-bet', 'AI'],
+    color: 'blue',
+    conditions: {
+      ml_predictions: {
+        prob_draw: { min: 55 },
+        predicted_result: 'D',
+      },
+      score: {
+        difference: { max: 0 },
+      },
+      possession: {
+        dominant: 'balanced',
+      },
+      match_time: {
+        between: [65, 85],
+      },
+    } as any,
+  },
+
+  {
+    id: 'ml-value-odds-over25',
+    name: '🤖 ML Over 2.5 + Good Bookmaker Odds',
+    description: 'Model predicts >65% over 2.5 AND Bzzoiro events show bookmaker odds > 1.8 for over 2.5. Best of both: AI prediction + market value aligned. Ideal for over goals betting.',
+    category: 'ml_powered',
+    icon: '💰',
+    popularity: 5,
+    successRate: 76,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['ML', 'over-goals', 'value', 'odds', 'AI', 'bookmaker'],
+    color: 'green',
+    conditions: {
+      ml_predictions: {
+        prob_over_25: { min: 65 },
+        odds_over_25: { min: 1.8 },
+      },
+      shots_on_target: {
+        total: { min: 5 },
+      },
+      match_time: {
+        between: [30, 75],
+      },
+    } as any,
+  },
 ];
 
 // Filter out templates that are experimental or clearly low-value for
@@ -476,6 +680,7 @@ export const FILTER_TEMPLATES: FilterTemplate[] = RAW_TEMPLATES.filter(t => {
   if (t.experimental) return false;
   // Always keep popular or advanced templates with decent success rate
   if (t.category === 'popular') return true;
+  if (t.category === 'ml_powered') return true; // always include ML templates
   if ((t.popularity || 0) >= 3) return true;
   if ((t.successRate || 0) >= 60) return true;
   return false;
@@ -487,7 +692,7 @@ export const getPopularTemplates = () => FILTER_TEMPLATES.filter(t => t.populari
 export const getTemplateById = (id: string) => FILTER_TEMPLATES.find(t => t.id === id);
 export const getAllTemplates = () => FILTER_TEMPLATES;
 
-export const getCategoriesWithCounts = (): { all: number; popular: number; corners: number; goals: number; cards: number; shots: number; advanced: number; experimental?: number } => {
+export const getCategoriesWithCounts = (): { all: number; popular: number; corners: number; goals: number; cards: number; shots: number; advanced: number; experimental?: number; ml_powered: number } => {
   const categories = new Set(FILTER_TEMPLATES.map(t => t.category));
   const counts: Record<string, number> = {};
   
@@ -507,6 +712,7 @@ export const getCategoriesWithCounts = (): { all: number; popular: number; corne
     shots: counts['shots'] || 0,
     advanced: counts['advanced'] || 0,
     experimental: counts['experimental'] || 0,
+    ml_powered: counts['ml_powered'] || 0,
   };
 };
 

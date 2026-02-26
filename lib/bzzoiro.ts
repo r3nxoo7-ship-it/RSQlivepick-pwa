@@ -15,7 +15,7 @@ const BASE_URL = 'https://sports.bzzoiro.com';
 // RAW API TYPES (as returned by Bzzoiro)
 // ============================================
 
-interface BzzoiroLeague {
+interface BzzoiroRawLeague {
   id: number;
   name: string;
   country: string;
@@ -24,7 +24,7 @@ interface BzzoiroLeague {
 interface BzzoiroRawEvent {
   id: number;
   api_id: number;
-  league: BzzoiroLeague;
+  league: BzzoiroRawLeague;
   home_team: string;
   away_team: string;
   event_date: string;         // ISO with timezone, e.g. "2026-02-25T23:45:00+04:00"
@@ -228,6 +228,223 @@ export async function fetchBzzoiroLive(): Promise<BzzoiroPrediction[]> {
   const data: BzzoiroPaginatedResponse = await res.json();
   return (data.results || []).map(normalizePrediction);
 }
+
+// ============================================
+// LEAGUES, TEAMS & EVENTS
+// ============================================
+
+export interface BzzoiroLeague {
+  id: number;
+  name: string;
+  country: string;
+  slug?: string;
+}
+
+export interface BzzoiroTeam {
+  id: number;
+  name: string;
+  country: string;
+  slug?: string;
+  logo?: string;
+}
+
+export interface BzzoiroEvent {
+  id: number;
+  api_id: number;
+  league: BzzoiroLeague;
+  home_team: string;
+  away_team: string;
+  event_date: string;
+  status: 'notstarted' | 'live' | 'finished' | string;
+  home_score: number | null;
+  away_score: number | null;
+  odds_home?: number;
+  odds_draw?: number;
+  odds_away?: number;
+  odds_over_25?: number;
+  odds_btts_yes?: number;
+}
+
+interface BzzoiroPaginatedList<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+/**
+ * Fetch all leagues from Bzzoiro.
+ * Cached 6 hours — league list is almost static.
+ */
+export async function fetchBzzoiroLeagues(): Promise<BzzoiroLeague[]> {
+  const res = await fetch(`${BASE_URL}/api/leagues/`, {
+    headers: getHeaders(),
+    next: { revalidate: 21600 },
+  });
+  if (!res.ok) throw new Error(`Bzzoiro leagues error: ${res.status}`);
+  const data: BzzoiroPaginatedList<BzzoiroLeague> = await res.json();
+  return data.results || [];
+}
+
+/**
+ * Fetch teams, optionally filtered by country.
+ * Cached 6 hours.
+ */
+export async function fetchBzzoiroTeams(country?: string): Promise<BzzoiroTeam[]> {
+  const url = country
+    ? `${BASE_URL}/api/teams/?country=${encodeURIComponent(country)}`
+    : `${BASE_URL}/api/teams/`;
+  const res = await fetch(url, {
+    headers: getHeaders(),
+    next: { revalidate: 21600 },
+  });
+  if (!res.ok) throw new Error(`Bzzoiro teams error: ${res.status}`);
+  const data: BzzoiroPaginatedList<BzzoiroTeam> = await res.json();
+  return data.results || [];
+}
+
+/**
+ * Fetch events (matches) for a date range.
+ * Defaults to today ± 1 day (catches live + upcoming + recently finished).
+ * Includes bookmaker odds: home/draw/away, over 2.5, btts.
+ */
+export async function fetchBzzoiroEvents(
+  dateFrom?: string,
+  dateTo?: string
+): Promise<BzzoiroEvent[]> {
+  const today = new Date();
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  const from = dateFrom || fmt(new Date(today.getTime() - 86400000));
+  const to = dateTo || fmt(new Date(today.getTime() + 86400000));
+
+  const allEvents: BzzoiroEvent[] = [];
+  let url: string | null = `${BASE_URL}/api/events/?date_from=${from}&date_to=${to}`;
+  let page = 0;
+  const MAX_PAGES = 5;
+
+  while (url && page < MAX_PAGES) {
+    const res = await fetch(url, {
+      headers: getHeaders(),
+      cache: 'no-store', // events change frequently (scores, live odds)
+    });
+    if (!res.ok) throw new Error(`Bzzoiro events error: ${res.status}`);
+    const data: BzzoiroPaginatedList<BzzoiroEvent> = await res.json();
+    allEvents.push(...(data.results || []));
+    url = data.next;
+    page++;
+  }
+
+  return allEvents;
+}
+
+/**
+ * Build an enriched prediction map keyed by normalised "home|away" string.
+ * Merges static ML predictions + live event odds so each entry contains:
+ *   - All ML probability fields (from /api/predictions/)
+ *   - Live bookmaker odds from /api/events/ (home, draw, away, over_2.5, btts)
+ *   - Live score & status from /api/events/ (for cross-validation)
+ *
+ * This is the primary helper used by the background scanner and filter engine.
+ */
+export interface BzzoiroEnrichedPrediction extends BzzoiroPrediction {
+  // Live event data (may be null if match not in events endpoint)
+  live_home_score: number | null;
+  live_away_score: number | null;
+  live_status: string | null;
+  // Bookmaker odds (merged from events if missing from predictions)
+  resolved_odds_home: number | null;
+  resolved_odds_draw: number | null;
+  resolved_odds_away: number | null;
+  resolved_odds_over_25: number | null;
+  resolved_odds_btts_yes: number | null;
+}
+
+let _enrichedCache: { data: Map<string, BzzoiroEnrichedPrediction>; fetchedAt: number } | null = null;
+const ENRICHED_CACHE_TTL = 15 * 60 * 1000; // 15 min — shorter than predictions (30 min)
+
+/**
+ * Return a home|away keyed Map of enriched predictions.
+ * Uses module-level cache; pass force=true to bypass.
+ */
+export async function getBzzoiroEnrichedMap(
+  force = false
+): Promise<Map<string, BzzoiroEnrichedPrediction>> {
+  if (!force && _enrichedCache && Date.now() - _enrichedCache.fetchedAt < ENRICHED_CACHE_TTL) {
+    return _enrichedCache.data;
+  }
+
+  // Fetch predictions + today's events in parallel
+  const [predictions, events] = await Promise.all([
+    fetchBzzoiroPredictions(),
+    fetchBzzoiroEvents().catch(() => [] as BzzoiroEvent[]),
+  ]);
+
+  // Index events by normalised "home|away" key
+  const eventMap = new Map<string, BzzoiroEvent>();
+  for (const ev of events) {
+    const key = `${normalizeTeamName(ev.home_team)}|${normalizeTeamName(ev.away_team)}`;
+    eventMap.set(key, ev);
+    // Also index by api_id for precise lookup
+    eventMap.set(`apiid:${ev.api_id}`, ev);
+  }
+
+  const resultMap = new Map<string, BzzoiroEnrichedPrediction>();
+
+  for (const pred of predictions) {
+    const predKey = `${normalizeTeamName(pred.home_team)}|${normalizeTeamName(pred.away_team)}`;
+    const event =
+      eventMap.get(predKey) ||
+      eventMap.get(`apiid:${pred.event_id}`) ||
+      null;
+
+    const enriched: BzzoiroEnrichedPrediction = {
+      ...pred,
+      live_home_score: event?.home_score ?? null,
+      live_away_score: event?.away_score ?? null,
+      live_status: event?.status ?? null,
+      resolved_odds_home: event?.odds_home ?? pred.odds_home ?? null,
+      resolved_odds_draw: event?.odds_draw ?? pred.odds_draw ?? null,
+      resolved_odds_away: event?.odds_away ?? pred.odds_away ?? null,
+      resolved_odds_over_25: event?.odds_over_25 ?? null,
+      resolved_odds_btts_yes: event?.odds_btts_yes ?? null,
+    };
+
+    resultMap.set(predKey, enriched);
+  }
+
+  _enrichedCache = { data: resultMap, fetchedAt: Date.now() };
+  return resultMap;
+}
+
+/**
+ * Find a Bzzoiro enriched prediction for a live match by team names.
+ */
+export function findBzzoiroEnriched(
+  homeName: string,
+  awayName: string,
+  map: Map<string, BzzoiroEnrichedPrediction>
+): BzzoiroEnrichedPrediction | null {
+  // Exact normalised key first
+  const key = `${normalizeTeamName(homeName)}|${normalizeTeamName(awayName)}`;
+  if (map.has(key)) return map.get(key)!;
+
+  // Fuzzy fallback: iterate and find best match
+  let best: BzzoiroEnrichedPrediction | null = null;
+  let bestScore = 0;
+  for (const [, pred] of map) {
+    const hs = teamNameScore(homeName, pred.home_team);
+    const as_ = teamNameScore(awayName, pred.away_team);
+    const combined = (hs + as_) / 2;
+    if (combined > bestScore && hs >= 0.45 && as_ >= 0.45 && combined >= 0.55) {
+      bestScore = combined;
+      best = pred;
+    }
+  }
+  return best;
+}
+
+// Expose teamNameScore for fuzzy matching in other modules
+export { teamNameScore };
 
 // ============================================
 // TEAM NAME MATCHING
