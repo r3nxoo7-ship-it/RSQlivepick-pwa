@@ -668,8 +668,10 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
         awayForm={teamFormMap[String(match.teams?.away?.id)]}
         odds={(() => {
           if (!matchOddsMap) return undefined;
-          const hName = (match.teams?.home?.name || '').trim().toLowerCase();
-          const aName = (match.teams?.away?.name || '').trim().toLowerCase();
+          const cleanName = (s: string) =>
+            s.trim().toLowerCase().replace(/[-_.']/g, ' ').replace(/\s+/g, ' ').trim();
+          const hName = cleanName(match.teams?.home?.name || '');
+          const aName = cleanName(match.teams?.away?.name || '');
           const entry = matchOddsMap[`${hName}|${aName}`];
           if (!entry) return undefined;
           return { fixture_id: match.fixture?.id ?? 0, odds: [], timestamp: 0, bookmakers: entry };
