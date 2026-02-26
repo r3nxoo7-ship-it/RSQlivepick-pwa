@@ -7,6 +7,7 @@
 import type { LiveMatch } from '@/lib/types';
 import type { Filter } from '@/lib/supabase';
 import { applyFiltersToMatch } from '@/lib/filter-engine';
+import { enrichMatchesWithSofascore } from '@/lib/sofascore-live-enricher';
 import { sendMatchNotification } from '@/lib/notifications';
 import { sendTelegramMatchNotification } from '@/lib/telegram';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -149,6 +150,14 @@ class BackgroundScannerService {
 
       let notificationsSentThisScan = 0;
       const completedMatches: { match_id: string; score_home: number; score_away: number }[] = [];
+
+      // Enrich live matches with SofaScore stats (xG, big chances, shots in box, pass accuracy, etc.)
+      // Only runs when at least one active filter uses a SofaScore-exclusive condition — otherwise skipped.
+      try {
+        await enrichMatchesWithSofascore(matches, activeFilters);
+      } catch (e) {
+        console.warn('[Scanner] SofaScore enrichment failed (non-fatal):', e instanceof Error ? e.message : e);
+      }
 
       // Scan each match - only process matches that are actually live (in progress)
       for (const match of matches) {

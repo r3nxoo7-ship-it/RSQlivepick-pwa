@@ -81,6 +81,27 @@ export interface LiveMatch {
   // Optional: detailed statistics
   statistics?: MatchStatistics[];
 
+  // Optional: SofaScore live stats (enriched by background scanner)
+  // Contains metrics not available from ESPN: xG, big chances, shots in box, pass accuracy
+  sofascore_stats?: {
+    sofascoreEventId: number;
+    homeXg: number;
+    awayXg: number;
+    homeBigChances: number;
+    awayBigChances: number;
+    homeShotsInBox: number;
+    awayShotsInBox: number;
+    homePassPct: number;     // pass accuracy %
+    awayPassPct: number;
+    homeInterceptions: number;
+    awayInterceptions: number;
+    homeClearances: number;
+    awayClearances: number;
+    homeFouls: number;       // fouls from SofaScore (more reliable than ESPN)
+    awayFouls: number;
+    fetchedAt: number;       // Unix ms — for cache staleness check
+  };
+
   // Optional: odds/betting information
   odds?: MatchOdds['bookmakers'];
 }

@@ -423,6 +423,74 @@ export async function matchesFilter(
   }
 
   // ============================================
+  // 13b. SOFASCORE-EXCLUSIVE LIVE STATS
+  // xG, Big Chances, Shots in Box, Pass Accuracy, Interceptions, Clearances
+  // All read from match.sofascore_stats (enriched by background scanner).
+  // Silently skipped (not failed) when SofaScore data is unavailable.
+  // ============================================
+  const ss = (match as any).sofascore_stats as {
+    homeXg?: number; awayXg?: number;
+    homeBigChances?: number; awayBigChances?: number;
+    homeShotsInBox?: number; awayShotsInBox?: number;
+    homePassPct?: number; awayPassPct?: number;
+    homeInterceptions?: number; awayInterceptions?: number;
+    homeClearances?: number; awayClearances?: number;
+    homeFouls?: number; awayFouls?: number;
+  } | undefined;
+
+  // xG (expected goals) — also in base FilterConditions
+  if (conditions.xg) {
+    if (ss?.homeXg != null && ss?.awayXg != null) {
+      evaluateStat(ss.homeXg, ss.awayXg, conditions.xg, 'xG', matchedConditions, failedConditions);
+    }
+    // else: silently skip — SofaScore stats not yet enriched for this match
+  }
+
+  // Big Chances created
+  if (conditions.big_chances) {
+    if (ss?.homeBigChances != null && ss?.awayBigChances != null) {
+      evaluateStat(ss.homeBigChances, ss.awayBigChances, conditions.big_chances, 'Big Chances', matchedConditions, failedConditions);
+    }
+  }
+
+  // Shots inside the box
+  if (conditions.shots_in_box) {
+    if (ss?.homeShotsInBox != null && ss?.awayShotsInBox != null) {
+      evaluateStat(ss.homeShotsInBox, ss.awayShotsInBox, conditions.shots_in_box, 'Shots in Box', matchedConditions, failedConditions);
+    }
+  }
+
+  // Pass accuracy % (team-specific only — total doesn't make meaningful sense)
+  if (conditions.pass_accuracy) {
+    if (ss?.homePassPct != null && ss?.awayPassPct != null) {
+      const pa = conditions.pass_accuracy;
+      const { min, max, team = 'home' } = pa;
+      const val = team === 'away' ? ss.awayPassPct : ss.homePassPct;
+      const minOk = min === undefined || val >= min;
+      const maxOk = max === undefined || val <= max;
+      if (minOk && maxOk) {
+        matchedConditions.push(`Pass accuracy (${team}): ${val}%`);
+      } else {
+        failedConditions.push(`Pass accuracy (${team}): ${val}% not in range ${min ?? 0}-${max ?? 100}%`);
+      }
+    }
+  }
+
+  // Interceptions
+  if (conditions.interceptions) {
+    if (ss?.homeInterceptions != null && ss?.awayInterceptions != null) {
+      evaluateStat(ss.homeInterceptions, ss.awayInterceptions, conditions.interceptions, 'Interceptions', matchedConditions, failedConditions);
+    }
+  }
+
+  // Clearances
+  if (conditions.clearances) {
+    if (ss?.homeClearances != null && ss?.awayClearances != null) {
+      evaluateStat(ss.homeClearances, ss.awayClearances, conditions.clearances, 'Clearances', matchedConditions, failedConditions);
+    }
+  }
+
+  // ============================================
   // 14. PRE-MATCH ODDS (market-specific)
   // ============================================
   if (conditions.pre_match_odds) {

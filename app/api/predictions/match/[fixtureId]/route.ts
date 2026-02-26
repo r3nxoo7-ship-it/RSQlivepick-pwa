@@ -105,21 +105,50 @@ export async function GET(
       try { return await getTeamSchedule(teamId); } catch { return []; } finally { clearTimeout(t); }
     };
 
-    // DB-first form data
-    const [homeDBMatches, awayDBMatches] = await Promise.all([
+    // DB-first form data + SofaScore find-event in parallel (for richer team form)
+    const matchDate = match.fixture?.date
+      ? new Date(match.fixture.date).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    const [homeDBMatches, awayDBMatches, ssEventRes] = await Promise.all([
       getTeamRecentMatches(String(homeTeamId), 10),
       getTeamRecentMatches(String(awayTeamId), 10),
+      fetch(
+        `${baseUrl}/api/sofascore/find-event?home=${encodeURIComponent(homeTeamName)}&away=${encodeURIComponent(awayTeamName)}&date=${matchDate}`,
+        { signal: AbortSignal.timeout(5000) }
+      ).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
 
-    // Fall back to live ESPN API only when DB has sparse data for this team
-    const [homeSchedule, awaySchedule] = await Promise.all([
+    const ssHomeTeamId: number | null = ssEventRes?.homeTeamId ?? null;
+    const ssAwayTeamId: number | null = ssEventRes?.awayTeamId ?? null;
+    const ssEventId: number | null = ssEventRes?.eventId ?? null;
+
+    // SofaScore form + ESPN fallback: all in parallel
+    const [homeSpnSchedule, awaySpnSchedule, ssHomeForm, ssAwayForm] = await Promise.all([
       homeDBMatches.length >= 4
         ? Promise.resolve(homeDBMatches)
         : fetchESPNScheduleSafe(String(homeTeamId)).then(r => r.length >= homeDBMatches.length ? r : homeDBMatches),
       awayDBMatches.length >= 4
         ? Promise.resolve(awayDBMatches)
         : fetchESPNScheduleSafe(String(awayTeamId)).then(r => r.length >= awayDBMatches.length ? r : awayDBMatches),
+      ssHomeTeamId
+        ? fetch(`${baseUrl}/api/sofascore/team-form?teamId=${ssHomeTeamId}&limit=12`, { signal: AbortSignal.timeout(5000) })
+            .then(r => r.ok ? r.json() : null).catch(() => null)
+        : Promise.resolve(null),
+      ssAwayTeamId
+        ? fetch(`${baseUrl}/api/sofascore/team-form?teamId=${ssAwayTeamId}&limit=12`, { signal: AbortSignal.timeout(5000) })
+            .then(r => r.ok ? r.json() : null).catch(() => null)
+        : Promise.resolve(null),
     ]);
+
+    // Prefer SofaScore when it has more matches (better coverage for smaller leagues/tournaments)
+    const homeSchedule = (ssHomeForm?.matches?.length ?? 0) >= Math.max(homeSpnSchedule.length, 5)
+      ? ssHomeForm.matches : homeSpnSchedule;
+    const awaySchedule = (ssAwayForm?.matches?.length ?? 0) >= Math.max(awaySpnSchedule.length, 5)
+      ? ssAwayForm.matches : awaySpnSchedule;
+
+    const homeFormSource = homeSchedule === ssHomeForm?.matches ? 'SofaScore' : (homeDBMatches.length >= 4 ? 'Supabase DB' : 'ESPN API');
+    const awayFormSource = awaySchedule === ssAwayForm?.matches ? 'SofaScore' : (awayDBMatches.length >= 4 ? 'Supabase DB' : 'ESPN API');
 
     const h2hResponse = await fetch(
       `${baseUrl}/api/h2h?home=${encodeURIComponent(homeTeamName)}&away=${encodeURIComponent(awayTeamName)}&limit=20`,
@@ -152,8 +181,8 @@ export async function GET(
       // Fallback: ESPN schedule cross-reference (usually 0-1 matches)
       h2hData = homeSchedule
         .filter((m: any) => {
-          const hid = String(m.homeTeam?.id);
-          const aid = String(m.awayTeam?.id);
+          const hid = String(m.homeTeam?.id ?? m.home_team_id ?? '');
+          const aid = String(m.awayTeam?.id ?? m.away_team_id ?? '');
           return (
             (hid === String(homeTeamId) && aid === String(awayTeamId)) ||
             (hid === String(awayTeamId) && aid === String(homeTeamId))
@@ -161,13 +190,37 @@ export async function GET(
         })
         .slice(0, 10)
         .map((m: any) => ({
-          home_team_id: m.homeTeam?.id,
-          away_team_id: m.awayTeam?.id,
-          home_score: m.homeScore || 0,
-          away_score: m.awayScore || 0,
-          home_corners: m.homeCorners || null,
-          away_corners: m.awayCorners || null,
+          home_team_id: m.homeTeam?.id ?? m.home_team_id,
+          away_team_id: m.awayTeam?.id ?? m.away_team_id,
+          home_score: m.homeScore ?? m.home_score ?? 0,
+          away_score: m.awayScore ?? m.away_score ?? 0,
+          home_corners: m.homeCorners ?? m.home_corners ?? null,
+          away_corners: m.awayCorners ?? m.away_corners ?? null,
         }));
+
+      // SofaScore H2H — cross-references both teams' form histories
+      if (h2hData.length === 0 && ssEventId && ssHomeTeamId && ssAwayTeamId) {
+        try {
+          const ssH2h = await fetch(
+            `${baseUrl}/api/sofascore/h2h?eventId=${ssEventId}&homeTeamId=${ssHomeTeamId}&awayTeamId=${ssAwayTeamId}`,
+            { signal: AbortSignal.timeout(5000) }
+          ).then(r => r.ok ? r.json() : null).catch(() => null);
+          if (ssH2h?.matches?.length > 0) {
+            h2hData = ssH2h.matches.map((m: any) => ({
+              home_team_id: m.home_team_id,
+              away_team_id: m.away_team_id,
+              home_team_name: m.home_team_name,
+              away_team_name: m.away_team_name,
+              home_score: m.home_score ?? 0,
+              away_score: m.away_score ?? 0,
+              home_corners: null,
+              away_corners: null,
+            }));
+            console.log(`[Predictions] H2H from SofaScore cross-ref: ${h2hData.length} matches`);
+          }
+        } catch { /* non-fatal */ }
+      }
+
       console.log(`[Predictions] H2H fallback ESPN: ${h2hData.length} matches`);
     }
 
@@ -280,10 +333,11 @@ export async function GET(
 
     // Attach data quality info
     const dataSources = [
-      homeDBMatches.length >= 4 ? 'Supabase DB (home form)' : 'ESPN API (home form)',
-      awayDBMatches.length >= 4 ? 'Supabase DB (away form)' : 'ESPN API (away form)',
-      h2hData.length > 2 ? 'TheSportsDB H2H' : 'ESPN H2H fallback',
+      `${homeFormSource} (home form: ${homeForm.length} matches)`,
+      `${awayFormSource} (away form: ${awayForm.length} matches)`,
+      h2hData.length > 2 ? 'TheSportsDB H2H' : h2hData.length > 0 ? 'SofaScore H2H / ESPN fallback' : 'No H2H data',
       ...(bzzoiro ? [`Bzzoiro ML (confidence: ${Math.round(bzzoiro.confidence * 100)}%)`] : []),
+      ...(ssEventId ? [`SofaScore event: ${ssEventId}`] : []),
     ];
 
     const response = {

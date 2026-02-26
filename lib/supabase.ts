@@ -195,6 +195,34 @@ export interface FilterConditions {
     team?: 'home' | 'away' | 'total';
   };
 
+  // ============ SOFASCORE-EXCLUSIVE LIVE STATS ============
+  // These require SofaScore enrichment; automatically skipped when data unavailable
+  big_chances?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  shots_in_box?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  pass_accuracy?: {
+    min?: number;    // percentage 0-100
+    max?: number;
+    team?: 'home' | 'away';
+  };
+  interceptions?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+  clearances?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+  };
+
   // ============ LIVE ODDS ============
   match_goals?: {
     type: 'over' | 'under';
