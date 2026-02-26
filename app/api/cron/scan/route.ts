@@ -21,7 +21,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN = (
+  process.env.TELEGRAM_BOT_TOKEN ||
+  process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN ||
+  ''
+).trim();
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

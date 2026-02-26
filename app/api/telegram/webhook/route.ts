@@ -21,7 +21,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN = (
+  process.env.TELEGRAM_BOT_TOKEN ||
+  process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN ||
+  ''
+).trim();
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
