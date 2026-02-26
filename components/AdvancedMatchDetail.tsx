@@ -381,23 +381,6 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
 
               {/* Live Statistics */}
               <div className="space-y-4">
-                {/* Halftime goals split (when match has started) */}
-                {(homeStats.firstHalf > 0 || awayStats.firstHalf > 0 ||
-                  homeStats.secondHalf > 0 || awayStats.secondHalf > 0 ||
-                  match.fixture?.status?.short === 'HT' ||
-                  (match.fixture?.status?.elapsed && match.fixture.status.elapsed > 45)) && (
-                  <div className="flex items-center justify-center gap-4 py-2 rounded-lg bg-white/[0.03] border border-white/8 text-xs">
-                    <span className="text-text-muted">1st Half:</span>
-                    <span className="font-bold text-accent-cyan tabular-nums">
-                      {homeStats.firstHalf} - {awayStats.firstHalf}
-                    </span>
-                    <span className="text-white/20">|</span>
-                    <span className="text-text-muted">2nd Half:</span>
-                    <span className="font-bold text-accent-blue tabular-nums">
-                      {homeStats.secondHalf} - {awayStats.secondHalf}
-                    </span>
-                  </div>
-                )}
                 <StatRow label="Possession" home={homeStats.possession} away={awayStats.possession} unit="%" compare={true} />
                 <StatRow label="Shots on Target" home={homeStats.shotsOnTarget} away={awayStats.shotsOnTarget} compare={true} />
                 <StatRow label="Shots Off Target" home={homeStats.shotsOffTarget} away={awayStats.shotsOffTarget} compare={true} />
@@ -860,15 +843,14 @@ function EventRow({ event, isHome }: { event: MatchEvent; isHome: boolean }) {
   );
 }
 
-/** Compact stat-based momentum gauge */
+/** Rich visual momentum gauge: possession wave + shot symbols + danger bars */
 function StatMomentumGauge({ homeStats, awayStats }: { homeStats: Record<string, number>; awayStats: Record<string, number> }) {
   const categories = [
     { label: 'Possession', home: homeStats.possession, away: awayStats.possession, weight: 0.25 },
-    { label: 'Shots on Target', home: homeStats.shotsOnTarget, away: awayStats.shotsOnTarget, weight: 0.20 },
-    { label: 'Dangerous Attacks', home: homeStats.dangerousAttacks, away: awayStats.dangerousAttacks, weight: 0.20 },
-    { label: 'Corners', home: homeStats.corners, away: awayStats.corners, weight: 0.15 },
-    { label: 'Total Shots', home: homeStats.shotsOnTarget + homeStats.shotsOffTarget, away: awayStats.shotsOnTarget + awayStats.shotsOffTarget, weight: 0.10 },
-    { label: 'Fouls Won', home: awayStats.fouls, away: homeStats.fouls, weight: 0.10 },
+    { label: 'Shots on Target', home: homeStats.shotsOnTarget, away: awayStats.shotsOnTarget, weight: 0.25 },
+    { label: 'Dangerous Attacks', home: homeStats.dangerousAttacks, away: awayStats.dangerousAttacks, weight: 0.25 },
+    { label: 'Total Shots', home: homeStats.shotsOnTarget + homeStats.shotsOffTarget, away: awayStats.shotsOnTarget + awayStats.shotsOffTarget, weight: 0.15 },
+    { label: 'Corners', home: homeStats.corners, away: awayStats.corners, weight: 0.10 },
   ].filter(c => c.home + c.away > 0);
 
   if (categories.length === 0) return null;
@@ -881,33 +863,136 @@ function StatMomentumGauge({ homeStats, awayStats }: { homeStats: Record<string,
     overall += ((cat.home / total) * 2 - 1) * (cat.weight / totalWeight) * 100;
   }
   overall = Math.round(overall);
-  const barPosition = 50 + overall / 2;
+
+  // Possession
+  const posTotal = homeStats.possession + awayStats.possession;
+  const homePosPercent = posTotal > 0 ? Math.round((homeStats.possession / posTotal) * 100) : 50;
+  const awayPosPercent = 100 - homePosPercent;
+
+  // Shots
+  const homeShotOn = homeStats.shotsOnTarget || 0;
+  const homeShotOff = homeStats.shotsOffTarget || 0;
+  const awayShotOn = awayStats.shotsOnTarget || 0;
+  const awayShotOff = awayStats.shotsOffTarget || 0;
+
+  // Dangerous attacks — scale bar height relative to max (min 4px, max 32px)
+  const maxDanger = Math.max(homeStats.dangerousAttacks || 0, awayStats.dangerousAttacks || 0, 1);
+  const homeDangerH = Math.max(4, Math.round((homeStats.dangerousAttacks / maxDanger) * 32));
+  const awayDangerH = Math.max(4, Math.round((awayStats.dangerousAttacks / maxDanger) * 32));
+
+  const momentumColor = overall > 10 ? 'text-accent-cyan' : overall < -10 ? 'text-accent-blue' : 'text-accent-yellow';
 
   return (
-    <div className="px-4 pb-3 pt-2 border-t border-white/8 space-y-2">
-      {/* Momentum bar */}
-      <div className="relative h-4 rounded-full overflow-hidden bg-white/5">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-          style={{ width: `${barPosition}%`, background: 'linear-gradient(90deg, rgba(34,211,238,0.1) 0%, rgba(34,211,238,0.5) 100%)' }}
-        />
-        <div
-          className="absolute inset-y-0 right-0 rounded-full transition-all duration-700"
-          style={{ width: `${100 - barPosition}%`, background: 'linear-gradient(270deg, rgba(59,130,246,0.1) 0%, rgba(59,130,246,0.5) 100%)' }}
-        />
-        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
-        <div
-          className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-lg transition-all duration-700"
-          style={{
-            left: `${barPosition}%`,
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: overall > 10 ? 'rgb(34,211,238)' : overall < -10 ? 'rgb(59,130,246)' : 'rgb(250,204,21)',
-          }}
-        />
+    <div className="px-4 pb-4 pt-2 border-t border-white/8 space-y-3">
+
+      {/* ── Possession wave bar ── */}
+      <div>
+        <div className="flex justify-between text-[9px] text-text-muted mb-1">
+          <span>Possession</span>
+          <span className="font-bold text-accent-cyan">{homeStats.possession || 0}%</span>
+          <span className="font-bold text-accent-blue">{awayStats.possession || 0}%</span>
+        </div>
+        <div className="relative h-5 rounded-full overflow-hidden bg-white/5 flex">
+          <div
+            className="h-full transition-all duration-700"
+            style={{
+              width: `${homePosPercent}%`,
+              background: 'linear-gradient(90deg, rgba(34,211,238,0.7) 0%, rgba(34,211,238,0.35) 100%)'
+            }}
+          />
+          <div
+            className="h-full transition-all duration-700"
+            style={{
+              width: `${awayPosPercent}%`,
+              background: 'linear-gradient(270deg, rgba(59,130,246,0.7) 0%, rgba(59,130,246,0.35) 100%)'
+            }}
+          />
+          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/25" />
+          {/* Percentage labels inside bar */}
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white/80">{homePosPercent}%</span>
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white/80">{awayPosPercent}%</span>
+        </div>
       </div>
-      <div className="text-center">
-        <span className="text-[9px] text-text-muted">Stat Momentum: </span>
-        <span className={`text-[10px] font-bold ${overall > 0 ? 'text-accent-cyan' : overall < 0 ? 'text-accent-blue' : 'text-accent-yellow'}`}>
+
+      {/* ── Shot symbols: on-target (●) and off-target (○) ── */}
+      <div>
+        <div className="text-[9px] text-text-muted mb-1.5">Shots</div>
+        <div className="flex items-center gap-2">
+          {/* Home shots (right-aligned toward center) */}
+          <div className="flex-1 flex items-center justify-end gap-0.5 flex-wrap-reverse">
+            {Array.from({ length: homeShotOn }).map((_, i) => (
+              <span key={`hon-${i}`} title="On target" className="text-accent-cyan text-[11px] leading-none">●</span>
+            ))}
+            {Array.from({ length: homeShotOff }).map((_, i) => (
+              <span key={`hoff-${i}`} title="Off target" className="text-accent-cyan/35 text-[11px] leading-none">○</span>
+            ))}
+          </div>
+          {/* Center divider with label */}
+          <div className="shrink-0 flex flex-col items-center gap-0.5">
+            <span className="text-[8px] text-text-muted">on</span>
+            <div className="w-px h-4 bg-white/20" />
+            <span className="text-[8px] text-text-muted">off</span>
+          </div>
+          {/* Away shots (left-aligned from center) */}
+          <div className="flex-1 flex items-center justify-start gap-0.5 flex-wrap">
+            {Array.from({ length: awayShotOn }).map((_, i) => (
+              <span key={`aon-${i}`} title="On target" className="text-accent-blue text-[11px] leading-none">●</span>
+            ))}
+            {Array.from({ length: awayShotOff }).map((_, i) => (
+              <span key={`aoff-${i}`} title="Off target" className="text-accent-blue/35 text-[11px] leading-none">○</span>
+            ))}
+          </div>
+        </div>
+        {/* Shot count labels */}
+        <div className="flex justify-between text-[9px] mt-1">
+          <span className="text-accent-cyan font-bold">{homeShotOn + homeShotOff} shots ({homeShotOn} on)</span>
+          <span className="text-accent-blue font-bold">{awayShotOn + awayShotOff} shots ({awayShotOn} on)</span>
+        </div>
+      </div>
+
+      {/* ── Dangerous attacks up/down bars ── */}
+      {(homeStats.dangerousAttacks > 0 || awayStats.dangerousAttacks > 0) && (
+        <div>
+          <div className="text-[9px] text-text-muted mb-1.5">Dangerous Attacks</div>
+          <div className="flex items-end justify-center gap-2 h-10">
+            {/* Home bar (grows upward, aligned right of center) */}
+            <div className="flex flex-col items-end justify-end flex-1">
+              <span className="text-[9px] font-bold text-accent-cyan mb-0.5">{homeStats.dangerousAttacks}</span>
+              <div className="w-full max-w-[80px] ml-auto rounded-t transition-all duration-700 bg-accent-cyan/60"
+                style={{ height: `${homeDangerH}px` }} />
+            </div>
+            {/* Center label */}
+            <div className="shrink-0 flex flex-col items-center justify-end gap-0.5 pb-0.5">
+              <span className="text-[8px] text-text-muted">⚡</span>
+            </div>
+            {/* Away bar */}
+            <div className="flex flex-col items-start justify-end flex-1">
+              <span className="text-[9px] font-bold text-accent-blue mb-0.5">{awayStats.dangerousAttacks}</span>
+              <div className="w-full max-w-[80px] mr-auto rounded-t transition-all duration-700 bg-accent-blue/60"
+                style={{ height: `${awayDangerH}px` }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Overall momentum score ── */}
+      <div className="flex items-center gap-2 pt-1 border-t border-white/8">
+        <div className="flex-1 relative h-2 rounded-full bg-white/5">
+          <div
+            className="absolute top-0 bottom-0 rounded-full transition-all duration-700"
+            style={{
+              left: overall >= 0 ? '50%' : `${50 + overall / 2}%`,
+              width: `${Math.abs(overall) / 2}%`,
+              minWidth: 2,
+              background: overall >= 0
+                ? 'linear-gradient(90deg, transparent, rgba(34,211,238,0.8))'
+                : 'linear-gradient(270deg, transparent, rgba(59,130,246,0.8))'
+            }}
+          />
+          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
+        </div>
+        <span className="text-[9px] text-text-muted shrink-0">Momentum</span>
+        <span className={`text-[11px] font-bold shrink-0 ${momentumColor}`}>
           {overall > 0 ? '+' : ''}{overall}
         </span>
       </div>
