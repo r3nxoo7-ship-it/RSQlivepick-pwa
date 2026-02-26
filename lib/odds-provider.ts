@@ -69,6 +69,10 @@ export interface ParsedBookmakerOdds {
   // BTTS
   btts_yes?: number;
   btts_no?: number;
+  // Asian Handicap (main line)
+  asian_handicap_home_odd?: number;  // home team odds
+  asian_handicap_away_odd?: number;  // away team odds
+  asian_handicap_line?: number;      // e.g. -0.5 means home gives 0.5 goal start
   // Allow dynamic access
   [key: string]: number | undefined;
 }
@@ -219,6 +223,22 @@ function parseOdds(oddsData: any): MatchOdds {
         for (const v of values) {
           if (v.value === 'Yes') bookmakers.btts_yes = v.odd;
           if (v.value === 'No') bookmakers.btts_no = v.odd;
+        }
+      }
+
+      // Asian Handicap
+      if (name === 'Asian Handicap' || name.includes('Asian Handicap')) {
+        for (const v of values) {
+          // Values are like "Home -0.5", "Away +0.5", "Home -1", etc.
+          const homeMatch = v.value.match(/^Home\s+([+-]?\d+\.?\d*)$/);
+          const awayMatch = v.value.match(/^Away\s+([+-]?\d+\.?\d*)$/);
+          if (homeMatch) {
+            bookmakers.asian_handicap_home_odd = v.odd;
+            bookmakers.asian_handicap_line = parseFloat(homeMatch[1]);
+          }
+          if (awayMatch) {
+            bookmakers.asian_handicap_away_odd = v.odd;
+          }
         }
       }
     }

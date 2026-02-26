@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { getLiveMatches, LiveMatch } from '@/lib/unified-api';
+import { getLiveAndUpcomingMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
 import AdvancedMatchDetail from '@/components/AdvancedMatchDetail';
 import AuthWrapper from '@/components/AuthWrapper';
@@ -115,6 +115,10 @@ export default function LiveMatchesPage() {
   const [recentlyTriggered, setRecentlyTriggered] = useState<any[]>([]);
   const [triggeredLoading, setTriggeredLoading] = useState(false);
 
+  // Team form + odds for upcoming matches
+  const [teamFormMap, setTeamFormMap] = useState<Record<string, { wins: number; draws: number; losses: number; played: number }>>({});
+  const [matchOddsMap, setMatchOddsMap] = useState<Record<string, any>>({});
+
   // Expanded match group state
   const [expandedTriggered, setExpandedTriggered] = useState<string | null>(null);
   const [expandedHistory, setExpandedHistory] = useState<string | null>(null);
@@ -201,20 +205,38 @@ export default function LiveMatchesPage() {
     setError(null);
     
     try {
-      console.log('🔍 Fetching live matches...');
-      const liveMatches = await getLiveMatches();
-      
-      setMatches(liveMatches);
+      console.log('🔍 Fetching live + upcoming matches...');
+      const { live, upcoming, teamForm } = await getLiveAndUpcomingMatches();
+      const allMatches = [...live, ...upcoming];
+
+      setMatches(allMatches);
       setLastUpdate(new Date());
 
-      console.log(`✅ Loaded ${liveMatches.length} live matches`);
+      // Store team form keyed by team ID (string)
+      setTeamFormMap(teamForm || {});
+
+      console.log(`✅ Loaded ${allMatches.length} matches (${live.length} live, ${upcoming.length} upcoming)`);
+
+      // Fetch pre-match odds for today (best-effort, silently skip on error)
+      if (upcoming.length > 0) {
+        try {
+          const oddsRes = await fetch('/api/odds/upcoming');
+          if (oddsRes.ok) {
+            const oddsData = await oddsRes.json();
+            setMatchOddsMap(oddsData.oddsMap || {});
+            console.log(`✅ Loaded odds for ${oddsData.count || 0} upcoming matches`);
+          }
+        } catch (oddsErr) {
+          console.warn('⚠️ Could not fetch pre-match odds:', oddsErr);
+        }
+      }
       
       // Apply filters directly inline to avoid dependency issues
       if (userFilters.length > 0) {
         setApplyingFilters(true);
         try {
           console.log('🎯 Applying filters to matches...');
-          const results = await applyFiltersToMatches(liveMatches, userFilters);
+          const results = await applyFiltersToMatches(allMatches, userFilters);
           setFilterResults(results);
           console.log(`✅ ${results.size} matches have filter matches`);
         } catch (err) {
@@ -625,6 +647,17 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
             filterResults={
               match.fixture?.id ? filterResults.get(match.fixture.id) : undefined
             }
+            homeForm={teamFormMap[String(match.teams?.home?.id)]}
+            awayForm={teamFormMap[String(match.teams?.away?.id)]}
+            odds={(() => {
+              // Try to find odds by normalized team name pair
+              if (!matchOddsMap) return undefined;
+              const hName = (match.teams?.home?.name || '').trim().toLowerCase();
+              const aName = (match.teams?.away?.name || '').trim().toLowerCase();
+              const entry = matchOddsMap[`${hName}|${aName}`];
+              if (!entry) return undefined;
+              return { fixture_id: match.fixture?.id ?? 0, odds: [], timestamp: 0, bookmakers: entry };
+            })()}
           />
         </motion.div>
       ))}
