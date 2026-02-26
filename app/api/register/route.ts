@@ -15,8 +15,13 @@ async function insertUser(
   fullName: string,
   hashedPassword: string
 ) {
-  return (supabase as ReturnType<typeof createClient> & { from: (t: string) => any })
-    .from('users')
+  // Cast through unknown to break Supabase's untyped-schema `never` inference
+  const db = supabase as unknown as {
+    from: (table: string) => {
+      insert: (rows: object[]) => { select: (col: string) => { single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }> } }
+    }
+  };
+  return db.from('users')
     .insert([{ username, full_name: fullName, password_hash: hashedPassword, is_active: true }])
     .select('id')
     .single();
