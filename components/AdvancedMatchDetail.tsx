@@ -1007,18 +1007,42 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
   const isTsdbMatch = match.id?.toString().startsWith('tsdb_');
 
   useEffect(() => {
-    if (isTsdbMatch) { setLoading(false); return; }
     async function fetchStats() {
       if (!match.id) { setLoading(false); return; }
       try {
-        // SofaScore first: richest data (xG, big chances, pass accuracy, etc.)
-        const sofascoreId = match.raw_data?.sofascoreEventId;
-        if (sofascoreId) {
-          const qp = new URLSearchParams({ eventId: String(sofascoreId) });
-          const ht1 = match.raw_data?.period1Home;
-          const ht2 = match.raw_data?.period1Away;
-          if (ht1 != null) qp.set('halftimeHome', String(ht1));
-          if (ht2 != null) qp.set('halftimeAway', String(ht2));
+        // ────────────────────────────────────────────────────────
+        // Step 1: Resolve SofaScore event + halftime via find-event
+        // (skip if we already have sofascoreEventId in raw_data)
+        // ────────────────────────────────────────────────────────
+        let sofascoreEventId: number | null = match.raw_data?.sofascoreEventId ?? null;
+        let period1Home: number | undefined = match.raw_data?.period1Home;
+        let period1Away: number | undefined = match.raw_data?.period1Away;
+
+        if (!sofascoreEventId && match.home_team_name && match.away_team_name && match.date) {
+          try {
+            const matchDate = match.date.split('T')[0];
+            const findRes = await fetch(
+              `/api/sofascore/find-event?home=${encodeURIComponent(match.home_team_name)}&away=${encodeURIComponent(match.away_team_name)}&date=${matchDate}`
+            );
+            if (findRes.ok) {
+              const findData = await findRes.json();
+              if (findData.found) {
+                sofascoreEventId = findData.eventId;
+                if (findData.period1Home != null) period1Home = findData.period1Home;
+                if (findData.period1Away != null) period1Away = findData.period1Away;
+              }
+            }
+          } catch { /* non-fatal — fall through */ }
+        }
+
+        // ────────────────────────────────────────────────────────
+        // Step 2: Fetch SofaScore stats (richest: xG, big chances,
+        // pass accuracy, halftime scores embedded)
+        // ────────────────────────────────────────────────────────
+        if (sofascoreEventId) {
+          const qp = new URLSearchParams({ eventId: String(sofascoreEventId) });
+          if (period1Home != null) qp.set('halftimeHome', String(period1Home));
+          if (period1Away != null) qp.set('halftimeAway', String(period1Away));
           const ssRes = await fetch(`/api/sofascore/match-stats?${qp.toString()}`);
           if (ssRes.ok) {
             const ssData = await ssRes.json();
@@ -1029,55 +1053,49 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
             }
           }
         }
-        // ESPN fallback (for matches without a SofaScore ID, or when SS has no stats)
+
+        // ────────────────────────────────────────────────────────
+        // Step 3: Inline TheSportsDB data (no ESPN fallback needed)
+        // If SofaScore found only halftime but no full stats, still
+        // store the half scores so the panel displays them.
+        // ────────────────────────────────────────────────────────
+        if (isTsdbMatch) {
+          const m = match as any;
+          const inlineStats: Record<string, number> = {};
+          if (m.home_possession != null) { inlineStats.homePoss = m.home_possession; inlineStats.awayPoss = m.away_possession ?? 0; }
+          if (m.home_shots_on_target != null) { inlineStats.homeSoT = m.home_shots_on_target; inlineStats.awaySoT = m.away_shots_on_target ?? 0; }
+          if (m.home_corners != null) { inlineStats.homeCorners = m.home_corners; inlineStats.awayCorners = m.away_corners ?? 0; }
+          if (m.home_yellow_cards != null) { inlineStats.homeYellow = m.home_yellow_cards; inlineStats.awayYellow = m.away_yellow_cards ?? 0; }
+          if (m.home_red_cards != null) { inlineStats.homeRed = m.home_red_cards; inlineStats.awayRed = m.away_red_cards ?? 0; }
+          // Inject halftime from SofaScore find-event even if stats unavailable
+          if (period1Home != null) inlineStats.homeHalfScore = period1Home;
+          if (period1Away != null) inlineStats.awayHalfScore = period1Away;
+          if (Object.keys(inlineStats).length > 0) setStats(inlineStats);
+          setLoading(false);
+          return;
+        }
+
+        // ────────────────────────────────────────────────────────
+        // Step 4: ESPN fallback for non-TheSportsDB matches
+        // ────────────────────────────────────────────────────────
         const leagueCode = match.raw_data?.leagueCode;
         const res = await fetch(`/api/espn/match-stats?eventId=${match.id}${leagueCode ? `&league=${leagueCode}` : ''}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.stats) setStats(data.stats);
+          if (data.stats) {
+            // Inject SofaScore halftime scores if ESPN didn't return them
+            if (period1Home != null && data.stats.homeHalfScore == null) data.stats.homeHalfScore = period1Home;
+            if (period1Away != null && data.stats.awayHalfScore == null) data.stats.awayHalfScore = period1Away;
+            setStats(data.stats);
+          }
         }
       } catch { /* ignore */ }
       setLoading(false);
     }
     fetchStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match.id, isTsdbMatch, match.raw_data?.sofascoreEventId, match.raw_data?.period1Home, match.raw_data?.period1Away, match.raw_data?.leagueCode]);
-
-  // TheSportsDB match: show inline data stored on the match object
-  if (isTsdbMatch) {
-    const m = match as any;
-    const hasInline = m.home_corners != null || m.home_shots_on_target != null || m.home_possession != null;
-    return (
-      <motion.div
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
-        className="rounded-b px-3 py-3 mb-1 space-y-2 bg-[rgba(15,23,42,0.6)]"
-      >
-        {/* Metadata */}
-        <div className="flex items-center justify-between text-[10px] text-text-muted mb-1">
-          <span className="truncate font-medium">{match.home_team_name}</span>
-          <span className="font-bold text-white text-xs">{match.home_score} - {match.away_score}</span>
-          <span className="truncate text-right font-medium">{match.away_team_name}</span>
-        </div>
-        {m.venue && (
-          <div className="text-[9px] text-text-muted text-center">📍 {m.venue}</div>
-        )}
-        {hasInline ? (
-          <>
-            {m.home_corners != null && <MiniStatRow label="Corners" home={m.home_corners} away={m.away_corners ?? 0} />}
-            {m.home_shots_on_target != null && <MiniStatRow label="On Target" home={m.home_shots_on_target} away={m.away_shots_on_target ?? 0} />}
-            {m.home_possession != null && <MiniStatRow label="Possession" home={m.home_possession} away={m.away_possession ?? 0} unit="%" />}
-            {m.home_yellow_cards != null && <MiniStatRow label="Yellow Cards" home={m.home_yellow_cards} away={m.away_yellow_cards ?? 0} />}
-          </>
-        ) : (
-          <div className="text-[9px] text-text-muted text-center py-1">
-            Detailed stats available in the team form tabs (Home / Away)
-          </div>
-        )}
-      </motion.div>
-    );
-  }
+  }, [match.id, isTsdbMatch, match.home_team_name, match.away_team_name, match.date,
+      match.raw_data?.sofascoreEventId, match.raw_data?.period1Home, match.raw_data?.period1Away, match.raw_data?.leagueCode]);
 
   if (loading) {
     return (
@@ -1125,6 +1143,9 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
       </div>
 
       {/* Full-match stats */}
+      {(match as any).venue && (
+        <div className="text-[9px] text-text-muted text-center -mt-1 mb-1">📍 {(match as any).venue}</div>
+      )}
       {stats.homePoss > 0 && <MiniStatRow label="Possession" home={stats.homePoss} away={stats.awayPoss} unit="%" />}
       {(stats.homeSoT > 0 || stats.awaySoT > 0) && <MiniStatRow label="On Target" home={stats.homeSoT} away={stats.awaySoT} />}
       {(stats.homeShots > 0 || stats.awayShots > 0) && <MiniStatRow label="Total Shots" home={stats.homeShots} away={stats.awayShots} />}

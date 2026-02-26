@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
       awayTeamId: result.awayTeamId,
       homeTeamName: result.event.homeTeam.name,
       awayTeamName: result.event.awayTeam.name,
+      // Halftime scores (period 1) — available for finished/live matches
+      period1Home: result.event.homeScore?.period1 ?? null,
+      period1Away: result.event.awayScore?.period1 ?? null,
     },
     {
       status: 200,
