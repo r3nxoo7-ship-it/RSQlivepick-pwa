@@ -39,6 +39,26 @@ export async function POST(request: Request) {
       }
     ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    const msg = error.message || 'Registration failed';
+    const isProfileRelationError =
+      /relation\s+"?profile"?\s+does\s+not\s+exist/i.test(msg) ||
+      /relation\s+profile\s+does\s+not\s+exist/i.test(msg) ||
+      /relation\s+"?profiles"?\s+does\s+not\s+exist/i.test(msg) ||
+      /relation\s+profiles\s+does\s+not\s+exist/i.test(msg);
+
+    if (isProfileRelationError) {
+      return NextResponse.json(
+        {
+          error:
+            'Database schema mismatch detected: relation "profiles" (or legacy "profile") is missing. Run supabase/migrations/create_profiles_table.sql in Supabase SQL Editor, then retry registration.',
+          code: 'PROFILE_RELATION_MISSING',
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
   return NextResponse.json({ message: 'User creat corect' });
 }
