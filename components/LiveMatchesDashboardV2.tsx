@@ -360,10 +360,16 @@ export default function LiveMatchesDashboardV2({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {dayMatches.map((match, idx) => {
             const isLive = match.fixture?.status?.short === 'LIVE';
-            // Compute match odds from normKey
-            const hName = (match.teams?.home?.name || '').trim().toLowerCase();
-            const aName = (match.teams?.away?.name || '').trim().toLowerCase();
-            const oddsEntry = matchOdds?.[`${hName}|${aName}`] ?? null;
+            // Compute match odds from normKey with same normalization as server
+            const cleanName = (s: string) =>
+              s.trim().toLowerCase().replace(/[-_.']/g, ' ').replace(/\s+/g, ' ').trim();
+            const hName = cleanName(match.teams?.home?.name || '');
+            const aName = cleanName(match.teams?.away?.name || '');
+            // Priority: API-Football odds → ESPN match.odds fallback
+            const oddsEntry =
+              matchOdds?.[`${hName}|${aName}`] ??
+              espnOddsToEntry((match as any).odds) ??
+              null;
             return (
               <MatchCard
                 key={match.fixture?.id || idx}
@@ -402,6 +408,37 @@ export default function LiveMatchesDashboardV2({
       )}
     </div>
   );
+}
+
+/** Convert ESPN American-moneyline odds object → card entry (decimal) */
+function espnOddsToEntry(o: any): any | null {
+  if (!o) return null;
+  const ml2dec = (ml: any): number | undefined => {
+    const n = parseFloat(String(ml));
+    if (!n || isNaN(n)) return undefined;
+    return n > 0
+      ? parseFloat(((n / 100) + 1).toFixed(2))
+      : parseFloat(((100 / Math.abs(n)) + 1).toFixed(2));
+  };
+  const entry: any = {
+    home_win:  ml2dec(o.homeWin),
+    draw:      ml2dec(o.draw),
+    away_win:  ml2dec(o.awayWin),
+  };
+  // Over/Under 2.5 only
+  if (o.overUnderLine === 2.5 || o.overUnder === 2.5) {
+    entry.goals_over_2_5  = ml2dec(o.overOdds);
+    entry.goals_under_2_5 = ml2dec(o.underOdds);
+  }
+  // Spread / Asian Handicap
+  if (o.homeSpreadLine != null) {
+    entry.asian_handicap_line      = o.homeSpreadLine;
+    entry.asian_handicap_home_odd  = ml2dec(o.homeSpreadOdds);
+    entry.asian_handicap_away_odd  = ml2dec(o.awaySpreadOdds);
+  }
+  // Only return if we have at least one value
+  if (entry.home_win || entry.draw || entry.away_win) return entry;
+  return null;
 }
 
 interface MatchCardProps {

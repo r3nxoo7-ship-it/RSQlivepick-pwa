@@ -672,9 +672,27 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
             s.trim().toLowerCase().replace(/[-_.']/g, ' ').replace(/\s+/g, ' ').trim();
           const hName = cleanName(match.teams?.home?.name || '');
           const aName = cleanName(match.teams?.away?.name || '');
-          const entry = matchOddsMap[`${hName}|${aName}`];
-          if (!entry) return undefined;
-          return { fixture_id: match.fixture?.id ?? 0, odds: [], timestamp: 0, bookmakers: entry };
+          // Priority: API-Football → ESPN match.odds fallback (convert American ML to decimal)
+          let bk = matchOddsMap[`${hName}|${aName}`] ?? null;
+          if (!bk && (match as any).odds) {
+            const o = (match as any).odds;
+            const ml2dec = (ml: any): number | undefined => {
+              const n = parseFloat(String(ml));
+              if (!n || isNaN(n)) return undefined;
+              return n > 0 ? parseFloat(((n/100)+1).toFixed(2)) : parseFloat(((100/Math.abs(n))+1).toFixed(2));
+            };
+            bk = {
+              home_win: ml2dec(o.homeWin), draw: ml2dec(o.draw), away_win: ml2dec(o.awayWin),
+              goals_over_2_5:  (o.overUnderLine === 2.5 || o.overUnder === 2.5) ? ml2dec(o.overOdds) : undefined,
+              goals_under_2_5: (o.overUnderLine === 2.5 || o.overUnder === 2.5) ? ml2dec(o.underOdds) : undefined,
+              asian_handicap_line: o.homeSpreadLine,
+              asian_handicap_home_odd: ml2dec(o.homeSpreadOdds),
+              asian_handicap_away_odd: ml2dec(o.awaySpreadOdds),
+            };
+            if (!bk.home_win && !bk.draw && !bk.away_win) bk = null;
+          }
+          if (!bk) return undefined;
+          return { fixture_id: match.fixture?.id ?? 0, odds: [], timestamp: 0, bookmakers: bk };
         })()}
       />
     </motion.div>
