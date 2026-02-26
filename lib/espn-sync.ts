@@ -1045,5 +1045,7 @@ export function convertESPNMatchToLiveMatch(row: any): any {
     // Build statistics array from DB columns + raw_data (enriched by ESPN summary)
     statistics: buildStatisticsArray(row),
     odds: row.odds ? (typeof row.odds === 'string' ? JSON.parse(row.odds) : row.odds) : null,
+    // Persisted SofaScore stats (xG, big chances, shots in box, pass accuracy, etc.)
+    sofascore_stats: row.sofascore_stats || null,
   };
 }

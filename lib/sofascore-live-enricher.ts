@@ -155,6 +155,14 @@ export async function enrichMatchesWithSofascore(
 
       statsCache.set(eventId, { stats: enriched, fetchedAt: now });
       (m as any).sofascore_stats = enriched;
+
+      // Persist to DB (fire-and-forget) so data survives scanner restarts / Vercel cold starts
+      void fetch('/api/espn/persist-sofascore-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fixtureId: m.fixture.id, sofascore_stats: enriched }),
+        signal: AbortSignal.timeout(3000),
+      }).catch(() => { /* non-fatal — DB persist failed */ });
     } catch { /* non-fatal */ }
   });
 

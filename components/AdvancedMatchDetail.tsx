@@ -127,13 +127,13 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
       const awayIdStr = match.teams?.away?.id != null ? String(match.teams.away.id) : '';
 
       try {
-        // Round 1: SofaScore find-event + ESPN form + TheSportsDB H2H all in parallel
-        // SofaScore find-event resolves SofaScore IDs so we can fetch richer data in Round 2.
+        // Round 1: SofaScore find-event + ESPN form in parallel.
+        // SofaScore find-event resolves event/team IDs needed for H2H + team form in Round 2.
         const matchDate = match.fixture?.date
           ? new Date(match.fixture.date).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0];
 
-        const [ssEventRes, homeEspn, awayEspn, h2hRes] = await Promise.all([
+        const [ssEventRes, homeEspn, awayEspn] = await Promise.all([
           (homeName && awayName)
             ? fetch(`/api/sofascore/find-event?home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}&date=${matchDate}`)
                 .then(r => r.ok ? r.json() : null).catch(() => null)
@@ -144,21 +144,18 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
           awayIdStr
             ? fetch(`/api/espn/team-form?teamId=${awayIdStr}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
-          (homeName && awayName)
-            ? fetch(`/api/h2h?home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}&limit=20`).then(r => r.ok ? r.json() : null).catch(() => null)
-            : null,
         ]);
 
         const ssHomeTeamId: number | null = ssEventRes?.homeTeamId ?? null;
         const ssAwayTeamId: number | null = ssEventRes?.awayTeamId ?? null;
         const ssEventId: number | null = ssEventRes?.eventId ?? null;
 
-        // Round 2: SofaScore team form (using IDs from Round 1) + TheSportsDB fallback
-        // TheSportsDB is only fetched if neither ESPN nor SofaScore can cover the team.
+        // Round 2: SofaScore team form + SofaScore H2H (primary) + TSDB team-form fallback.
+        // All fetched in parallel using IDs resolved in Round 1.
         const needHomeFallback = !homeEspn?.matches?.length && !ssHomeTeamId && !!homeName;
         const needAwayFallback = !awayEspn?.matches?.length && !ssAwayTeamId && !!awayName;
 
-        const [ssHomeForm, ssAwayForm, homeTsdb, awayTsdb] = await Promise.all([
+        const [ssHomeForm, ssAwayForm, homeTsdb, awayTsdb, ssH2hRes] = await Promise.all([
           ssHomeTeamId
             ? fetch(`/api/sofascore/team-form?teamId=${ssHomeTeamId}`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
@@ -171,9 +168,13 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
           needAwayFallback
             ? fetch(`/api/team-form?team=${encodeURIComponent(awayName)}&limit=10`).then(r => r.ok ? r.json() : null).catch(() => null)
             : null,
+          // SofaScore H2H — primary H2H source (better European coverage than ESPN)
+          (ssEventId && ssHomeTeamId && ssAwayTeamId)
+            ? fetch(`/api/sofascore/h2h?eventId=${ssEventId}&homeTeamId=${ssHomeTeamId}&awayTeamId=${ssAwayTeamId}`).then(r => r.ok ? r.json() : null).catch(() => null)
+            : null,
         ]);
 
-        // Priority: SofaScore (best coverage) > ESPN > TheSportsDB
+        // Priority: SofaScore (best coverage) > ESPN > TSDB
         const homeRes = ssHomeForm?.matches?.length > 0 ? ssHomeForm
           : homeEspn?.matches?.length > 0 ? homeEspn
           : homeTsdb;
@@ -184,9 +185,19 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
         if (homeRes?.matches?.length > 0) setHomeForm({ teamId: homeRes.teamId || homeIdStr, matches: homeRes.matches, form: homeRes.form });
         if (awayRes?.matches?.length > 0) setAwayForm({ teamId: awayRes.teamId || awayIdStr, matches: awayRes.matches, form: awayRes.form });
 
-        let resolvedH2H: any[] = h2hRes?.matches || [];
+        // H2H: SofaScore is primary source
+        let resolvedH2H: any[] = ssH2hRes?.matches || [];
 
-        // Round 3: ESPN H2H fallback when TheSportsDB returns 0 meetings
+        // Fallback 1: extract H2H from home team's SofaScore event list (cross-ref)
+        if (resolvedH2H.length === 0 && ssHomeForm?.allEvents && ssAwayTeamId) {
+          const h2hFromForm = (ssHomeForm.allEvents as any[]).filter((m: any) =>
+            m.home_team_id === String(ssAwayTeamId) ||
+            m.away_team_id === String(ssAwayTeamId)
+          );
+          if (h2hFromForm.length > 0) resolvedH2H = h2hFromForm;
+        }
+
+        // Fallback 2: ESPN H2H when SofaScore has no data
         if (resolvedH2H.length === 0 && homeIdStr && awayIdStr) {
           try {
             const espnH2h = await fetch(
@@ -196,29 +207,6 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
               resolvedH2H = espnH2h.matches;
             }
           } catch { /* ESPN H2H fallback failed — keep empty */ }
-        }
-
-        // Round 4: SofaScore H2H fallback — cross-references both teams' form histories
-        // Best for European meetings ESPN/TheSportsDB both miss.
-        if (resolvedH2H.length === 0 && ssEventId && ssHomeTeamId && ssAwayTeamId) {
-          try {
-            const ssH2h = await fetch(
-              `/api/sofascore/h2h?eventId=${ssEventId}&homeTeamId=${ssHomeTeamId}&awayTeamId=${ssAwayTeamId}`
-            ).then(r => r.ok ? r.json() : null).catch(() => null);
-            if (ssH2h?.matches?.length > 0) {
-              resolvedH2H = ssH2h.matches;
-            }
-          } catch { /* SofaScore H2H fallback failed */ }
-        }
-
-        // Bonus: if SofaScore form was fetched but TSDB/ESPN H2H is still empty,
-        // extract H2H from the home team's SofaScore event list.
-        if (resolvedH2H.length === 0 && ssHomeForm?.allEvents && ssAwayTeamId) {
-          const h2hFromForm = (ssHomeForm.allEvents as any[]).filter((m: any) =>
-            m.home_team_id === String(ssAwayTeamId) ||
-            m.away_team_id === String(ssAwayTeamId)
-          );
-          if (h2hFromForm.length > 0) resolvedH2H = h2hFromForm;
         }
 
         setH2HMatches(resolvedH2H);
