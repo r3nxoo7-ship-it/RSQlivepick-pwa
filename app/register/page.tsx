@@ -30,6 +30,7 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [setupNeeded, setSetupNeeded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
@@ -75,11 +76,18 @@ export default function RegisterPage() {
       const result = await response.json();
 
       if (response.ok) {
+        setSetupNeeded(false);
         setSuccess(true);
         setStep(2);
         setLoading(false);
       } else {
-        setError(result.error || 'Registration error');
+        if (result.code === 'PROFILE_RELATION_MISSING') {
+          setSetupNeeded(true);
+          setError('Database setup required before you can register.');
+        } else {
+          setSetupNeeded(false);
+          setError(result.error || 'Registration error');
+        }
         setLoading(false);
       }
     } catch (err) {
@@ -171,8 +179,18 @@ export default function RegisterPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3"
               >
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <p className="text-sm text-red-400">{error}</p>
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-red-400">
+                  <p>{error}</p>
+                  {setupNeeded && (
+                    <a
+                      href="/setup"
+                      className="mt-2 inline-flex items-center gap-1 text-cyan-400 underline hover:text-cyan-300 font-medium"
+                    >
+                      Open database setup page &rarr;
+                    </a>
+                  )}
+                </div>
               </motion.div>
             )}
 

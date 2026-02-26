@@ -2,20 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 
-function isProfileRelationError(msg: string): boolean {
-  return (
-    /relation\s+"?profiles?"?\s+does\s+not\s+exist/i.test(msg) ||
-    /table\s+"?profiles?"?\s+does\s+not\s+exist/i.test(msg)
-  );
-}
-
-// supabase typed as `any` to avoid unresolvable generic overloads when no schema types are generated
-async function insertUser(supabase: any, username: string, fullName: string, hashedPassword: string) {
-  return supabase
-    .from('users')
-    .insert([{ username, full_name: fullName, password_hash: hashedPassword, is_active: true }])
-    .select('id')
-    .single() as Promise<{ data: { id: string } | null; error: { message: string } | null }>;
+function isProfilesRelationError(msg: string): boolean {
+  return /relation\s+["']?public\.profiles["']?\s+does\s+not\s+exist|relation\s+["']?profiles["']?\s+does\s+not\s+exist/i.test(msg);
 }
 
 export async function POST(request: Request) {
@@ -37,7 +25,7 @@ export async function POST(request: Request) {
   );
 
   // Check for existing username (case-insensitive)
-  const { data: existingUsers } = await supabase
+  const { data: existingUsers } = await (supabase as any)
     .from('users')
     .select('id')
     .ilike('username', username)
@@ -50,53 +38,43 @@ export async function POST(request: Request) {
     );
   }
 
-  // --- First attempt ---
-  let { data: userData, error: insertError } = await insertUser(supabase, username, fullName, hashedPassword);
+  // Insert the user row
+  const { data: userData, error: insertError } = await (supabase as any)
+    .from('users')
+    .insert([{ username, full_name: fullName, password_hash: hashedPassword, is_active: true }])
+    .select('id')
+    .single();
 
-  // --- Self-heal: if profiles table is missing, create it via RPC then retry ---
-  if (insertError && isProfileRelationError(insertError.message || '')) {
-    console.warn('[register] profiles table missing — attempting auto-create via RPC');
+  if (insertError) {
+    const msg: string = insertError.message || '';
+    console.error('[register] insert error:', msg);
 
-    const { error: rpcError } = await supabase.rpc('create_profiles_if_missing');
-
-    if (rpcError) {
-      // RPC function itself doesn't exist yet — guide the developer
-      console.error('[register] create_profiles_if_missing RPC failed:', rpcError.message);
+    // profiles table missing — can be auto-fixed, guide the user
+    if (isProfilesRelationError(msg)) {
       return NextResponse.json(
         {
-          error:
-            'Database schema mismatch: the "profiles" table is missing. ' +
-            'Run supabase/migrations/create_profiles_rpc_helper.sql once in the Supabase SQL Editor, ' +
-            'then try registering again. If the problem persists, also run create_profiles_table.sql.',
+          error: 'Database setup needed: the "profiles" table is missing. Visit /setup to fix this in one step.',
           code: 'PROFILE_RELATION_MISSING',
+          setupUrl: '/setup',
         },
         { status: 500 }
       );
     }
 
-    // Retry after auto-create
-    const retry = await insertUser(supabase, username, fullName, hashedPassword);
-    userData = retry.data;
-    insertError = retry.error;
+    return NextResponse.json({ error: msg || 'Registration failed' }, { status: 400 });
   }
 
-  if (insertError) {
-    console.error('[register] users insert error:', insertError.message);
-    return NextResponse.json({ error: insertError.message || 'Registration failed' }, { status: 400 });
-  }
-
-  // --- Explicitly upsert a profile row (don't rely on a DB trigger) ---
+  // Upsert a profile row — non-fatal if profiles table does not yet exist
   if (userData?.id) {
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .upsert(
-        { id: userData.id, full_name: fullName, username },
-        { onConflict: 'id', ignoreDuplicates: true }
-      );
-
-    if (profileError) {
-      // Non-fatal: user is created; profile can be created on first settings visit
-      console.warn('[register] profile row creation warning:', profileError.message);
+    try {
+      await (supabase as any)
+        .from('profiles')
+        .upsert(
+          { id: userData.id, full_name: fullName, username },
+          { onConflict: 'id', ignoreDuplicates: true }
+        );
+    } catch (_) {
+      // Profile will be created on first settings visit
     }
   }
 
