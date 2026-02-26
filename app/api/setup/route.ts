@@ -63,7 +63,27 @@ export async function GET() {
   return NextResponse.json({ ok: true, profilesExist: true, message: 'profiles table exists.' });
 }
 
-// POST — full diagnostic: attempts a dry-run insert to catch trigger/policy errors
+const FIX_TRIGGER_SQL = `
+-- Drop any triggers on public.users that auto-create profiles rows.
+-- These triggers break when the search_path does not include public.
+-- The register API now creates profile rows explicitly, so these triggers are not needed.
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT trigger_name
+    FROM information_schema.triggers
+    WHERE event_object_schema = 'public'
+      AND event_object_table = 'users'
+  LOOP
+    EXECUTE 'DROP TRIGGER IF EXISTS ' || quote_ident(r.trigger_name) || ' ON public.users CASCADE';
+    RAISE NOTICE 'Dropped trigger: %', r.trigger_name;
+  END LOOP;
+END $$;
+`.trim();
+
+// POST — full diagnostic: attempts a test insert to catch trigger/policy errors
 export async function POST() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -85,11 +105,16 @@ export async function POST() {
     .single();
 
   if (insertErr) {
+    const isTriggerError = /relation\s+.?profiles.?\s+does\s+not\s+exist/i.test(insertErr.message);
     return NextResponse.json({
       ok: false,
       stage: 'users_insert',
       error: insertErr.message,
-      hint: 'The users table INSERT is failing. This is the real cause of registration errors.',
+      isTriggerError,
+      hint: isTriggerError
+        ? 'A database trigger on users is trying to INSERT into profiles but cannot find the table. Run the fix SQL below to drop the broken trigger.'
+        : 'The users table INSERT is failing. Check RLS policies on public.users.',
+      fixSql: isTriggerError ? FIX_TRIGGER_SQL : null,
     });
   }
 
@@ -106,7 +131,7 @@ export async function POST() {
       ok: false,
       stage: 'profiles_insert',
       error: profileErr.message,
-      hint: 'The users row was created but the profiles INSERT failed.',
+      hint: 'The users row was created but the profiles INSERT failed. Check RLS policies on public.profiles.',
     });
   }
 

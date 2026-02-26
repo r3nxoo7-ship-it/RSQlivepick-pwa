@@ -9,7 +9,16 @@ export default function SetupPage() {
   const [sql, setSql] = useState('');
   const [copied, setCopied] = useState(false);
   const [diagStatus, setDiagStatus] = useState<'idle' | 'running' | 'pass' | 'fail'>('idle');
-  const [diagResult, setDiagResult] = useState<{ ok: boolean; stage?: string; error?: string; hint?: string; message?: string } | null>(null);
+  const [diagResult, setDiagResult] = useState<{
+    ok: boolean;
+    stage?: string;
+    error?: string;
+    hint?: string;
+    message?: string;
+    isTriggerError?: boolean;
+    fixSql?: string | null;
+  } | null>(null);
+  const [fixCopied, setFixCopied] = useState(false);
 
   const runSetupCheck = () => {
     setStatus('loading');
@@ -107,16 +116,45 @@ export default function SetupPage() {
               )}
 
               {diagStatus === 'fail' && diagResult && (
-                <div className="rounded-lg border border-red-700 bg-red-900/20 p-3 space-y-2">
+                <div className="rounded-lg border border-red-700 bg-red-900/20 p-3 space-y-3">
                   <div className="flex items-center gap-2 text-red-300 text-sm font-medium">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     Failed at: <span className="font-mono">{diagResult.stage ?? 'unknown'}</span>
                   </div>
                   <p className="text-xs text-red-400 font-mono break-all">{diagResult.error}</p>
                   {diagResult.hint && <p className="text-xs text-gray-300">{diagResult.hint}</p>}
-                  <p className="text-xs text-amber-300 mt-1">
-                    Copy this error and paste it to Copilot to fix it.
-                  </p>
+
+                  {diagResult.isTriggerError && diagResult.fixSql && (
+                    <div className="space-y-2 pt-1 border-t border-red-800">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-amber-300">Fix: run this SQL in Supabase SQL Editor</p>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(diagResult.fixSql!).then(() => {
+                              setFixCopied(true);
+                              setTimeout(() => setFixCopied(false), 2500);
+                            });
+                          }}
+                          className="flex items-center gap-1 rounded bg-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-600 transition-colors"
+                        >
+                          <ClipboardCopy className="w-3 h-3" />
+                          {fixCopied ? 'Copied!' : 'Copy SQL'}
+                        </button>
+                      </div>
+                      <pre className="overflow-x-auto rounded bg-gray-900 border border-gray-700 p-3 text-xs text-gray-300 leading-relaxed">
+                        {diagResult.fixSql}
+                      </pre>
+                      <a
+                        href={sqlEditorUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-cyan-400 underline hover:text-cyan-300 text-xs"
+                      >
+                        Open Supabase SQL Editor <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <p className="text-xs text-gray-400">After running the SQL, click &ldquo;Run diagnostic test&rdquo; again to confirm.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
