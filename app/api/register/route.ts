@@ -15,8 +15,7 @@ async function insertUser(
   fullName: string,
   hashedPassword: string
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (supabase as any)
+  return (supabase as ReturnType<typeof createClient> & { from: (t: string) => any })
     .from('users')
     .insert([{ username, full_name: fullName, password_hash: hashedPassword, is_active: true }])
     .select('id')
