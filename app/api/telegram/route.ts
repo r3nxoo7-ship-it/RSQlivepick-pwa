@@ -64,6 +64,29 @@ export async function GET(request: NextRequest) {
       });
     }
     
+    if (action === 'getWebhookInfo') {
+      const response = await fetch(`${TELEGRAM_API_URL}/getWebhookInfo`);
+      const data = await response.json();
+      return NextResponse.json({ success: data.ok, webhook: data.result });
+    }
+
+    if (action === 'registerWebhook') {
+      const webhookUrl = searchParams.get('url');
+      const secret = searchParams.get('secret') || process.env.TELEGRAM_WEBHOOK_SECRET;
+      if (!webhookUrl) {
+        return NextResponse.json({ success: false, error: 'url param required' }, { status: 400 });
+      }
+      const body: Record<string, string> = { url: webhookUrl };
+      if (secret) body.secret_token = secret;
+      const response = await fetch(`${TELEGRAM_API_URL}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      return NextResponse.json({ success: data.ok, description: data.description });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     
   } catch (error) {
@@ -123,6 +146,12 @@ export async function POST(request: NextRequest) {
       });
     }
     
+    if (action === 'deleteWebhook') {
+      const response = await fetch(`${TELEGRAM_API_URL}/deleteWebhook`, { method: 'POST' });
+      const data = await response.json();
+      return NextResponse.json({ success: data.ok, description: data.description });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     
   } catch (error) {
