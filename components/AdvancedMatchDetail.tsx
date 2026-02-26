@@ -221,10 +221,11 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.teams?.home?.name, match.teams?.away?.name, match.fixture?.date]);
 
-  // Extract statistics from match.statistics array if available
+  // Extract statistics from match.statistics array if available, enriched by sofascore_stats
+  const ss = match.sofascore_stats;
   const homeStats = {
     goals: match.goals?.home || 0,
-    shotsOnTarget: getStatValue(match.statistics, match.teams?.home?.name, 'shots on goal'),
+    shotsOnTarget: getStatValue(match.statistics, match.teams?.home?.name, 'shots on goal') || ss?.homeShotsInBox || 0,
     shotsOffTarget: getStatValue(match.statistics, match.teams?.home?.name, 'shots off goal'),
     corners: getStatValue(match.statistics, match.teams?.home?.name, 'corners'),
     possession: getStatValue(match.statistics, match.teams?.home?.name, 'possession'),
@@ -232,7 +233,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
     redCards: getStatValue(match.statistics, match.teams?.home?.name, 'red card'),
     attacks: getStatValue(match.statistics, match.teams?.home?.name, 'attacks'),
     dangerousAttacks: getStatValue(match.statistics, match.teams?.home?.name, 'dangerous attacks'),
-    fouls: getStatValue(match.statistics, match.teams?.home?.name, 'fouls'),
+    fouls: getStatValue(match.statistics, match.teams?.home?.name, 'fouls') || ss?.homeFouls || 0,
     offsides: getStatValue(match.statistics, match.teams?.home?.name, 'offsides'),
     firstHalf: getFirstHalfGoals(match, 'home'),
     secondHalf: getSecondHalfGoals(match, 'home'),
@@ -240,7 +241,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
 
   const awayStats = {
     goals: match.goals?.away || 0,
-    shotsOnTarget: getStatValue(match.statistics, match.teams?.away?.name, 'shots on goal'),
+    shotsOnTarget: getStatValue(match.statistics, match.teams?.away?.name, 'shots on goal') || ss?.awayShotsInBox || 0,
     shotsOffTarget: getStatValue(match.statistics, match.teams?.away?.name, 'shots off goal'),
     corners: getStatValue(match.statistics, match.teams?.away?.name, 'corners'),
     possession: getStatValue(match.statistics, match.teams?.away?.name, 'possession'),
@@ -248,7 +249,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
     redCards: getStatValue(match.statistics, match.teams?.away?.name, 'red card'),
     attacks: getStatValue(match.statistics, match.teams?.away?.name, 'attacks'),
     dangerousAttacks: getStatValue(match.statistics, match.teams?.away?.name, 'dangerous attacks'),
-    fouls: getStatValue(match.statistics, match.teams?.away?.name, 'fouls'),
+    fouls: getStatValue(match.statistics, match.teams?.away?.name, 'fouls') || ss?.awayFouls || 0,
     offsides: getStatValue(match.statistics, match.teams?.away?.name, 'offsides'),
     firstHalf: getFirstHalfGoals(match, 'away'),
     secondHalf: getSecondHalfGoals(match, 'away'),
@@ -401,6 +402,35 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                   homeName={match.teams?.home?.name || 'Home'}
                   awayName={match.teams?.away?.name || 'Away'}
                 />
+              )}
+
+              {/* SofaScore Enhanced Stats — shown only when sofascore_stats is populated */}
+              {ss && (ss.homeXg > 0 || ss.homeBigChances > 0 || ss.homePassPct > 0) && (
+                <div className="rounded-xl border border-accent-purple/30 bg-[rgba(15,8,32,0.85)] overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/8">
+                    <span className="text-[10px] font-bold text-accent-purple uppercase tracking-wide">⚡ SofaScore Enhanced</span>
+                  </div>
+                  <div className="px-4 py-3 space-y-2.5">
+                    {(ss.homeXg > 0 || ss.awayXg > 0) && (
+                      <MiniStatRow label="Expected Goals (xG)" home={ss.homeXg} away={ss.awayXg} decimals={2} />
+                    )}
+                    {(ss.homeBigChances > 0 || ss.awayBigChances > 0) && (
+                      <MiniStatRow label="Big Chances" home={ss.homeBigChances} away={ss.awayBigChances} />
+                    )}
+                    {(ss.homeShotsInBox > 0 || ss.awayShotsInBox > 0) && (
+                      <MiniStatRow label="Shots in Box" home={ss.homeShotsInBox} away={ss.awayShotsInBox} />
+                    )}
+                    {(ss.homePassPct > 0 || ss.awayPassPct > 0) && (
+                      <MiniStatRow label="Pass Accuracy" home={ss.homePassPct ?? 0} away={ss.awayPassPct ?? 0} unit="%" />
+                    )}
+                    {(ss.homeInterceptions > 0 || ss.awayInterceptions > 0) && (
+                      <MiniStatRow label="Interceptions" home={ss.homeInterceptions} away={ss.awayInterceptions} />
+                    )}
+                    {(ss.homeClearances > 0 || ss.awayClearances > 0) && (
+                      <MiniStatRow label="Clearances" home={ss.homeClearances} away={ss.awayClearances} />
+                    )}
+                  </div>
+                </div>
               )}
             </>
           )}
@@ -1266,14 +1296,15 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
 /**
  * Compact stat comparison row for expanded match detail
  */
-function MiniStatRow({ label, home, away, unit = '' }: { label: string; home: number; away: number; unit?: string }) {
+function MiniStatRow({ label, home, away, unit = '', decimals = 0 }: { label: string; home: number; away: number; unit?: string; decimals?: number }) {
   const total = home + away;
   const homePercent = total === 0 ? 50 : Math.round((home / total) * 100);
+  const fmt = (v: number) => decimals > 0 ? v.toFixed(decimals) : String(v);
 
   return (
     <div className="flex items-center gap-2 text-[10px]">
       <span className={`w-8 text-right font-bold ${home > away ? 'text-accent-cyan' : 'text-text-secondary'}`}>
-        {home}{unit}
+        {fmt(home)}{unit}
       </span>
       <div className="flex-1 h-1.5 bg-glass-light rounded-full overflow-hidden flex">
         <div
@@ -1286,7 +1317,7 @@ function MiniStatRow({ label, home, away, unit = '' }: { label: string; home: nu
         />
       </div>
       <span className={`w-8 text-left font-bold ${away > home ? 'text-accent-blue' : 'text-text-secondary'}`}>
-        {away}{unit}
+        {fmt(away)}{unit}
       </span>
       <span className="text-text-muted w-[68px] text-[9px] truncate">{label}</span>
     </div>

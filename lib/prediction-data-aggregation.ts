@@ -174,6 +174,7 @@ export function aggregateH2HStats(
   let homeWins = 0, awayWins = 0, draws = 0;
   let homeGoalsFor = 0, homeGoalsAgainst = 0;
   let totalCorners = 0;
+  let cornersMatchCount = 0; // only matches that actually have corner data
   let bttsCount = 0;
   const homeNameFirst = (homeTeamName || '').toLowerCase().split(' ')[0];
 
@@ -204,9 +205,10 @@ export function aggregateH2HStats(
       bttsCount++;
     }
 
-    // Corners
-    if (match.home_corners && match.away_corners) {
+    // Corners — only count when both sides have data (>0 means populated)
+    if (match.home_corners != null && match.away_corners != null) {
       totalCorners += (match.home_corners + match.away_corners);
+      cornersMatchCount++;
     }
   });
 
@@ -219,7 +221,8 @@ export function aggregateH2HStats(
     avgGoalsHome: totalMatches > 0 ? Math.round((homeGoalsFor / totalMatches) * 100) / 100 : 1.5,
     avgGoalsAway: totalMatches > 0 ? Math.round((homeGoalsAgainst / totalMatches) * 100) / 100 : 1.2,
     bttsFrequency: totalMatches > 0 ? bttsCount / totalMatches : 0.5,
-    cornersAverage: totalMatches > 0 ? Math.round((totalCorners / totalMatches) * 10) / 10 : 8.5,
+    // Fall back to the league-average 8.5 when no H2H match has corner data
+    cornersAverage: cornersMatchCount > 0 ? Math.round((totalCorners / cornersMatchCount) * 10) / 10 : 8.5,
     totalMatches,
   };
 }

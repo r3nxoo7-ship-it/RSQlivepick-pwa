@@ -320,11 +320,12 @@ export function predictCorners(context: MatchContext): {
   const possessionDiff = Math.abs(context.homeTeam.avgPossession - context.awayTeam.avgPossession);
   const possessionFactor = 1 + (possessionDiff / 100) * 0.3; // ±30% swing
   
-  // H2H pattern
-  const h2hFactor = context.h2hStats.cornersAverage / 8.5; // Normalize to 8.5 corners average
+  // H2H pattern — fall back to neutral (1.0) when cornersAverage is 0 or missing
+  const h2hCornersAvg = context.h2hStats.cornersAverage;
+  const h2hFactor = h2hCornersAvg > 0 ? h2hCornersAvg / 8.5 : 1.0;
   
   // Expected corners
-  const expectedCorners = avgTeamCorners * possessionFactor * (h2hFactor / 1);
+  const expectedCorners = avgTeamCorners * possessionFactor * h2hFactor;
   
   // Use Poisson CDF: P(X > n) = 1 - sum(P(X=k) for k=0..n)
   let cdf8 = 0; // P(X <= 8)
