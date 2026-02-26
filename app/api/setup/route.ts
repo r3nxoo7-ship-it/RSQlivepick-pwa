@@ -43,24 +43,72 @@ export async function GET() {
 
   const profilesExist = !checkError || !checkError.message?.includes('does not exist');
 
-  if (profilesExist) {
-    return NextResponse.json({ ok: true, message: 'profiles table already exists — no action needed.' });
+  if (!profilesExist) {
+    // Try RPC helper first
+    const { error: rpcError } = await (supabase as any).rpc('create_profiles_if_missing');
+    if (!rpcError) {
+      return NextResponse.json({ ok: true, message: 'profiles table created successfully via RPC.' });
+    }
+    // RPC not available — return SQL
+    return NextResponse.json(
+      {
+        ok: false,
+        message: 'Automatic setup failed. Please run the SQL below in your Supabase SQL Editor (takes ~5 seconds).',
+        sql: CREATE_PROFILES_SQL,
+      },
+      { status: 200 }
+    );
   }
 
-  // Step 2: try the RPC helper (if user already ran create_profiles_rpc_helper.sql)
-  const { error: rpcError } = await (supabase as any).rpc('create_profiles_if_missing');
+  return NextResponse.json({ ok: true, profilesExist: true, message: 'profiles table exists.' });
+}
 
-  if (!rpcError) {
-    return NextResponse.json({ ok: true, message: 'profiles table created successfully via RPC.' });
-  }
-
-  // Step 3: RPC does not exist — return the SQL for manual execution
-  return NextResponse.json(
-    {
-      ok: false,
-      message: 'Automatic setup failed. Please run the SQL below in your Supabase SQL Editor (takes ~5 seconds).',
-      sql: CREATE_PROFILES_SQL,
-    },
-    { status: 200 } // 200 so the setup page can render the SQL without an error boundary
+// POST — full diagnostic: attempts a dry-run insert to catch trigger/policy errors
+export async function POST() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  const testUsername = `__diag_test_${Date.now()}`;
+
+  // Try inserting a test user row
+  const { data: inserted, error: insertErr } = await (supabase as any)
+    .from('users')
+    .insert([{
+      username: testUsername,
+      full_name: 'Diagnostic Test',
+      password_hash: 'diag',
+      is_active: false,
+    }])
+    .select('id')
+    .single();
+
+  if (insertErr) {
+    return NextResponse.json({
+      ok: false,
+      stage: 'users_insert',
+      error: insertErr.message,
+      hint: 'The users table INSERT is failing. This is the real cause of registration errors.',
+    });
+  }
+
+  // Try inserting a matching profile row
+  const { error: profileErr } = await (supabase as any)
+    .from('profiles')
+    .insert([{ id: inserted.id, full_name: 'Diagnostic Test', username: testUsername }]);
+
+  // Clean up regardless
+  await (supabase as any).from('users').delete().eq('id', inserted.id);
+
+  if (profileErr) {
+    return NextResponse.json({
+      ok: false,
+      stage: 'profiles_insert',
+      error: profileErr.message,
+      hint: 'The users row was created but the profiles INSERT failed.',
+    });
+  }
+
+  return NextResponse.json({ ok: true, message: 'Full diagnostic passed — registration should work.' });
 }

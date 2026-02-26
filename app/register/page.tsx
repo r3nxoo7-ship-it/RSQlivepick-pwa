@@ -81,13 +81,9 @@ export default function RegisterPage() {
         setStep(2);
         setLoading(false);
       } else {
-        if (result.code === 'PROFILE_RELATION_MISSING') {
-          setSetupNeeded(true);
-          setError('Database setup required before you can register.');
-        } else {
-          setSetupNeeded(false);
-          setError(result.error || 'Registration error');
-        }
+        const needsSetup = result.code === 'PROFILE_RELATION_MISSING' || result.code === 'DB_ERROR';
+        setSetupNeeded(needsSetup);
+        setError(result.error || 'Registration error');
         setLoading(false);
       }
     } catch (err) {
@@ -180,14 +176,14 @@ export default function RegisterPage() {
                 className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3"
               >
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-red-400">
-                  <p>{error}</p>
+                <div className="text-sm text-red-400 space-y-1">
+                  <p className="font-mono text-xs break-all">{error}</p>
                   {setupNeeded && (
                     <a
                       href="/setup"
-                      className="mt-2 inline-flex items-center gap-1 text-cyan-400 underline hover:text-cyan-300 font-medium"
+                      className="mt-1 inline-flex items-center gap-1 text-cyan-400 underline hover:text-cyan-300 font-medium text-sm"
                     >
-                      Open database setup page &rarr;
+                      Open diagnostics &amp; setup page &rarr;
                     </a>
                   )}
                 </div>

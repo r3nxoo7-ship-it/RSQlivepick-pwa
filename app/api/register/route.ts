@@ -49,11 +49,12 @@ export async function POST(request: Request) {
     const msg: string = insertError.message || '';
     console.error('[register] insert error:', msg);
 
-    // profiles table missing — can be auto-fixed, guide the user
+    // profiles table missing — guide the user to /setup
     if (isProfilesRelationError(msg)) {
       return NextResponse.json(
         {
-          error: 'Database setup needed: the "profiles" table is missing. Visit /setup to fix this in one step.',
+          error: msg,
+          detail: 'The "profiles" table appears to be missing. Visit /setup to diagnose and fix.',
           code: 'PROFILE_RELATION_MISSING',
           setupUrl: '/setup',
         },
@@ -61,7 +62,11 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ error: msg || 'Registration failed' }, { status: 400 });
+    // Any other DB error — surface the raw message so it can be diagnosed
+    return NextResponse.json(
+      { error: msg || 'Registration failed', code: 'DB_ERROR', setupUrl: '/setup' },
+      { status: 400 }
+    );
   }
 
   // Upsert a profile row — non-fatal if profiles table does not yet exist

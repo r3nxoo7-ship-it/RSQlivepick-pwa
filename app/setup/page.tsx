@@ -8,8 +8,11 @@ export default function SetupPage() {
   const [message, setMessage] = useState('');
   const [sql, setSql] = useState('');
   const [copied, setCopied] = useState(false);
+  const [diagStatus, setDiagStatus] = useState<'idle' | 'running' | 'pass' | 'fail'>('idle');
+  const [diagResult, setDiagResult] = useState<{ ok: boolean; stage?: string; error?: string; hint?: string; message?: string } | null>(null);
 
-  useEffect(() => {
+  const runSetupCheck = () => {
+    setStatus('loading');
     fetch('/api/setup')
       .then((r) => r.json())
       .then((data) => {
@@ -26,7 +29,24 @@ export default function SetupPage() {
         setStatus('error');
         setMessage('Could not reach the setup API. Check your server logs.');
       });
-  }, []);
+  };
+
+  const runDiagnostic = () => {
+    setDiagStatus('running');
+    setDiagResult(null);
+    fetch('/api/setup', { method: 'POST' })
+      .then((r) => r.json())
+      .then((data) => {
+        setDiagResult(data);
+        setDiagStatus(data.ok ? 'pass' : 'fail');
+      })
+      .catch(() => {
+        setDiagResult({ ok: false, error: 'Could not reach diagnostic API.' });
+        setDiagStatus('fail');
+      });
+  };
+
+  useEffect(() => { runSetupCheck(); }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(sql).then(() => {
@@ -59,18 +79,54 @@ export default function SetupPage() {
         )}
 
         {status === 'ok' && (
-          <div className="flex items-start gap-3 rounded-lg border border-green-700 bg-green-900/20 p-4">
-            <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium text-green-300">All good!</p>
-              <p className="text-sm text-gray-300 mt-1">{message}</p>
-              <a
-                href="/register"
-                className="inline-block mt-3 text-sm text-cyan-400 underline hover:text-cyan-300"
-              >
-                Back to registration →
-              </a>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-lg border border-green-700 bg-green-900/20 p-4">
+              <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-green-300">Profiles table exists</p>
+                <p className="text-sm text-gray-300 mt-1">{message}</p>
+              </div>
             </div>
+
+            <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-200">Still getting errors registering? Run the full diagnostic:</p>
+              <button
+                onClick={runDiagnostic}
+                disabled={diagStatus === 'running'}
+                className="flex items-center gap-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 transition-colors"
+              >
+                {diagStatus === 'running' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {diagStatus === 'running' ? 'Running test…' : 'Run diagnostic test'}
+              </button>
+
+              {diagStatus === 'pass' && (
+                <div className="flex items-start gap-2 text-green-300 text-sm">
+                  <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{diagResult?.message ?? 'All good — registration should work now.'}</span>
+                </div>
+              )}
+
+              {diagStatus === 'fail' && diagResult && (
+                <div className="rounded-lg border border-red-700 bg-red-900/20 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-red-300 text-sm font-medium">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    Failed at: <span className="font-mono">{diagResult.stage ?? 'unknown'}</span>
+                  </div>
+                  <p className="text-xs text-red-400 font-mono break-all">{diagResult.error}</p>
+                  {diagResult.hint && <p className="text-xs text-gray-300">{diagResult.hint}</p>}
+                  <p className="text-xs text-amber-300 mt-1">
+                    Copy this error and paste it to Copilot to fix it.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <a
+              href="/register"
+              className="block text-center rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2.5 transition-colors"
+            >
+              Back to registration &rarr;
+            </a>
           </div>
         )}
 
@@ -130,25 +186,7 @@ export default function SetupPage() {
             </div>
 
             <button
-              onClick={() => {
-                setStatus('loading');
-                fetch('/api/setup')
-                  .then((r) => r.json())
-                  .then((data) => {
-                    if (data.ok) {
-                      setStatus('ok');
-                      setMessage(data.message);
-                    } else {
-                      setStatus('manual');
-                      setMessage(data.message);
-                      setSql(data.sql || '');
-                    }
-                  })
-                  .catch(() => {
-                    setStatus('error');
-                    setMessage('Could not reach the setup API.');
-                  });
-              }}
+              onClick={runSetupCheck}
               className="w-full rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2.5 transition-colors"
             >
               I ran the SQL — check again
