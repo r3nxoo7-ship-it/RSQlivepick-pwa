@@ -193,6 +193,26 @@ export default function CompleteFilterBuilder() {
   const [substitutionsEnabled, setSubstitutionsEnabled] = useState(false);
   const [substitutions, setSubstitutions] = useState<TeamCondition>({});
   
+  // ── SofaScore-exclusive live stats ────────────────────────────────────────
+  const [xgEnabled, setXgEnabled] = useState(false);
+  const [xg, setXg] = useState<TeamCondition>({});
+
+  const [bigChancesEnabled, setBigChancesEnabled] = useState(false);
+  const [bigChances, setBigChances] = useState<TeamCondition>({});
+
+  const [shotsInBoxEnabled, setShotsInBoxEnabled] = useState(false);
+  const [shotsInBox, setShotsInBox] = useState<TeamCondition>({});
+
+  const [passAccuracyEnabled, setPassAccuracyEnabled] = useState(false);
+  const [passAccuracy, setPassAccuracy] = useState<TeamCondition>({});
+
+  const [interceptionsEnabled, setInterceptionsEnabled] = useState(false);
+  const [interceptions, setInterceptions] = useState<TeamCondition>({});
+
+  const [clearancesEnabled, setClearancesEnabled] = useState(false);
+  const [clearances, setClearances] = useState<TeamCondition>({});
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Filter groups - combine multiple filters
   const [combinedFilterIds, setCombinedFilterIds] = useState<string[]>([]);
   const [combinationLogic, setCombinationLogic] = useState<'AND' | 'OR'>('OR');
@@ -270,7 +290,9 @@ export default function CompleteFilterBuilder() {
         timeEnabled || scoreEnabled || cornersEnabled || shotsEnabled ||
         shotsOnTargetEnabled || yellowCardsEnabled || redCardsEnabled ||
         attacksEnabled || possessionEnabled || substitutionsEnabled || oddsEnabled ||
-        preMatchOddsEnabled;
+        preMatchOddsEnabled ||
+        xgEnabled || bigChancesEnabled || shotsInBoxEnabled || passAccuracyEnabled ||
+        interceptionsEnabled || clearancesEnabled;
 
       if (!hasAnyCondition && combinedFilterIds.length === 0) {
         setError('Define at least one condition or select filters to combine');
@@ -450,6 +472,28 @@ export default function CompleteFilterBuilder() {
         conditions.substitutions = buildTeamCond(substitutions);
       }
 
+      // ── SofaScore-exclusive live stats ──────────────────────────────────
+      if (xgEnabled) {
+        (conditions as any).xg = buildTeamCond(xg);
+      }
+      if (bigChancesEnabled) {
+        (conditions as any).big_chances = buildTeamCond(bigChances);
+      }
+      if (shotsInBoxEnabled) {
+        (conditions as any).shots_in_box = buildTeamCond(shotsInBox);
+      }
+      if (passAccuracyEnabled) {
+        const pc = buildTeamCond(passAccuracy);
+        (conditions as any).pass_accuracy = { home: pc.home, away: pc.away };
+      }
+      if (interceptionsEnabled) {
+        (conditions as any).interceptions = buildTeamCond(interceptions);
+      }
+      if (clearancesEnabled) {
+        (conditions as any).clearances = buildTeamCond(clearances);
+      }
+      // ────────────────────────────────────────────────────────────────────
+
       // Odds (legacy generic pre-match)
       if (oddsEnabled) {
         conditions.odds = {
@@ -520,8 +564,13 @@ export default function CompleteFilterBuilder() {
     setEnabled: (val: boolean) => void,
     values: TeamCondition,
     setValues: (val: TeamCondition) => void,
-    icon: React.ReactNode
+    icon: React.ReactNode,
+    opts?: { useFloat?: boolean; noTotal?: boolean; hint?: string }
   ) => {
+    const useFloat = opts?.useFloat ?? false;
+    const noTotal = opts?.noTotal ?? false;
+    const hint = opts?.hint;
+    const parseNum = (v: string) => v !== '' ? (useFloat ? parseFloat(v) : parseInt(v)) : undefined;
     const key = title.toLowerCase().replace(/\s+/g, '_');
     const isOpen = openSection === key;
 
@@ -552,29 +601,26 @@ export default function CompleteFilterBuilder() {
 
         {enabled && isOpen && (
           <div className="space-y-4">
+            {hint && <p className="text-xs text-text-muted bg-glass-light/30 rounded px-3 py-2">{hint}</p>}
             {/* Home Team */}
             <div>
               <label className="block text-sm font-semibold mb-2 text-accent-green">Home</label>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="number"
+                  step={useFloat ? '0.1' : '1'}
                   placeholder="Min"
                   value={values.home_min !== undefined ? values.home_min : ''}
-                  onChange={(e) => setValues({
-                    ...values,
-                    home_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
-                  })}
+                  onChange={(e) => setValues({ ...values, home_min: parseNum(e.target.value) })}
                   min={0}
                   className="input-field"
                 />
                 <input
                   type="number"
+                  step={useFloat ? '0.1' : '1'}
                   placeholder="Max"
                   value={values.home_max !== undefined ? values.home_max : ''}
-                  onChange={(e) => setValues({
-                    ...values,
-                    home_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
-                  })}
+                  onChange={(e) => setValues({ ...values, home_max: parseNum(e.target.value) })}
                   min={0}
                   className="input-field"
                 />
@@ -587,57 +633,51 @@ export default function CompleteFilterBuilder() {
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="number"
+                  step={useFloat ? '0.1' : '1'}
                   placeholder="Min"
                   value={values.away_min !== undefined ? values.away_min : ''}
-                  onChange={(e) => setValues({
-                    ...values,
-                    away_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
-                  })}
+                  onChange={(e) => setValues({ ...values, away_min: parseNum(e.target.value) })}
                   min={0}
                   className="input-field"
                 />
                 <input
                   type="number"
+                  step={useFloat ? '0.1' : '1'}
                   placeholder="Max"
                   value={values.away_max !== undefined ? values.away_max : ''}
-                  onChange={(e) => setValues({
-                    ...values,
-                    away_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
-                  })}
+                  onChange={(e) => setValues({ ...values, away_max: parseNum(e.target.value) })}
                   min={0}
                   className="input-field"
                 />
               </div>
             </div>
 
-            {/* Total */}
+            {/* Total - hidden when noTotal */}
+            {!noTotal && (
             <div>
               <label className="block text-sm font-semibold mb-2 text-accent-purple">Match Total</label>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="number"
+                  step={useFloat ? '0.1' : '1'}
                   placeholder="Min"
                   value={values.total_min !== undefined ? values.total_min : ''}
-                  onChange={(e) => setValues({
-                    ...values,
-                    total_min: e.target.value !== '' ? parseInt(e.target.value) : undefined,
-                  })}
+                  onChange={(e) => setValues({ ...values, total_min: parseNum(e.target.value) })}
                   min={0}
                   className="input-field"
                 />
                 <input
                   type="number"
+                  step={useFloat ? '0.1' : '1'}
                   placeholder="Max"
                   value={values.total_max !== undefined ? values.total_max : ''}
-                  onChange={(e) => setValues({
-                    ...values,
-                    total_max: e.target.value !== '' ? parseInt(e.target.value) : undefined,
-                  })}
+                  onChange={(e) => setValues({ ...values, total_max: parseNum(e.target.value) })}
                   min={0}
                   className="input-field"
                 />
               </div>
             </div>
+            )}
           </div>
         )}
       </div>
@@ -1336,6 +1376,60 @@ export default function CompleteFilterBuilder() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* ── SOFASCORE LIVE STATS ────────────────────────────────── */}
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-5 h-5 text-accent-purple" />
+              <h3 className="text-lg font-semibold">SofaScore Live Stats</h3>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-purple/20 text-accent-purple font-semibold">LIVE ONLY</span>
+            </div>
+            <p className="text-xs text-text-muted mb-4">Enriched in real-time from SofaScore during live matches. Skipped (not failed) for pre-match or non-enriched matches.</p>
+            <div className="space-y-6">
+              {renderTeamCondition(
+                'xG (Expected Goals)',
+                xgEnabled, setXgEnabled,
+                xg, setXg,
+                <Target className="w-5 h-5 text-accent-cyan" />,
+                { useFloat: true, hint: 'Expected Goals per team. Typical range: 0.0 – 3.0. Example: Home xG ≥ 1.0' }
+              )}
+              {renderTeamCondition(
+                'Big Chances',
+                bigChancesEnabled, setBigChancesEnabled,
+                bigChances, setBigChances,
+                <Target className="w-5 h-5 text-accent-green" />,
+                { hint: 'Clear scoring opportunities created. Example: Total ≥ 3' }
+              )}
+              {renderTeamCondition(
+                'Shots in Box',
+                shotsInBoxEnabled, setShotsInBoxEnabled,
+                shotsInBox, setShotsInBox,
+                <Target className="w-5 h-5 text-accent-amber" />,
+                { hint: 'Shots from inside the penalty area.' }
+              )}
+              {renderTeamCondition(
+                'Pass Accuracy (%)',
+                passAccuracyEnabled, setPassAccuracyEnabled,
+                passAccuracy, setPassAccuracy,
+                <Activity className="w-5 h-5 text-accent-blue" />,
+                { noTotal: true, hint: 'Pass accuracy percentage (0–100). Example: Home ≥ 80%' }
+              )}
+              {renderTeamCondition(
+                'Interceptions',
+                interceptionsEnabled, setInterceptionsEnabled,
+                interceptions, setInterceptions,
+                <Shield className="w-5 h-5 text-accent-cyan" />,
+                { hint: 'Defensive interceptions per team.' }
+              )}
+              {renderTeamCondition(
+                'Clearances',
+                clearancesEnabled, setClearancesEnabled,
+                clearances, setClearances,
+                <Shield className="w-5 h-5 text-accent-purple" />,
+                { hint: 'Defensive clearances. Example: Away ≥ 8 suggests sustained home pressure.' }
+              )}
+            </div>
           </div>
           </>
           )}

@@ -678,10 +678,19 @@ export default function NotificationSettingsPage() {
                 )}
 
                 {!configured && (
-                  <div className="p-4 rounded-lg bg-accent-amber/10 border border-accent-amber/20">
-                    <p className="text-sm text-accent-amber">
-                      ⚠️ Telegram Bot is not configured. Contact administrator.
+                  <div className="p-4 rounded-lg bg-accent-amber/10 border border-accent-amber/20 space-y-2">
+                    <p className="text-sm text-accent-amber font-semibold">⚠️ Telegram Bot not configured</p>
+                    <p className="text-xs text-text-muted">
+                      Set <code className="bg-glass-light px-1 rounded">TELEGRAM_BOT_TOKEN</code> in your Vercel environment variables (or <code className="bg-glass-light px-1 rounded">.env.local</code> for local dev), then redeploy.
                     </p>
+                    <a
+                      href="https://core.telegram.org/bots#how-do-i-create-a-bot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent-cyan underline"
+                    >
+                      How to create a Telegram bot →
+                    </a>
                   </div>
                 )}
               </div>

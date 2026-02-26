@@ -82,6 +82,23 @@ export interface ExtendedFilterConditions {
   
   substitutions?: TeamSpecificCondition;
   
+  // ========== SOFASCORE-EXCLUSIVE LIVE STATS ==========
+  
+  xg?: TeamSpecificCondition;           // Expected Goals (float e.g. 0.1–3.0)
+  
+  big_chances?: TeamSpecificCondition;  // Big chances created
+  
+  shots_in_box?: TeamSpecificCondition; // Shots inside the penalty box
+  
+  pass_accuracy?: {                     // Pass accuracy percentage
+    home?: RangeCondition;
+    away?: RangeCondition;
+  };
+  
+  interceptions?: TeamSpecificCondition;
+  
+  clearances?: TeamSpecificCondition;
+  
   // ========== TIME CONDITIONS ==========
   
   match_time?: TimeCondition;
