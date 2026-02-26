@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
       away_team_name: m.awayTeam.displayName || m.awayTeam.name,
       home_score: m.homeScore || 0,
       away_score: m.awayScore || 0,
+      // Allow ExpandedMatchStats to find the correct league for stat lookup
+      raw_data: { leagueCode: (m as any).__league_config?.league || null },
     }));
 
     return NextResponse.json({ homeId, awayId, matches: h2h }, { headers: { 'Cache-Control': 'private, max-age=120' } });

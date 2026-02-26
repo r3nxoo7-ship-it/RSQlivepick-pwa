@@ -147,7 +147,24 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
 
         if (homeRes?.matches?.length > 0) setHomeForm({ teamId: homeRes.teamId || homeIdStr, matches: homeRes.matches, form: homeRes.form });
         if (awayRes?.matches?.length > 0) setAwayForm({ teamId: awayRes.teamId || awayIdStr, matches: awayRes.matches, form: awayRes.form });
-        if (h2hRes?.matches) setH2HMatches(h2hRes.matches || []);
+
+        let resolvedH2H: any[] = h2hRes?.matches || [];
+
+        // Round 3: ESPN H2H fallback when TheSportsDB returns 0 meetings
+        // ESPN uses live team schedules — better coverage for recent European meetings
+        // (e.g. Stuttgart vs Celtic 2026 Europa League)
+        if (resolvedH2H.length === 0 && homeIdStr && awayIdStr) {
+          try {
+            const espnH2h = await fetch(
+              `/api/espn/h2h?homeId=${homeIdStr}&awayId=${awayIdStr}&limit=15`
+            ).then(r => r.ok ? r.json() : null).catch(() => null);
+            if (espnH2h?.matches?.length > 0) {
+              resolvedH2H = espnH2h.matches;
+            }
+          } catch { /* ESPN H2H fallback failed — keep empty */ }
+        }
+
+        setH2HMatches(resolvedH2H);
       } catch (err) {
         console.error('Error fetching team form:', err);
       } finally {
@@ -918,13 +935,19 @@ function formatDate(dateStr: string): string {
 // TeamFormBox removed - replaced by UnifiedPreviousGames
 
 /**
- * Expanded stats panel - fetches stats on-demand from ESPN summary endpoint
+ * Expanded stats panel - fetches stats on-demand from ESPN summary endpoint.
+ * For TheSportsDB matches (id starts with 'tsdb_'), ESPN lookup is skipped and
+ * inline stats + venue/season metadata are shown instead.
  */
 function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // TheSportsDB matches have prefixed IDs — ESPN cannot find them
+  const isTsdbMatch = match.id?.toString().startsWith('tsdb_');
+
   useEffect(() => {
+    if (isTsdbMatch) { setLoading(false); return; }
     async function fetchStats() {
       if (!match.id) { setLoading(false); return; }
       try {
@@ -938,7 +961,43 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
       setLoading(false);
     }
     fetchStats();
-  }, [match.id, match.raw_data?.leagueCode]);
+  }, [match.id, isTsdbMatch, match.raw_data?.leagueCode]);
+
+  // TheSportsDB match: show inline data stored on the match object
+  if (isTsdbMatch) {
+    const m = match as any;
+    const hasInline = m.home_corners != null || m.home_shots_on_target != null || m.home_possession != null;
+    return (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        exit={{ opacity: 0, height: 0 }}
+        className="rounded-b px-3 py-3 mb-1 space-y-2 bg-[rgba(15,23,42,0.6)]"
+      >
+        {/* Metadata */}
+        <div className="flex items-center justify-between text-[10px] text-text-muted mb-1">
+          <span className="truncate font-medium">{match.home_team_name}</span>
+          <span className="font-bold text-white text-xs">{match.home_score} - {match.away_score}</span>
+          <span className="truncate text-right font-medium">{match.away_team_name}</span>
+        </div>
+        {m.venue && (
+          <div className="text-[9px] text-text-muted text-center">📍 {m.venue}</div>
+        )}
+        {hasInline ? (
+          <>
+            {m.home_corners != null && <MiniStatRow label="Corners" home={m.home_corners} away={m.away_corners ?? 0} />}
+            {m.home_shots_on_target != null && <MiniStatRow label="On Target" home={m.home_shots_on_target} away={m.away_shots_on_target ?? 0} />}
+            {m.home_possession != null && <MiniStatRow label="Possession" home={m.home_possession} away={m.away_possession ?? 0} unit="%" />}
+            {m.home_yellow_cards != null && <MiniStatRow label="Yellow Cards" home={m.home_yellow_cards} away={m.away_yellow_cards ?? 0} />}
+          </>
+        ) : (
+          <div className="text-[9px] text-text-muted text-center py-1">
+            Detailed stats available in the team form tabs (Home / Away)
+          </div>
+        )}
+      </motion.div>
+    );
+  }
 
   if (loading) {
     return (
@@ -956,7 +1015,8 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
     );
   }
 
-  const hasHalftime = stats.homeHalfScore != null && stats.awayHalfScore != null;
+  // Show halftime if EITHER team's half score was parsed (the missing one defaults to 0)
+  const hasHalftime = stats.homeHalfScore != null || stats.awayHalfScore != null;
   const h1Home = stats.homeHalfScore ?? 0;
   const h1Away = stats.awayHalfScore ?? 0;
   const h2Home = Math.max(0, (match.home_score || 0) - h1Home);
@@ -984,15 +1044,15 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
         <span className="truncate text-right font-medium">{match.away_team_name}</span>
       </div>
 
-      {/* Full-match stats (ESPN doesn't provide per-half breakdown for these) */}
+      {/* Full-match stats */}
       {stats.homePoss > 0 && <MiniStatRow label="Possession" home={stats.homePoss} away={stats.awayPoss} unit="%" />}
       {(stats.homeSoT > 0 || stats.awaySoT > 0) && <MiniStatRow label="On Target" home={stats.homeSoT} away={stats.awaySoT} />}
       {(stats.homeShots > 0 || stats.awayShots > 0) && <MiniStatRow label="Total Shots" home={stats.homeShots} away={stats.awayShots} />}
       {(stats.homeCorners > 0 || stats.awayCorners > 0) && <MiniStatRow label="Corners" home={stats.homeCorners} away={stats.awayCorners} />}
-      {(stats.homeYellow > 0 || stats.awayYellow > 0) && <MiniStatRow label="Yellow Cards" home={stats.homeYellow} away={stats.awayYellow} />}
-      {(stats.homeRed > 0 || stats.awayRed > 0) && <MiniStatRow label="Red Cards" home={stats.homeRed} away={stats.awayRed} />}
       {(stats.homeFouls > 0 || stats.awayFouls > 0) && <MiniStatRow label="Fouls" home={stats.homeFouls} away={stats.awayFouls} />}
       {(stats.homeOffsides > 0 || stats.awayOffsides > 0) && <MiniStatRow label="Offsides" home={stats.homeOffsides} away={stats.awayOffsides} />}
+      {(stats.homeYellow > 0 || stats.awayYellow > 0) && <MiniStatRow label="Yellow Cards" home={stats.homeYellow} away={stats.awayYellow} />}
+      {(stats.homeRed > 0 || stats.awayRed > 0) && <MiniStatRow label="Red Cards" home={stats.homeRed} away={stats.awayRed} />}
     </motion.div>
   );
 }
