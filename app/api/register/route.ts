@@ -9,22 +9,13 @@ function isProfileRelationError(msg: string): boolean {
   );
 }
 
-async function insertUser(
-  supabase: ReturnType<typeof createClient>,
-  username: string,
-  fullName: string,
-  hashedPassword: string
-) {
-  // Cast through unknown to break Supabase's untyped-schema `never` inference
-  const db = supabase as unknown as {
-    from: (table: string) => {
-      insert: (rows: object[]) => { select: (col: string) => { single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }> } }
-    }
-  };
-  return db.from('users')
+// supabase typed as `any` to avoid unresolvable generic overloads when no schema types are generated
+async function insertUser(supabase: any, username: string, fullName: string, hashedPassword: string) {
+  return supabase
+    .from('users')
     .insert([{ username, full_name: fullName, password_hash: hashedPassword, is_active: true }])
     .select('id')
-    .single();
+    .single() as Promise<{ data: { id: string } | null; error: { message: string } | null }>;
 }
 
 export async function POST(request: Request) {
