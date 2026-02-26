@@ -40,7 +40,25 @@ interface ParsedEntry {
 }
 
 function normKey(home: string, away: string) {
-  return `${home.trim().toLowerCase()}|${away.trim().toLowerCase()}`;
+  const clean = (s: string) =>
+    s.trim()
+      .toLowerCase()
+      .replace(/[-_.']/g, ' ')   // hyphens, dots, apostrophes → space
+      .replace(/\s+/g, ' ')       // collapse multiple spaces
+      .trim();
+  return `${clean(home)}|${clean(away)}`;
+}
+
+/** Extra variant: strips trailing 's' from each word to catch "Sports" vs "Sport" differences */
+function normKeyLoose(home: string, away: string) {
+  const clean = (s: string) =>
+    s.trim()
+      .toLowerCase()
+      .replace(/[-_.']/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\b(\w+)s\b/g, '$1') // strip trailing s from each word
+      .trim();
+  return `${clean(home)}|${clean(away)}`;
 }
 
 function parseBookmakerBets(bets: any[]): Partial<ParsedEntry> {
@@ -126,6 +144,11 @@ export async function GET() {
       };
 
       oddsMap[normKey(homeTeam, awayTeam)] = entry;
+      // Also store a loose variant so ESPN name mismatches still match
+      const looseKey = normKeyLoose(homeTeam, awayTeam);
+      if (looseKey !== normKey(homeTeam, awayTeam)) {
+        oddsMap[looseKey] = entry;
+      }
     }
 
     return NextResponse.json(
