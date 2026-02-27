@@ -450,7 +450,18 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
 
           {/* ===== PREDICTIONS TAB ===== */}
           {activeTab === 'predictions' && (
-            <MatchPredictionsWrapper match={match} />
+            <>
+              {/* Previous Games: Home / H2H / Away with expandable stats */}
+              <UnifiedPreviousGames
+                match={match}
+                homeForm={homeForm}
+                awayForm={awayForm}
+                h2hMatches={h2hMatches}
+                loading={formLoading}
+              />
+              {/* ML Predictions */}
+              <MatchPredictionsWrapper match={match} />
+            </>
           )}
 
         </div>
