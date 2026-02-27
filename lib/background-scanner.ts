@@ -152,8 +152,8 @@ class BackgroundScannerService {
       let notificationsSentThisScan = 0;
       const completedMatches: { match_id: string; score_home: number; score_away: number }[] = [];
 
-      // Enrich live matches with SofaScore stats (xG, big chances, shots in box, pass accuracy, etc.)
-      // Only runs when at least one active filter uses a SofaScore-exclusive condition — otherwise skipped.
+      // Enrich ALL live matches with SofaScore stats (xG, big chances, shots in box, pass accuracy, etc.)
+      // SofaScore is now PRIMARY data source — always enrich for maximum filter accuracy
       try {
         await enrichMatchesWithSofascore(matches, activeFilters);
       } catch (e) {

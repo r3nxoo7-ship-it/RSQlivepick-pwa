@@ -2,12 +2,14 @@
 // R$Q - UNIFIED FOOTBALL API
 // ============================================
 // Wrapper with automatic fallback:
-// 1. Supabase (ESPN data synced every 1 minute) - PRIMARY
-// 2. Football-Data.org (FREE 14,400/day) - FALLBACK
-// 3. API-Football (FREE 100/day) - FALLBACK
+// 1. SofaScore (best stats: xG, big chances, shots in box) - PRIMARY
+// 2. Supabase (ESPN data synced every 1 minute) - FALLBACK #1
+// 3. API-Football (FREE 100/day) - FALLBACK #2
+// 4. Football-Data.org (FREE 14,400/day) - FALLBACK #3
 
 import * as FootballData from './football-data';
 import * as APIFootball from './api-football';
+import * as SofaScore from './sofascore-api';
 // Note: Do NOT import server-only modules (espn-sync) here — this file
 // is used by client components. We'll fetch synced data via the server API
 // endpoint `/api/espn/matches` to avoid bundling server secrets.
@@ -18,7 +20,6 @@ export type { LiveMatch, MatchStatistics } from '@/lib/types';
 // CONFIG
 // ============================================
 
-const PRIMARY_API: 'supabase' | 'api-football' | 'football-data' = 'supabase';
 const ENABLE_FALLBACK = true;
 
 // ============================================
@@ -26,34 +27,49 @@ const ENABLE_FALLBACK = true;
 // ============================================
 
 /**
- * Get live matches - tries Supabase (ESPN synced) first, then fallback APIs
+ * Get live matches - PRIMARY: SofaScore (best stats), FALLBACK: ESPN, API-Football, Football-Data
+ * SofaScore provides superior stat coverage (xG, big chances, etc.) for more accurate filtering
  */
 export async function getLiveMatches() {
-  console.log('🔍 Fetching live matches (with fallback)...');
+  console.log('🔍 Fetching live matches (SofaScore PRIMARY)...');
 
-  // Try server-synced Supabase data first via API endpoint
+  // 1. PRIMARY: Try SofaScore first (best real-time stats, xG, big chances, coverage)
+  try {
+    console.log('📡 Trying SofaScore (PRIMARY)...');
+    const matches = await SofaScore.getLiveMatchesFromSofascore();
+    if (matches && matches.length > 0) {
+      console.log(`✅ SofaScore PRIMARY SUCCESS: ${matches.length} matches with enriched stats`);
+      return matches;
+    } else {
+      console.warn('⚠️ SofaScore returned no matches, trying fallbacks...');
+    }
+  } catch (err) {
+    console.warn('⚠️ SofaScore fetch failed:', err instanceof Error ? err.message : err);
+  }
+
+  // 2. FALLBACK: Server-synced Supabase data (ESPN)
   try {
     console.log('📡 Trying server /api/espn/matches (synced data)...');
     const res = await fetch('/api/espn/matches');
     if (res.ok) {
       const body = await res.json();
-      // Support both old format (body.matches) and new format (body.live.matches + body.upcoming.matches)
+      // Support both formats
       if (body?.live?.matches && body?.upcoming?.matches) {
         const allMatches = [...(body.live.matches || []), ...(body.upcoming.matches || [])];
-        console.log(`✅ /api/espn/matches SUCCESS: ${allMatches.length} matches (${body.live.count} live, ${body.upcoming.count} upcoming)`);
+        console.log(`✅ /api/espn/matches FALLBACK SUCCESS: ${allMatches.length} matches`);
         return allMatches;
       } else if (body?.matches && body.matches.length > 0) {
-        console.log(`✅ /api/espn/matches SUCCESS: ${body.matches.length} matches`);
+        console.log(`✅ /api/espn/matches FALLBACK SUCCESS: ${body.matches.length} matches`);
         return body.matches;
       }
     } else {
       console.warn('⚠️ /api/espn/matches returned', res.status);
     }
   } catch (err) {
-    console.warn('⚠️ Server-synced lookup failed, trying fallback...', err);
+    console.warn('⚠️ Server-synced lookup failed, trying more fallbacks...', err);
   }
 
-  // Fallback to API-Football or Football-Data
+  // 3. FALLBACK: API-Football
   if (ENABLE_FALLBACK) {
     try {
       console.log('📡 Trying API-Football (FALLBACK)...');
@@ -62,7 +78,8 @@ export async function getLiveMatches() {
       return matches;
     } catch (apiError) {
       console.error('❌ API-Football failed:', apiError);
-      
+
+      // 4. FALLBACK: Football-Data.org
       try {
         console.log('🔄 Trying Football-Data.org (FALLBACK)...');
         const matches = await FootballData.getLiveMatches();
@@ -74,21 +91,42 @@ export async function getLiveMatches() {
       }
     }
   } else {
-    throw new Error('Supabase unavailable and fallback disabled.');
+    throw new Error('SofaScore unavailable and fallback disabled.');
   }
 }
 
 /**
  * Get separated live and upcoming matches
+ * Uses SofaScore as primary and ESPN as fallback
  */
 export async function getLiveAndUpcomingMatches() {
+  // 1. PRIMARY: SofaScore (better stats)
   try {
-    console.log('📡 Fetching live and upcoming matches...');
+    console.log('📡 Fetching live and upcoming matches (SofaScore PRIMARY)...');
+    const allMatches = await SofaScore.getLiveMatchesFromSofascore();
+    if (allMatches && allMatches.length > 0) {
+      const live = allMatches.filter((m: any) => m.fixture?.status === 'inprogress');
+      const upcoming = allMatches.filter((m: any) => m.fixture?.status === 'notstarted');
+      console.log(`✅ SofaScore: ${live.length} live, ${upcoming.length} upcoming`);
+      return {
+        live,
+        upcoming,
+        scheduled: [],
+        teamForm: {},
+      };
+    }
+  } catch (err) {
+    console.warn('⚠️ SofaScore live+upcoming failed:', err instanceof Error ? err.message : err);
+  }
+
+  // 2. FALLBACK: ESPN
+  try {
+    console.log('📡 Trying server /api/espn/matches (FALLBACK)...');
     const res = await fetch('/api/espn/matches');
     if (res.ok) {
       const body = await res.json();
       if (body?.live && body?.upcoming) {
-        console.log(`✅ Got ${body.live.count} live, ${body.upcoming.count} upcoming, ${body.scheduled?.count || 0} scheduled matches`);
+        console.log(`✅ ESPN FALLBACK: ${body.live.count} live, ${body.upcoming.count} upcoming, ${body.scheduled?.count || 0} scheduled`);
         return {
           live: body.live.matches || [],
           upcoming: body.upcoming.matches || [],
@@ -105,28 +143,19 @@ export async function getLiveAndUpcomingMatches() {
 }
 
 /**
- * Get match statistics - încearcă PRIMARY apoi FALLBACK
+ * Get match statistics - tries API-Football first, Football-Data as fallback
  */
 export async function getMatchStatistics(matchId: number) {
   try {
-    if (PRIMARY_API === 'football-data') {
-      return await FootballData.getMatchStatistics(matchId);
-    } else {
-      return await APIFootball.getMatchStatistics(matchId);
-    }
+    return await APIFootball.getMatchStatistics(matchId);
   } catch (primaryError) {
     console.error('❌ Statistics fetch failed:', primaryError);
     
     if (ENABLE_FALLBACK) {
       try {
-        if (PRIMARY_API === 'football-data') {
-          return await APIFootball.getMatchStatistics(matchId);
-        } else {
-          return await FootballData.getMatchStatistics(matchId);
-        }
+        return await FootballData.getMatchStatistics(matchId);
       } catch (fallbackError) {
         console.error('❌ Statistics fallback also failed');
-        // Return empty rather than throw
         return [];
       }
     } else {
@@ -140,21 +169,13 @@ export async function getMatchStatistics(matchId: number) {
  */
 export async function getMatchById(matchId: string | number) {
   try {
-    if (PRIMARY_API === 'football-data') {
-      return await FootballData.getMatchById(parseInt(String(matchId)));
-    } else {
-      return await APIFootball.getMatchById(parseInt(String(matchId)));
-    }
+    return await APIFootball.getMatchById(parseInt(String(matchId)));
   } catch (primaryError) {
     console.error('❌ Match fetch failed:', primaryError);
     
     if (ENABLE_FALLBACK) {
       try {
-        if (PRIMARY_API === 'football-data') {
-          return await APIFootball.getMatchById(parseInt(String(matchId)));
-        } else {
-          return await FootballData.getMatchById(parseInt(String(matchId)));
-        }
+        return await FootballData.getMatchById(parseInt(String(matchId)));
       } catch (fallbackError) {
         console.error('❌ Match fetch fallback also failed');
         throw new Error('Could not fetch match details');
@@ -172,7 +193,7 @@ export async function checkAPIStatus() {
   const results = {
     footballData: { success: false, message: '' },
     apiFootball: { success: false, message: '' },
-    primary: PRIMARY_API,
+    primary: 'sofascore' as const,
   };
   
   // Check Football-Data

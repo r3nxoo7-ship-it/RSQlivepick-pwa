@@ -68,8 +68,8 @@ export async function enrichMatchesWithSofascore(
   filters: Filter[],
   onlyLive = true,
 ): Promise<void> {
-  // Fast-path: skip entirely if no filter uses SofaScore conditions
-  if (!filtersNeedSofascore(filters)) return;
+  // SofaScore is now PRIMARY — always enrich for maximum accuracy
+  // (Previously skipped if no filter used SS-exclusive conditions)
 
   const now = Date.now();
 

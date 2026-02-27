@@ -493,3 +493,109 @@ export function extractH2HFromEvents(
       (e.homeTeam.id === awayTeamId && e.awayTeam.id === homeTeamId),
   );
 }
+
+/**
+ * Get LIVE and UPCOMING matches from SofaScore for TODAY
+ * This is the primary source for real-time match data - superior stats coverage
+ * Returns LiveMatch[] compatible format with enriched SofaScore statistics
+ */
+export async function getLiveMatchesFromSofascore(): Promise<any[]> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const events = await getScheduledEvents(today);
+    
+    if (!events || events.length === 0) {
+      console.log('[SofaScore] No events found for today');
+      return [];
+    }
+
+    console.log(`[SofaScore] Found ${events.length} events for ${today}`);
+
+    // Filter to LIVE (inprogress) and upcoming (notstarted) - exclude finished
+    const activeEvents = events.filter(e => 
+      e.status?.type === 'inprogress' || e.status?.type === 'notstarted'
+    );
+
+    if (activeEvents.length === 0) {
+      console.log('[SofaScore] No active matches (live or upcoming)');
+      return [];
+    }
+
+    console.log(`[SofaScore] ${activeEvents.length} active matches found`);
+
+    // Enrich each event with full statistics in parallel
+    const enrichedMatches = await Promise.all(
+      activeEvents.map(async (event) => {
+        const stats = event.hasEventPlayerStatistics 
+          ? await getMatchStatistics(event.id) 
+          : null;
+
+        // Build match object compatible with LiveMatch interface
+        const homeGoals = event.homeScore?.current ?? 0;
+        const awayGoals = event.awayScore?.current ?? 0;
+
+        const leagueParts: string[] = [];
+        if (event.tournament?.category?.name) leagueParts.push(event.tournament.category.name);
+        if (event.tournament?.name) leagueParts.push(event.tournament.name);
+        const league = leagueParts.join(' — ') || 'Football';
+
+        const match: any = {
+          id: `ss_${event.id}`,
+          fixtureId: `ss_${event.id}`,
+          date: new Date(event.startTimestamp * 1000).toISOString(),
+          fixture: {
+            id: event.id,
+            date: new Date(event.startTimestamp * 1000).toISOString(),
+            status: event.status?.type || 'notstarted',
+            timestamp: event.startTimestamp,
+          },
+          league: {
+            id: 0,
+            name: league,
+            logo: null,
+          },
+          teams: {
+            home: {
+              id: event.homeTeam.id,
+              name: event.homeTeam.name,
+              displayName: event.homeTeam.name,
+              logo: null,
+              country: event.homeTeam.country?.name || '',
+            },
+            away: {
+              id: event.awayTeam.id,
+              name: event.awayTeam.name,
+              displayName: event.awayTeam.name,
+              logo: null,
+              country: event.awayTeam.country?.name || '',
+            },
+          },
+          goals: {
+            home: homeGoals,
+            away: awayGoals,
+          },
+          score: {
+            period1: { home: event.homeScore?.period1, away: event.awayScore?.period1 },
+            halftime: { home: event.homeScore?.period1, away: event.awayScore?.period1 },
+            fulltime: { home: homeGoals, away: awayGoals },
+          },
+          statistics: stats ? [
+            normalizeSofascoreStats(stats, event.homeScore?.period1, event.awayScore?.period1)
+          ] : [],
+          _source: 'sofascore',
+          _sofascoreEventId: event.id,
+          _hasStats: stats !== null,
+          _hasXg: event.hasXg ?? false,
+        };
+
+        return match;
+      })
+    );
+
+    console.log(`[SofaScore] Enriched ${enrichedMatches.length} matches with statistics`);
+    return enrichedMatches;
+  } catch (err) {
+    console.error('[SofaScore] Error fetching live matches:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}

@@ -123,7 +123,7 @@ export async function GET(
     const ssAwayTeamId: number | null = ssEventRes?.awayTeamId ?? null;
     const ssEventId: number | null = ssEventRes?.eventId ?? null;
 
-    // SofaScore form + ESPN fallback: all in parallel
+    // SofaScore form (PRIMARY) + ESPN/DB fallback: all in parallel
     const [homeSpnSchedule, awaySpnSchedule, ssHomeForm, ssAwayForm] = await Promise.all([
       homeDBMatches.length >= 4
         ? Promise.resolve(homeDBMatches)
@@ -141,10 +141,12 @@ export async function GET(
         : Promise.resolve(null),
     ]);
 
-    // Prefer SofaScore when it has more matches (better coverage for smaller leagues/tournaments)
-    const homeSchedule = (ssHomeForm?.matches?.length ?? 0) >= Math.max(homeSpnSchedule.length, 5)
+    // PREFER SofaScore (PRIMARY) — superior stat coverage (xG, big chances, etc.)
+    // Only fall back to ESPN/DB if SofaScore has fewer than 3 matches
+    const ssHomeMinThreshold = 3;
+    const homeSchedule = (ssHomeForm?.matches?.length ?? 0) >= ssHomeMinThreshold
       ? ssHomeForm.matches : homeSpnSchedule;
-    const awaySchedule = (ssAwayForm?.matches?.length ?? 0) >= Math.max(awaySpnSchedule.length, 5)
+    const awaySchedule = (ssAwayForm?.matches?.length ?? 0) >= ssHomeMinThreshold
       ? ssAwayForm.matches : awaySpnSchedule;
 
     const homeFormSource = homeSchedule === ssHomeForm?.matches ? 'SofaScore' : (homeDBMatches.length >= 4 ? 'Supabase DB' : 'ESPN API');
