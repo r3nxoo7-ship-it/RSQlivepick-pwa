@@ -402,34 +402,74 @@ export default function FiltersPage() {
               animate={{ opacity: 1, y: 0 }}
               className="glass-card p-4 border border-glass-medium"
             >
-              <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <button
-                  onClick={handleCreateNew}
-                  className="flex-1 text-center px-4 py-3 rounded-md border border-accent-cyan bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/15 transition-colors"
-                  title="Create a new filter"
-                >
-                  <Plus className="w-4 h-4 inline mr-2" />
-                  Create Filter
-                </button>
+              {selectedIds.length > 0 ? (
+                <div className="max-w-4xl mx-auto space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-accent-cyan">
+                      {selectedIds.length} filter{selectedIds.length !== 1 ? 's' : ''} selected
+                    </div>
+                    <button
+                      onClick={clearSelection}
+                      className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <button
+                      onClick={() => handleBulkToggleActive(true)}
+                      className="flex-1 text-center px-4 py-3 rounded-md border border-accent-green bg-accent-green/10 text-accent-green hover:bg-accent-green/15 transition-colors text-sm font-semibold"
+                      title={`Activate ${selectedIds.length} filter${selectedIds.length !== 1 ? 's' : ''}`}
+                    >
+                      ✓ Activate Selected
+                    </button>
+                    <button
+                      onClick={() => handleBulkToggleActive(false)}
+                      className="flex-1 text-center px-4 py-3 rounded-md border border-accent-yellow bg-accent-yellow/10 text-accent-yellow hover:bg-accent-yellow/15 transition-colors text-sm font-semibold"
+                      title={`Deactivate ${selectedIds.length} filter${selectedIds.length !== 1 ? 's' : ''}`}
+                    >
+                      ⊘ Deactivate Selected
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="flex-1 text-center px-4 py-3 rounded-md border border-accent-red bg-accent-red/10 text-accent-red hover:bg-accent-red/15 transition-colors text-sm font-semibold"
+                      title={`Delete ${selectedIds.length} filter${selectedIds.length !== 1 ? 's' : ''}`}
+                    >
+                      <Trash2 className="w-4 h-4 inline mr-2" />
+                      Delete Selected
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <button
+                    onClick={handleCreateNew}
+                    className="flex-1 text-center px-4 py-3 rounded-md border border-accent-cyan bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/15 transition-colors"
+                    title="Create a new filter"
+                  >
+                    <Plus className="w-4 h-4 inline mr-2" />
+                    Create Filter
+                  </button>
 
-                <button
-                  onClick={() => router.push('/dashboard/filters/new?mode=super')}
-                  className="flex-1 text-center px-4 py-3 rounded-md border border-glass-medium hover:bg-glass-light transition-colors"
-                  title="Create a super filter by combining existing filters"
-                >
-                  <span className="inline mr-2">🔗</span>
-                  Super Filter
-                </button>
+                  <button
+                    onClick={() => router.push('/dashboard/filters/new?mode=super')}
+                    className="flex-1 text-center px-4 py-3 rounded-md border border-glass-medium hover:bg-glass-light transition-colors"
+                    title="Create a super filter by combining existing filters"
+                  >
+                    <span className="inline mr-2">🔗</span>
+                    Super Filter
+                  </button>
 
-                <button
-                  onClick={() => router.push('/dashboard/filters/templates')}
-                  className="flex-1 text-center px-4 py-3 rounded-md border border-glass-medium hover:bg-glass-light transition-colors"
-                  title="Browse predefined templates"
-                >
-                  <span className="inline mr-2">📚</span>
-                  Templates
-                </button>
-              </div>
+                  <button
+                    onClick={() => router.push('/dashboard/filters/templates')}
+                    className="flex-1 text-center px-4 py-3 rounded-md border border-glass-medium hover:bg-glass-light transition-colors"
+                    title="Browse predefined templates"
+                  >
+                    <span className="inline mr-2">📚</span>
+                    Templates
+                  </button>
+                </div>
+              )}
             </motion.div>
           )}
           

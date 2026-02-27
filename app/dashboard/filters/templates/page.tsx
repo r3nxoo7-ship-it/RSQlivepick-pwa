@@ -63,6 +63,8 @@ export default function FilterTemplatesPage() {
   const [importing, setImporting] = useState<string | null>(null);
   const [importUrl, setImportUrl] = useState<string>('https://livepick.eu/filters.json');
   const [lastImportResult, setLastImportResult] = useState<{ success: number; failed: number } | null>(null);
+  const [sortBy, setSortBy] = useState<'popular' | 'recent' | 'success' | 'name'>('popular');
+  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
   
   // ============================================
   // DATA
@@ -81,7 +83,7 @@ export default function FilterTemplatesPage() {
   });
   const categoryCounts = getCategoriesWithCounts();
   
-  // Filter templates based on category and search
+  // Let me filter and sort templates based on current selections and sort preference
   let displayedTemplates = selectedCategory === 'all' 
     ? allTemplates 
     : selectedCategory === 'popular'
@@ -89,8 +91,172 @@ export default function FilterTemplatesPage() {
     : getTemplatesByCategory(selectedCategory as any);
   
   if (searchQuery) {
-    displayedTemplates = searchTemplates(searchQuery);
+    displayedTemplates = displayedTemplates.filter(t => 
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   }
+
+  // Apply sorting
+  displayedTemplates = [...displayedTemplates].sort((a, b) => {
+    if (sortBy === 'popular') {
+      return (b.popularity || 0) - (a.popularity || 0);
+    } else if (sortBy === 'success') {
+      return (b.successRate || 0) - (a.successRate || 0);
+    } else if (sortBy === 'name') {
+      return a.name.localeCompare(b.name);
+    } else if (sortBy === 'recent') {
+      // Recent templates would be recent additions - for now, keep original order
+      return 0;
+    }
+    return 0;
+  });
+  
+  // ============================================
+  // HANDLERS - MULTI-SELECT
+  // ============================================
+  
+  const toggleSelectTemplate = (templateId: string) => {
+    setSelectedTemplates(prev => 
+      prev.includes(templateId) 
+        ? prev.filter(id => id !== templateId)
+        : [...prev, templateId]
+    );
+  };
+
+  const clearTemplateSelection = () => setSelectedTemplates([]);
+
+  const handleImportSelected = async () => {
+    if (selectedTemplates.length === 0) {
+      alert('Please select at least one template to import');
+      return;
+    }
+
+    const confirmed = confirm(`Import ${selectedTemplates.length} templates?`);
+    if (!confirmed) return;
+
+    setImporting('bulk');
+    let successCount = 0;
+    let failedCount = 0;
+
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) {
+        alert('You must be logged in!');
+        return;
+      }
+
+      for (const templateId of selectedTemplates) {
+        const template = allTemplates.find(t => t.id === templateId);
+        if (!template) continue;
+
+        try {
+          const result = await dbHelpers.createFilter({
+            user_id: currentUser?.id || undefined,
+            name: template.name,
+            description: template.description,
+            conditions: template.conditions as any,
+            is_active: true,
+            notification_enabled: template.notificationEnabled && template.category !== 'experimental',
+            telegram_enabled: false,
+            is_shared: false,
+            trigger_count: 0,
+            success_rate: null,
+          });
+
+          if (result.error) {
+            failedCount++;
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failedCount++;
+        }
+      }
+
+      alert(`✅ Import complete!\nSuccess: ${successCount}, Failed: ${failedCount}`);
+      clearTemplateSelection();
+      
+      // Navigate and refresh
+      await router.push('/dashboard/filters');
+      setTimeout(() => {
+        try {
+          router.refresh();
+        } catch (e) {
+          console.warn('Could not refresh after import:', e);
+        }
+      }, 500);
+    } catch (err) {
+      console.error('Bulk import error:', err);
+      alert('Error importing templates');
+    } finally {
+      setImporting(null);
+    }
+  };
+
+  const handleImportAll = async () => {
+    if (displayedTemplates.length === 0) {
+      alert('No templates to import');
+      return;
+    }
+
+    const confirmed = confirm(`Import all ${displayedTemplates.length} displayed templates?`);
+    if (!confirmed) return;
+
+    setImporting('bulk-all');
+    let successCount = 0;
+    let failedCount = 0;
+
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) {
+        alert('You must be logged in!');
+        return;
+      }
+
+      for (const template of displayedTemplates) {
+        try {
+          const result = await dbHelpers.createFilter({
+            user_id: currentUser?.id || undefined,
+            name: template.name,
+            description: template.description,
+            conditions: template.conditions as any,
+            is_active: true,
+            notification_enabled: template.notificationEnabled && template.category !== 'experimental',
+            telegram_enabled: false,
+            is_shared: false,
+            trigger_count: 0,
+            success_rate: null,
+          });
+
+          if (result.error) {
+            failedCount++;
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failedCount++;
+        }
+      }
+
+      alert(`✅ Import complete!\nSuccess: ${successCount}, Failed: ${failedCount}`);
+      
+      // Navigate and refresh
+      await router.push('/dashboard/filters');
+      setTimeout(() => {
+        try {
+          router.refresh();
+        } catch (e) {
+          console.warn('Could not refresh after import:', e);
+        }
+      }, 500);
+    } catch (err) {
+      console.error('Bulk import error:', err);
+      alert('Error importing templates');
+    } finally {
+      setImporting(null);
+    }
+  };
   
   // ============================================
   // HANDLERS
@@ -306,9 +472,31 @@ export default function FilterTemplatesPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.05 }}
-            className="glass-card p-6 border-t border-glass-lighter"
+            className="glass-card p-6 border-t border-glass-lighter space-y-4"
           >
-            <div className="flex flex-col md:flex-row gap-4">
+            {selectedTemplates.length > 0 && (
+              <div className="flex items-center justify-between p-4 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30">
+                <div className="text-sm font-semibold text-accent-cyan">
+                  {selectedTemplates.length} template{selectedTemplates.length !== 1 ? 's' : ''} selected
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={clearTemplateSelection}
+                    className="text-xs px-3 py-1.5 rounded-lg text-accent-cyan hover:bg-accent-cyan/20 transition"
+                  >
+                    Clear Selection
+                  </button>
+                  <button
+                    onClick={handleImportSelected}
+                    disabled={importing === 'bulk'}
+                    className="text-xs px-4 py-1.5 rounded-lg bg-accent-cyan text-black font-semibold hover:bg-accent-cyan/90 transition disabled:opacity-50"
+                  >
+                    {importing === 'bulk' ? 'Importing...' : '📥 Import Selected'}
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-accent-cyan" />
@@ -325,7 +513,7 @@ export default function FilterTemplatesPage() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="md:w-56 bg-glass-light hover:bg-glass-lighter border border-glass-lighter rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 transition font-semibold"
+                className="lg:w-56 bg-glass-light hover:bg-glass-lighter border border-glass-lighter rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 transition font-semibold"
                 title="Filter templates by category"
               >
                 <option value="all">📊 All Templates ({allTemplates.length})</option>
@@ -336,6 +524,31 @@ export default function FilterTemplatesPage() {
                 <option value="cards">🟨 Cards ({categoryCounts.cards || 0})</option>
                 <option value="advanced">✨ Advanced ({categoryCounts.advanced || 0})</option>
               </select>
+
+              {/* Sort Dropdown */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'popular' | 'recent' | 'success' | 'name')}
+                className="lg:w-56 bg-glass-light hover:bg-glass-lighter border border-glass-lighter rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 transition font-semibold"
+                title="Sort templates"
+              >
+                <option value="popular">⭐ Most Popular</option>
+                <option value="success">✓ Highest Success Rate</option>
+                <option value="name">A-Z Alphabetical</option>
+                <option value="recent">🆕 Recently Added</option>
+              </select>
+
+              {/* Import All Button */}
+              {selectedTemplates.length === 0 && displayedTemplates.length > 1 && (
+                <button
+                  onClick={handleImportAll}
+                  disabled={importing === 'bulk-all'}
+                  className="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-accent-green to-accent-cyan hover:shadow-lg hover:shadow-accent-green/20 text-black transition disabled:opacity-50 whitespace-nowrap"
+                  title={`Import all ${displayedTemplates.length} displayed templates`}
+                >
+                  {importing === 'bulk-all' ? '⏳ Importing...' : `📥 Import All (${displayedTemplates.length})`}
+                </button>
+              )}
             </div>
           </motion.div>
           
@@ -382,6 +595,17 @@ export default function FilterTemplatesPage() {
                       whileHover={{ y: -4 }}
                       className="group relative"
                     >
+                      {/* Checkbox overlay */}
+                      <div className="absolute top-3 left-3 z-30 flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedTemplates.includes(template.id)}
+                          onChange={() => toggleSelectTemplate(template.id)}
+                          className="w-5 h-5 rounded border border-accent-cyan bg-glass-dark cursor-pointer"
+                          title={`Select "${template.name}" for bulk import`}
+                        />
+                      </div>
+
                       {/* Background Image */}
                       {templateBgClass && (
                         <>
@@ -542,6 +766,17 @@ export default function FilterTemplatesPage() {
                       whileHover={{ y: -4 }}
                       className="group relative"
                     >
+                      {/* Checkbox overlay */}
+                      <div className="absolute top-3 left-3 z-30 flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedTemplates.includes(template.id)}
+                          onChange={() => toggleSelectTemplate(template.id)}
+                          className="w-5 h-5 rounded border border-accent-cyan bg-glass-dark cursor-pointer"
+                          title={`Select "${template.name}" for bulk import`}
+                        />
+                      </div>
+
                       {/* Gradient background on hover */}
                       <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/10 via-transparent to-accent-purple/5 opacity-0 group-hover:opacity-100 transition duration-300 rounded-2xl" />
                       
