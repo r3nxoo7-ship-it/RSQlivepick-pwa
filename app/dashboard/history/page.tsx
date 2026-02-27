@@ -735,14 +735,12 @@ function StatBar({ label, home, away }: { label: string; home: number; away: num
       <div className="flex gap-0.5 h-1.5">
         <div className="flex-1 flex justify-end">
           <div
-            className="h-full rounded-l-full bg-accent-cyan transition-all"
-            style={{ width: `${homeP}%` } as React.CSSProperties}
+            className={`h-full shrink-0 rounded-l-full bg-accent-cyan transition-all w-[${homeP}%]`}
           />
         </div>
         <div className="flex-1 flex justify-start">
           <div
-            className="h-full rounded-r-full bg-accent-blue transition-all"
-            style={{ width: `${100 - homeP}%` } as React.CSSProperties}
+            className={`h-full shrink-0 rounded-r-full bg-accent-blue transition-all w-[${100 - homeP}%]`}
           />
         </div>
       </div>

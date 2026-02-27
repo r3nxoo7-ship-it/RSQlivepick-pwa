@@ -4,6 +4,14 @@ module.exports = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+    // Used to replace inline styles like style={{ width: `${pct}%` }}
+    { pattern: /w-\[(0|[1-9]\d|100)%\]/ },
+    // Used for momentum offset bars (left percentage)
+    { pattern: /left-\[(0|[1-9]\d|100)%\]/ },
+    // Used to replace inline styles like style={{ height: `${px}px` }}
+    { pattern: /h-\[(?:[0-9]|[1-2]\d|3[0-2])px\]/ },
+  ],
   theme: {
     extend: {
       colors: {

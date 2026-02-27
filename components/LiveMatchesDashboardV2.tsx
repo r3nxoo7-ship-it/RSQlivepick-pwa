@@ -664,8 +664,7 @@ function MatchCard({
             <TrendingUp className="w-3.5 h-3.5 text-accent-cyan shrink-0" />
             <div className="flex-1 h-1 bg-glass-light rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-accent-cyan to-accent-blue rounded-full"
-                style={{ width: `${match.predictability}%` } as React.CSSProperties}
+                className={`h-full shrink-0 bg-gradient-to-r from-accent-cyan to-accent-blue rounded-full w-[${Math.max(0, Math.min(100, Math.round(match.predictability ?? 0)))}%]`}
               />
             </div>
             <span className="text-[10px] text-accent-cyan font-semibold shrink-0">

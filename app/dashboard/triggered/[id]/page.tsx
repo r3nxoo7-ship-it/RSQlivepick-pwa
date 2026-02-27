@@ -388,12 +388,10 @@ function TriggeredStatRow({ label, home, away, unit = '' }: { label: string; hom
         </div>
         <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden flex">
           <div
-            className={`h-full transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
-            style={{ width: `${homePercent}%` } as React.CSSProperties}
+            className={`h-full shrink-0 transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'} w-[${homePercent}%]`}
           />
           <div
-            className={`h-full transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
-            style={{ width: `${100 - homePercent}%` } as React.CSSProperties}
+            className={`h-full shrink-0 transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'} w-[${100 - homePercent}%]`}
           />
         </div>
         <div className={`w-10 text-left text-base font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>

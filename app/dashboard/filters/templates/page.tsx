@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import templateBgStyles from './templateBackgrounds.module.css';
 import { 
   Star,
   Download,
@@ -32,6 +33,19 @@ import {
   type FilterTemplate 
 } from '@/lib/filter-templates';
 import { validateFilterConditions } from '@/lib/filter-validation';
+
+const TEMPLATE_BG_CLASS_BY_URL: Record<string, string> = {
+  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80': templateBgStyles.bg1,
+  'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&q=80': templateBgStyles.bg2,
+  'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&q=80': templateBgStyles.bg3,
+  'https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=800&q=80': templateBgStyles.bg4,
+  'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800&q=80': templateBgStyles.bg5,
+  'https://images.unsplash.com/photo-1529079003456-3bac75d7e0e0?w=800&q=80': templateBgStyles.bg6,
+  'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=800&q=80': templateBgStyles.bg7,
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&q=80': templateBgStyles.bg8,
+  'https://images.unsplash.com/photo-1552667466-07770ae110d0?w=800&q=80': templateBgStyles.bg9,
+  'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=800&q=80': templateBgStyles.bg10,
+};
 
 // ============================================
 // COMPONENTA PRINCIPALĂ
@@ -348,6 +362,10 @@ export default function FilterTemplatesPage() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {popularTemplates.slice(0, 3).map((template, index) => {
+                  const templateBgClass = template.backgroundImage
+                    ? TEMPLATE_BG_CLASS_BY_URL[template.backgroundImage]
+                    : undefined;
+
                   const difficulty = template.tags?.includes('Advanced') ? 'Advanced' : 
                                    template.tags?.includes('Intermediate') ? 'Intermediate' : 
                                    'Beginner';
@@ -365,11 +383,10 @@ export default function FilterTemplatesPage() {
                       className="group relative"
                     >
                       {/* Background Image */}
-                      {template.backgroundImage && (
+                      {templateBgClass && (
                         <>
                           <div
-                            className="absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-30 transition duration-300 bg-cover bg-center"
-                            style={{ backgroundImage: `url(${template.backgroundImage})` } as React.CSSProperties}
+                            className={`absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-30 transition duration-300 bg-cover bg-center ${templateBgClass}`}
                           />
                         </>
                       )}

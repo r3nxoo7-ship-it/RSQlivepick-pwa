@@ -486,12 +486,10 @@ function StatRow({
         </div>
         <div className="flex-1 h-2.5 bg-glass-light rounded-full overflow-hidden flex">
           <div
-            className={`h-full transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
-            style={{ width: `${homePercent}%` }}
+            className={`h-full shrink-0 transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'} w-[${homePercent}%]`}
           />
           <div
-            className={`h-full transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
-            style={{ width: `${awayPercent}%` }}
+            className={`h-full shrink-0 transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'} w-[${awayPercent}%]`}
           />
         </div>
         <div className={`w-12 text-left text-lg font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>
@@ -913,6 +911,12 @@ function StatMomentumGauge({ homeStats, awayStats }: { homeStats: Record<string,
   const awayDangerH = Math.max(4, Math.round((awayStats.dangerousAttacks / maxDanger) * 32));
 
   const momentumColor = overall > 10 ? 'text-accent-cyan' : overall < -10 ? 'text-accent-blue' : 'text-accent-yellow';
+  const clampPct = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+  const momentumLeftPct = clampPct(overall >= 0 ? 50 : (50 + overall / 2));
+  const momentumWidthPct = clampPct(Math.abs(overall) / 2);
+  const momentumBarGradient = overall >= 0
+    ? 'bg-gradient-to-r from-transparent to-accent-cyan/80'
+    : 'bg-gradient-to-l from-transparent to-accent-blue/80';
 
   return (
     <div className="px-4 pb-4 pt-2 border-t border-white/8 space-y-3">
@@ -926,18 +930,10 @@ function StatMomentumGauge({ homeStats, awayStats }: { homeStats: Record<string,
         </div>
         <div className="relative h-5 rounded-full overflow-hidden bg-white/5 flex">
           <div
-            className="h-full transition-all duration-700"
-            style={{
-              width: `${homePosPercent}%`,
-              background: 'linear-gradient(90deg, rgba(34,211,238,0.7) 0%, rgba(34,211,238,0.35) 100%)'
-            }}
+            className={`h-full shrink-0 transition-all duration-700 bg-gradient-to-r from-accent-cyan/70 to-accent-cyan/35 w-[${homePosPercent}%]`}
           />
           <div
-            className="h-full transition-all duration-700"
-            style={{
-              width: `${awayPosPercent}%`,
-              background: 'linear-gradient(270deg, rgba(59,130,246,0.7) 0%, rgba(59,130,246,0.35) 100%)'
-            }}
+            className={`h-full shrink-0 transition-all duration-700 bg-gradient-to-l from-accent-blue/70 to-accent-blue/35 w-[${awayPosPercent}%]`}
           />
           <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/25" />
           {/* Percentage labels inside bar */}
@@ -990,8 +986,7 @@ function StatMomentumGauge({ homeStats, awayStats }: { homeStats: Record<string,
             {/* Home bar (grows upward, aligned right of center) */}
             <div className="flex flex-col items-end justify-end flex-1">
               <span className="text-[9px] font-bold text-accent-cyan mb-0.5">{homeStats.dangerousAttacks}</span>
-              <div className="w-full max-w-[80px] ml-auto rounded-t transition-all duration-700 bg-accent-cyan/60"
-                style={{ height: `${homeDangerH}px` }} />
+              <div className={`w-full max-w-[80px] ml-auto rounded-t transition-all duration-700 bg-accent-cyan/60 h-[${homeDangerH}px]`} />
             </div>
             {/* Center label */}
             <div className="shrink-0 flex flex-col items-center justify-end gap-0.5 pb-0.5">
@@ -1000,8 +995,7 @@ function StatMomentumGauge({ homeStats, awayStats }: { homeStats: Record<string,
             {/* Away bar */}
             <div className="flex flex-col items-start justify-end flex-1">
               <span className="text-[9px] font-bold text-accent-blue mb-0.5">{awayStats.dangerousAttacks}</span>
-              <div className="w-full max-w-[80px] mr-auto rounded-t transition-all duration-700 bg-accent-blue/60"
-                style={{ height: `${awayDangerH}px` }} />
+              <div className={`w-full max-w-[80px] mr-auto rounded-t transition-all duration-700 bg-accent-blue/60 h-[${awayDangerH}px]`} />
             </div>
           </div>
         </div>
@@ -1011,15 +1005,7 @@ function StatMomentumGauge({ homeStats, awayStats }: { homeStats: Record<string,
       <div className="flex items-center gap-2 pt-1 border-t border-white/8">
         <div className="flex-1 relative h-2 rounded-full bg-white/5">
           <div
-            className="absolute top-0 bottom-0 rounded-full transition-all duration-700"
-            style={{
-              left: overall >= 0 ? '50%' : `${50 + overall / 2}%`,
-              width: `${Math.abs(overall) / 2}%`,
-              minWidth: 2,
-              background: overall >= 0
-                ? 'linear-gradient(90deg, transparent, rgba(34,211,238,0.8))'
-                : 'linear-gradient(270deg, transparent, rgba(59,130,246,0.8))'
-            }}
+            className={`absolute top-0 bottom-0 rounded-full transition-all duration-700 min-w-[2px] ${momentumBarGradient} left-[${momentumLeftPct}%] w-[${momentumWidthPct}%]`}
           />
           <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
         </div>
@@ -1060,12 +1046,10 @@ function StatsBreakdown({ homeStats, awayStats, match }: { homeStats: Record<str
             </span>
             <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex">
               <div
-                className={`h-full rounded-l-full transition-all duration-500 ${homeLead ? 'bg-accent-cyan' : 'bg-accent-cyan/30'}`}
-                style={{ width: `${homePercent}%` }}
+                className={`h-full shrink-0 rounded-l-full transition-all duration-500 ${homeLead ? 'bg-accent-cyan' : 'bg-accent-cyan/30'} w-[${homePercent}%]`}
               />
               <div
-                className={`h-full rounded-r-full transition-all duration-500 ${awayLead ? 'bg-accent-blue' : 'bg-accent-blue/30'}`}
-                style={{ width: `${100 - homePercent}%` }}
+                className={`h-full shrink-0 rounded-r-full transition-all duration-500 ${awayLead ? 'bg-accent-blue' : 'bg-accent-blue/30'} w-[${100 - homePercent}%]`}
               />
             </div>
             <span className={`w-5 text-left font-bold ${awayLead ? 'text-accent-blue' : 'text-text-secondary'}`}>
@@ -1310,12 +1294,10 @@ function MiniStatRow({ label, home, away, unit = '', decimals = 0 }: { label: st
       </span>
       <div className="flex-1 h-1.5 bg-glass-light rounded-full overflow-hidden flex">
         <div
-          className="h-full bg-accent-cyan/60 rounded-l"
-          style={{ width: `${homePercent}%` }}
+          className={`h-full shrink-0 bg-accent-cyan/60 rounded-l w-[${homePercent}%]`}
         />
         <div
-          className="h-full bg-accent-blue/60 rounded-r"
-          style={{ width: `${100 - homePercent}%` }}
+          className={`h-full shrink-0 bg-accent-blue/60 rounded-r w-[${100 - homePercent}%]`}
         />
       </div>
       <span className={`w-8 text-left font-bold ${away > home ? 'text-accent-blue' : 'text-text-secondary'}`}>

@@ -351,6 +351,7 @@ function CategoryBar({
   color: string;
 }) {
   const pct = total > 0 ? (count / total) * 100 : 0;
+  const pctInt = Math.max(0, Math.min(100, Math.round(Math.max(pct, 2))));
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -359,8 +360,7 @@ function CategoryBar({
       </div>
       <div className="h-1.5 bg-glass-light rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full ${color} transition-all`}
-          style={{ width: `${Math.max(pct, 2)}%` } as React.CSSProperties}
+          className={`h-full shrink-0 rounded-full ${color} transition-all w-[${pctInt}%]`}
         />
       </div>
     </div>

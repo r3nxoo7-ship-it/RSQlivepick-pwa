@@ -1,6 +1,6 @@
 {
   "files.associations": {
-    "supabase/migrations/*.sql": "postgres"
+    "supabase/migrations/*.sql": "plaintext"
   },
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"

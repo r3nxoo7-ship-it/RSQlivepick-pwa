@@ -472,23 +472,45 @@ export default function NotificationSettingsPage() {
               <div className="ml-4">
                 <div className="inline-flex rounded-md shadow-sm" role="tablist">
                   {/* eslint-disable-next-line jsx-a11y/aria-role, jsx-a11y/aria-proptypes */}
-                  <button
-                    className={`px-4 py-2 rounded-l-md border transition-colors ${activeTab === 'push' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
-                    onClick={() => setActiveTab('push')}
-                    role="tab"
-                    aria-selected={activeTab === 'push'}
-                  >
-                    Web Push
-                  </button>
+                  {activeTab === 'push' ? (
+                    <button
+                      className={`px-4 py-2 rounded-l-md border transition-colors ${activeTab === 'push' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
+                      onClick={() => setActiveTab('push')}
+                      role="tab"
+                      aria-selected="true"
+                    >
+                      Web Push
+                    </button>
+                  ) : (
+                    <button
+                      className={`px-4 py-2 rounded-l-md border transition-colors ${activeTab === 'push' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
+                      onClick={() => setActiveTab('push')}
+                      role="tab"
+                      aria-selected="false"
+                    >
+                      Web Push
+                    </button>
+                  )}
                   {/* eslint-disable-next-line jsx-a11y/aria-role, jsx-a11y/aria-proptypes */}
-                  <button
-                    className={`px-4 py-2 rounded-r-md border transition-colors ${activeTab === 'telegram' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
-                    onClick={() => setActiveTab('telegram')}
-                    role="tab"
-                    aria-selected={activeTab === 'telegram'}
-                  >
-                    Telegram
-                  </button>
+                  {activeTab === 'telegram' ? (
+                    <button
+                      className={`px-4 py-2 rounded-r-md border transition-colors ${activeTab === 'telegram' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
+                      onClick={() => setActiveTab('telegram')}
+                      role="tab"
+                      aria-selected="true"
+                    >
+                      Telegram
+                    </button>
+                  ) : (
+                    <button
+                      className={`px-4 py-2 rounded-r-md border transition-colors ${activeTab === 'telegram' ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan' : 'bg-transparent border-glass-medium hover:bg-glass-light'}`}
+                      onClick={() => setActiveTab('telegram')}
+                      role="tab"
+                      aria-selected="false"
+                    >
+                      Telegram
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
