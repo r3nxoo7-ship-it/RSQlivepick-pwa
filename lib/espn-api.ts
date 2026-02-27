@@ -401,7 +401,13 @@ async function espnFetch(path: string, retriesPerHost = 2, timeoutMs = 8000): Pr
       return json;
     } catch (err) {
       lastErr = err;
-      console.warn(`[ESPN API] Host ${base} failed for ${path}:`, err instanceof Error ? err.message : err);
+      // Only log 403/404 at debug level - expected when teams don't compete in certain leagues
+      // Avoids spamming logs while still helping with real connectivity issues
+      if (err instanceof Error && (err.message.includes('HTTP 403') || err.message.includes('HTTP 404'))) {
+        // Silent fail for 403/404 - will fall back to SofaScore or DB
+      } else {
+        console.warn(`[ESPN API] Host ${base} failed for ${path}:`, err instanceof Error ? err.message : err);
+      }
       continue;
     }
   }

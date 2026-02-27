@@ -826,6 +826,12 @@ export const dbHelpers = {
 
       const result = await response.json();
 
+      // Treat 404 as success (filter already gone) — idempotent delete
+      if (response.status === 404 || (response.ok && !result.error)) {
+        console.log('✅ Filter deleted (or already gone):', filterId);
+        return { error: null };
+      }
+
       if (!response.ok || result.error) {
         console.error('Error deleting filter via API:', result.error || result);
         return { error: (result && result.error) ? result.error : `Error deleting filter (status ${response.status})` };

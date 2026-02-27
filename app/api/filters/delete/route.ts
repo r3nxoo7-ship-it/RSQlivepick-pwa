@@ -33,11 +33,10 @@ export async function DELETE(request: NextRequest) {
       .limit(1);
 
     if (checkError || !existingFilter || existingFilter.length === 0) {
-      console.warn('⚠️ Filter not found (already deleted):', filterId);
-      return NextResponse.json(
-        { error: 'Filter not found' },
-        { status: 404 }
-      );
+      console.warn('⚠️ Filter not found (already deleted), treating as success:', filterId);
+      // Return 200 OK even if already deleted (idempotent behavior)
+      // This prevents bulk delete operations from failing
+      return NextResponse.json({ error: null });
     }
 
     console.log('✅ Filter exists, proceeding with delete:', filterId);
