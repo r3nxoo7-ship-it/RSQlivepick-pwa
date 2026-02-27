@@ -183,18 +183,18 @@ export default function NotificationSettingsPage() {
     setTgError(null);
     setTgSuccess(null);
     try {
-      const { error: updateError } = await dbHelpers.updateUserProfile(tgUser.id, {
-        telegram_chat_id: chatId,
-        telegram_enabled: true,
-        telegram_verified_at: new Date().toISOString(),
+      const res = await fetch('/api/user/telegram-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update', userId: tgUser.id, chatId }),
       });
-      if (updateError) {
-        setTgError(updateError);
+      const json = await res.json();
+      if (!res.ok) {
+        setTgError(json.error || 'Failed to save settings');
         return;
       }
       setTgSuccess('✅ Telegram settings saved!');
-      const updated = await dbHelpers.getUserProfile(tgUser.id);
-      setTgProfile(updated);
+      setTgProfile(json.profile || null);
     } catch (err) {
       console.error('Error saving:', err);
       setTgError('Failed to save settings');
@@ -208,16 +208,18 @@ export default function NotificationSettingsPage() {
     if (!confirm('Are you sure you want to disconnect Telegram?')) return;
     setSaving(true);
     try {
-      const { error: updateError } = await dbHelpers.updateUserProfile(tgUser.id, {
-        telegram_chat_id: null,
-        telegram_enabled: false,
-        telegram_verified_at: null,
+      const res = await fetch('/api/user/telegram-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disconnect', userId: tgUser.id }),
       });
-      if (updateError) {
-        setTgError(updateError);
+      const json = await res.json();
+      if (!res.ok) {
+        setTgError(json.error || 'Failed to disconnect');
         return;
       }
       setChatId('');
+      setTgProfile(json.profile || null);
       setTgSuccess('Telegram disconnected');
     } catch (err) {
       console.error('Error disconnecting:', err);
@@ -242,9 +244,20 @@ export default function NotificationSettingsPage() {
       if (!currentUser) return;
       setTgUser(currentUser);
 
-      const userProfile = await dbHelpers.getUserProfile(currentUser.id);
-      setTgProfile(userProfile);
-      if (userProfile?.telegram_chat_id) setChatId(userProfile.telegram_chat_id);
+      const profileRes = await fetch('/api/user/telegram-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get', userId: currentUser.id }),
+      });
+      const profileJson = await profileRes.json();
+      if (profileRes.ok) {
+        setTgProfile(profileJson.profile || null);
+        if (profileJson.profile?.telegram_chat_id) {
+          setChatId(profileJson.profile.telegram_chat_id);
+        }
+      } else {
+        setTgError(profileJson.error || 'Failed to load Telegram settings');
+      }
 
       const result = await testTelegramConnection();
       setConfigured(result.configured);
