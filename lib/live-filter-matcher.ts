@@ -721,3 +721,109 @@ export function calculateMatchPredictability(
   const raw = (avgConfidence * 0.7 + matchingBonus) * timeFactor;
   return Math.min(100, Math.round(raw));
 }
+
+/**
+ * Detect contradictory filters triggering on the same match
+ * Returns array of conflict warnings to alert user
+ */
+export function detectContradictoryFilters(
+  matchingFilters: FilterMatchDetails[]
+): string[] {
+  if (matchingFilters.length < 2) return [];
+
+  const conflicts: string[] = [];
+  const filterNames = matchingFilters.map(f => f.filter.name.toLowerCase());
+
+  // Helper: check if any filter name contains a keyword
+  const hasKeyword = (keywords: string[]) => 
+    filterNames.some(name => keywords.some(kw => name.includes(kw)));
+
+  // Helper: check if filter has specific condition
+  const hasCondition = (conditionCheck: (f: FilterMatchDetails) => boolean) => 
+    matchingFilters.some(conditionCheck);
+
+  // CONFLICT 1: BTTS vs Under 2.5/1.5 Goals
+  const hasBTTS = hasKeyword(['btts', 'both teams', 'both team score']);
+  const hasUnder = hasKeyword(['under 2.5', 'under 1.5', 'under 2,5', 'under 1,5', '<2.5', '<1.5']);
+  if (hasBTTS && hasUnder) {
+    conflicts.push('⚠️ BTTS and Under Goals filters both triggered (contradictory markets)');
+  }
+
+  // CONFLICT 2: Over 2.5 vs Under 2.5
+  const hasOver25 = hasKeyword(['over 2.5', 'over 2,5', '>2.5', 'over25']);
+  if (hasOver25 && hasUnder) {
+    conflicts.push('⚠️ Over 2.5 and Under goals filters both triggered (opposite predictions)');
+  }
+
+  // CONFLICT 3: Home Win vs Away Win
+  const hasHomeWin = hasKeyword(['home win', 'home team winning', 'home dominance']) && 
+    !hasKeyword(['comeback', 'losing', 'underdog']);
+  const hasAwayWin = hasKeyword(['away win', 'away team winning', 'away dominance', 'away upset']) && 
+    !hasKeyword(['comeback', 'losing']);
+  if (hasHomeWin && hasAwayWin) {
+    conflicts.push('⚠️ Home win and Away win filters both triggered (opposite outcomes)');
+  }
+
+  // CONFLICT 4: Draw prediction vs Winner prediction
+  const hasDraw = hasKeyword(['draw', 'stalemate', 'balanced']) && 
+    hasCondition(f => {
+      const cond = f.filter.conditions as any;
+      return cond?.score?.difference !== undefined && cond.score.difference.max === 0;
+    });
+  if (hasDraw && (hasHomeWin || hasAwayWin)) {
+    conflicts.push('⚠️ Draw and Winner filters both triggered (contradictory outcomes)');
+  }
+
+  // CONFLICT 5: Low scoring (defensive) vs High scoring (attacking)
+  const isDefensive = hasKeyword(['defensive', 'conservative', 'low xg', 'tight', 'cautious']);
+  const isHighScoring = hasKeyword(['high scoring', 'attacking', 'goals bonanza', 'over 3.5', '>3.5']);
+  if (isDefensive && isHighScoring) {
+    conflicts.push('⚠️ Defensive and High-scoring filters both triggered (conflicting game styles)');
+  }
+
+  // CONFLICT 6: Favorite dominating vs Underdog upset
+  const hasFavoriteDom = hasKeyword(['favorite', 'dominant', 'possession >60']) && 
+    hasCondition(f => {
+      const cond = f.filter.conditions as any;
+      return cond?.possession?.home !== undefined && cond.possession.home.min >= 55;
+    });
+  const hasUnderdogUpset = hasKeyword(['underdog', 'upset', 'counter', 'low possession']) && 
+    hasCondition(f => {
+      const cond = f.filter.conditions as any;
+      return cond?.possession?.away !== undefined || 
+             (cond?.possession?.max !== undefined && cond.possession.max <= 45);
+    });
+  if (hasFavoriteDom && hasUnderdogUpset) {
+    conflicts.push('⚠️ Favorite dominating and Underdog upset filters both triggered (conflicting narratives)');
+  }
+
+  return conflicts;
+}
+
+/**
+ * Get human-readable summary of triggered filters with conflict warnings
+ */
+export function getMatchFilterSummary(
+  match: LiveMatch,
+  matchingFilters: FilterMatchDetails[]
+): {
+  totalMatching: number;
+  avgConfidence: number;
+  predictability: number;
+  conflicts: string[];
+  filterNames: string[];
+} {
+  const conflicts = detectContradictoryFilters(matchingFilters);
+  const predictability = calculateMatchPredictability(match, matchingFilters);
+  const avgConfidence = matchingFilters.length > 0
+    ? matchingFilters.reduce((sum, f) => sum + f.confidence, 0) / matchingFilters.length
+    : 0;
+
+  return {
+    totalMatching: matchingFilters.filter(f => f.isMatching).length,
+    avgConfidence: Math.round(avgConfidence),
+    predictability,
+    conflicts,
+    filterNames: matchingFilters.map(f => f.filter.name),
+  };
+}

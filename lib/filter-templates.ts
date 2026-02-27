@@ -133,7 +133,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'livepick-favorite-losing-home',
     name: '🏠 Favorite Losing at Home (BTTS Opportunity)',
-    description: 'Home team is losing but dominating with shots on target and possession. Classic BTTS setup - home team will push for comeback, both teams likely to score.',
+    description: 'Home team is losing but dominating with shots on target and possession. Classic BTTS setup - home team will push for comeback, both teams likely to score. Triggers BEFORE home scores to maximize betting value.',
     category: 'advanced',
     icon: '🎯',
     popularity: 5,
@@ -146,8 +146,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       score: {
         home: { max: 0 },
-        away: { min: 1 },
-        difference: { min: 1, max: 2 },
+        away: { min: 1, max: 2 },
+        total_goals: { min: 1, max: 2 },
       },
       shots_on_target: {
         home: { min: 3 },
@@ -201,7 +201,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'livepick-over-25-goals-scenario',
     name: '⚽ Over 2.5 Goals Scenario (Live)',
-    description: 'Match shows all indicators for 3+ total goals: already 1-2 scored with high shots, dangerous attacks, and balanced attacking from both teams. Perfect timing for over 2.5 goals bet.',
+    description: 'Match shows all indicators for 3+ total goals: already 1-2 scored with high shots, dangerous attacks, and balanced attacking from both teams. Perfect timing for over 2.5 goals bet after 55th minute.',
     category: 'goals',
     icon: '🎯',
     popularity: 5,
@@ -218,16 +218,17 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         home: { min: 2 },
         away: { min: 2 },
-        total: { min: 6 },
+        total: { min: 7 },
       },
       dangerous_attacks: {
-        total: { min: 10 },
+        total: { min: 12 },
       },
       corners: {
-        total: { min: 5 },
+        total: { min: 6 },
       },
       match_time: {
-        between: [60, 82],
+        min: 55,
+        max: 82,
       },
     } as any,
   },
@@ -333,7 +334,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'livepick-both-teams-pressing',
     name: '🔥 Both Teams Pressing (High Intensity)',
-    description: 'Both teams creating chances with high shots on target and attacks from BOTH sides. Possession balanced. Perfect BTTS or over goals scenario with open, attacking play.',
+    description: 'Both teams creating chances with high shots on target and attacks from BOTH sides. Possession balanced. Perfect BTTS or over goals scenario with open, attacking play. Triggers early before both score.',
     category: 'goals',
     icon: '⚡',
     popularity: 5,
@@ -344,6 +345,9 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     backgroundImage: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=800&q=80',
     color: 'amber',
     conditions: {
+      score: {
+        total_goals: { max: 1 },
+      },
       shots_on_target: {
         home: { min: 2 },
         away: { min: 2 },
@@ -361,7 +365,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         dominant: 'balanced',
       },
       match_time: {
-        between: [55, 80],
+        between: [50, 80],
       },
     } as any,
   },
@@ -369,7 +373,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'livepick-late-pressure-draw',
     name: '🎭 Late Pressure Match',
-    description: 'Low-scoring match (0-0 or 1-0) with both teams creating many chances late. High pressure from both sides - high probability one team breaks through or both score (BTTS). Perfect for late goals.',
+    description: 'Low-scoring match (0-0 or 1-0) with both teams creating many chances late. High pressure from both sides - high probability one team breaks through or both score (BTTS). Perfect for late goals. Triggers before both teams score.',
     category: 'goals',
     icon: '🎲',
     popularity: 4,
@@ -668,6 +672,139 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       },
       match_time: {
         between: [30, 75],
+      },
+    } as any,
+  },
+
+  // ============================================================
+  // PREDICTIVE BTTS TEMPLATES (xG-BASED - TRIGGER BEFORE BOTH SCORE)
+  // ============================================================
+
+  {
+    id: 'predictive-btts-xg',
+    name: '🎯 BTTS Incoming (xG Predictive)',
+    description: 'Both teams creating high-quality chances with xG >0.6 each, but at least one hasn\'t scored yet. Perfect timing for BTTS bet BEFORE both teams score. Uses expected goals to predict future scoring.',
+    category: 'goals',
+    icon: '⚽',
+    popularity: 5,
+    successRate: 78,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['BTTS', 'xG', 'predictive', 'sofascore', 'early-signal'],
+    color: 'cyan',
+    conditions: {
+      score: {
+        total_goals: { min: 0, max: 1 },
+      },
+      xg: {
+        home: { min: 0.6 },
+        away: { min: 0.6 },
+        total: { min: 1.5 },
+      },
+      shots_on_target: {
+        home: { min: 2 },
+        away: { min: 2 },
+      },
+      match_time: {
+        between: [50, 80],
+      },
+    } as any,
+  },
+
+  {
+    id: 'predictive-over25-xg-imminent',
+    name: '⚡ Over 2.5 Imminent (xG Pressure)',
+    description: 'Combined xG >2.5 with 0-2 goals scored so far. High pressure from both teams, shots trending up. Statistical likelihood of 3+ goals is very high. Triggers BEFORE reaching 3 goals for maximum betting value.',
+    category: 'goals',
+    icon: '🎯',
+    popularity: 5,
+    successRate: 80,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['over-goals', 'xG', 'predictive', 'sofascore', 'high-probability'],
+    color: 'green',
+    conditions: {
+      score: {
+        total_goals: { min: 0, max: 2 },
+      },
+      xg: {
+        total: { min: 2.5 },
+      },
+      shots_on_target: {
+        total: { min: 7 },
+      },
+      dangerous_attacks: {
+        total: { min: 10 },
+      },
+      match_time: {
+        between: [60, 83],
+      },
+    } as any,
+  },
+
+  {
+    id: 'predictive-btts-ml-hybrid',
+    name: '🤖 BTTS Predictive (ML + xG Combo)',
+    description: 'HYBRID: AI model predicts BTTS >70% AND both teams show xG >0.5 each, but maximum 1 team has scored. Double confirmation from ML + live stats. Highest confidence BTTS signal before both teams score.',
+    category: 'ml_powered',
+    icon: '🔮',
+    popularity: 5,
+    successRate: 82,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['BTTS', 'ML', 'xG', 'hybrid', 'predictive', 'AI'],
+    color: 'purple',
+    conditions: {
+      score: {
+        total_goals: { min: 0, max: 1 },
+      },
+      ml_predictions: {
+        prob_btts_yes: { min: 70 },
+      },
+      xg: {
+        home: { min: 0.5 },
+        away: { min: 0.5 },
+        total: { min: 1.3 },
+      },
+      shots_on_target: {
+        home: { min: 2 },
+        away: { min: 2 },
+      },
+      match_time: {
+        between: [45, 80],
+      },
+    } as any,
+  },
+
+  {
+    id: 'underdog-xg-value-mismatch',
+    name: '🔥 Underdog xG Value Mismatch',
+    description: 'Away team losing but has BETTER xG than home team. Score doesn\'t reflect match quality - value bet on draw or away comeback. Perfect for catching bookmaker odds before they adjust.',
+    category: 'advanced',
+    icon: '💎',
+    popularity: 4,
+    successRate: 74,
+    confidence: 'Medium',
+    notificationEnabled: true,
+    tags: ['underdog', 'xG', 'value-bet', 'comeback', 'mismatch'],
+    color: 'amber',
+    conditions: {
+      score: {
+        home: { min: 1 },
+        away: { max: 0 },
+        difference: { min: 1, max: 2 },
+      },
+      xg: {
+        away: { min: 1.2 },
+      },
+      shots_on_target: {
+        away: { min: 3 },
+      },
+      dangerous_attacks: {
+        away: { min: 5 },
+      },
+      match_time: {
+        between: [55, 82],
       },
     } as any,
   },

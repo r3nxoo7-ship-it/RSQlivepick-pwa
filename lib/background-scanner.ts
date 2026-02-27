@@ -43,9 +43,10 @@ class BackgroundScannerService {
 
   /**
    * Start the background scanner
-   * Runs every 30 seconds regardless of which page user is on
+   * Runs every 15 seconds regardless of which page user is on
+   * Reduced from 30s to catch goal events faster (minimize late triggers)
    */
-  public start(intervalSeconds: number = 30) {
+  public start(intervalSeconds: number = 15) {
     if (this.intervalId) {
       console.warn('⚠️ Background scanner already running');
       return;
@@ -204,6 +205,17 @@ class BackgroundScannerService {
         const matchResults = await applyFiltersToMatch(match, activeFilters, matchMlPred);
         if (matchResults && matchResults.length > 0) {
           console.log(`✅ Match ${match.fixture.id} triggered ${matchResults.length} filter(s)`);
+
+          // CONFLICT DETECTION: Check for contradictory filters on same match
+          if (matchResults.length >= 2) {
+            const { detectContradictoryFilters } = await import('@/lib/live-filter-matcher');
+            const conflicts = detectContradictoryFilters(matchResults as any);
+            if (conflicts.length > 0) {
+              console.warn(`⚠️ CONFLICT DETECTED for match ${match.fixture.id}:`, conflicts.join('; '));
+              // Store conflicts for notification (will be shown in dashboard)
+              // Note: For now just log - could extend to add conflict warnings to triggered_matches table
+            }
+          }
 
           // Send notifications for each matched filter
           for (const result of matchResults) {
