@@ -5,7 +5,7 @@
 // ============================================
 // Browse and import predefined filter templates
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import templateBgStyles from './templateBackgrounds.module.css';
@@ -69,6 +69,50 @@ export default function FilterTemplatesPage() {
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
   const [importWithNotifications, setImportWithNotifications] = useState(true);
   const [importWithTelegram, setImportWithTelegram] = useState(false);
+  const [userFilterStats, setUserFilterStats] = useState<Map<string, { successRate: number | null; triggerCount: number }>>(new Map());
+
+  // Load user's filter analytics data to overlay real success rates on templates
+  const loadUserFilterStats = useCallback(async () => {
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) return;
+      const userFilters = await dbHelpers.getUserFilters(currentUser.id);
+      const statsMap = new Map<string, { successRate: number | null; triggerCount: number }>();
+      for (const f of userFilters) {
+        // Match by filter name (lowercased) — templates imported as filters keep the same name
+        const key = f.name.toLowerCase().trim();
+        const existing = statsMap.get(key);
+        // If multiple filters with same name, keep the one with most triggers
+        if (!existing || (f.trigger_count || 0) > existing.triggerCount) {
+          statsMap.set(key, {
+            successRate: f.success_rate,
+            triggerCount: f.trigger_count || 0,
+          });
+        }
+      }
+      setUserFilterStats(statsMap);
+    } catch (err) {
+      console.warn('Could not load user filter stats for templates:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUserFilterStats();
+  }, [loadUserFilterStats]);
+
+  /**
+   * Get the actual success rate for a template.
+   * Returns real data from user's analytics if the template was imported and has triggers,
+   * otherwise falls back to the template's default value.
+   */
+  const getTemplateSuccessRate = (template: FilterTemplate): { rate: number | undefined; isReal: boolean } => {
+    const key = template.name.toLowerCase().trim();
+    const stats = userFilterStats.get(key);
+    if (stats && stats.triggerCount > 0 && stats.successRate !== null && stats.successRate !== undefined) {
+      return { rate: Math.round(stats.successRate), isReal: true };
+    }
+    return { rate: template.successRate, isReal: false };
+  };
   
   // ============================================
   // DATA
@@ -106,7 +150,9 @@ export default function FilterTemplatesPage() {
     if (sortBy === 'popular') {
       return (b.popularity || 0) - (a.popularity || 0);
     } else if (sortBy === 'success') {
-      return (b.successRate || 0) - (a.successRate || 0);
+      const rateA = getTemplateSuccessRate(a).rate || 0;
+      const rateB = getTemplateSuccessRate(b).rate || 0;
+      return rateB - rateA;
     } else if (sortBy === 'name') {
       return a.name.localeCompare(b.name);
     } else if (sortBy === 'recent') {
@@ -671,14 +717,21 @@ export default function FilterTemplatesPage() {
                         
                         {/* Success and difficulty badges */}
                         <div className="space-y-2 mb-4">
-                          {template.successRate && (
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-accent-green/20 to-accent-green/5 border border-accent-green/30">
-                              <TrendingUp className="w-4 h-4 text-accent-green" />
-                              <span className="text-sm font-semibold text-accent-green">
-                                {template.successRate}% Success
-                              </span>
-                            </div>
-                          )}
+                          {(() => {
+                            const { rate, isReal } = getTemplateSuccessRate(template);
+                            return rate ? (
+                              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r ${
+                                isReal
+                                  ? 'from-accent-cyan/20 to-accent-cyan/5 border border-accent-cyan/30'
+                                  : 'from-accent-green/20 to-accent-green/5 border border-accent-green/30'
+                              }`}>
+                                <TrendingUp className={`w-4 h-4 ${isReal ? 'text-accent-cyan' : 'text-accent-green'}`} />
+                                <span className={`text-sm font-semibold ${isReal ? 'text-accent-cyan' : 'text-accent-green'}`}>
+                                  {rate}% {isReal ? 'Real Success' : 'Success'}
+                                </span>
+                              </div>
+                            ) : null;
+                          })()}
                         </div>
                         
                         {/* Tags */}
@@ -840,14 +893,21 @@ export default function FilterTemplatesPage() {
                         </p>
                         
                         {/* Success Rate Badge */}
-                        {template.successRate && (
-                          <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full bg-gradient-to-r from-accent-green/20 to-accent-green/5 border border-accent-green/30">
-                            <TrendingUp className="w-4 h-4 text-accent-green" />
-                            <span className="text-sm font-semibold text-accent-green">
-                              {template.successRate}% Success Rate
-                            </span>
-                          </div>
-                        )}
+                        {(() => {
+                          const { rate, isReal } = getTemplateSuccessRate(template);
+                          return rate ? (
+                            <div className={`inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full bg-gradient-to-r ${
+                              isReal
+                                ? 'from-accent-cyan/20 to-accent-cyan/5 border border-accent-cyan/30'
+                                : 'from-accent-green/20 to-accent-green/5 border border-accent-green/30'
+                            }`}>
+                              <TrendingUp className={`w-4 h-4 ${isReal ? 'text-accent-cyan' : 'text-accent-green'}`} />
+                              <span className={`text-sm font-semibold ${isReal ? 'text-accent-cyan' : 'text-accent-green'}`}>
+                                {rate}% {isReal ? 'Real Success' : 'Success Rate'}
+                              </span>
+                            </div>
+                          ) : null;
+                        })()}
                         
                         {/* Difficulty Level */}
                         <div className="inline-flex items-center gap-2 mb-4">
