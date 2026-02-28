@@ -43,6 +43,7 @@ class BackgroundScannerService {
 
   /**
    * Start the background scanner
+   * Uses navigator.locks for tab leader election — only ONE tab scans
    * Runs every 15 seconds regardless of which page user is on
    * Reduced from 30s to catch goal events faster (minimize late triggers)
    */
@@ -51,6 +52,36 @@ class BackgroundScannerService {
       console.warn('⚠️ Background scanner already running');
       return;
     }
+
+    // Use Web Locks API to elect a single "leader" tab for scanning.
+    // Other tabs will queue on the lock and only become leader when the
+    // current leader tab is closed. This prevents duplicate notifications
+    // when multiple tabs are open.
+    if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+      (navigator as any).locks.request(
+        'rsq-scanner-leader',
+        { mode: 'exclusive' },
+        async () => {
+          console.log('▶️ Background Scanner: This tab is the leader');
+          this._startInternal(intervalSeconds);
+          // Hold the lock until tab closes by returning a never-resolving promise
+          return new Promise<void>(() => {});
+        }
+      ).catch(() => {
+        // If locks API fails, fallback to normal mode
+        console.warn('⚠️ Web Locks not available, starting scanner without leader election');
+        this._startInternal(intervalSeconds);
+      });
+    } else {
+      this._startInternal(intervalSeconds);
+    }
+  }
+
+  /**
+   * Internal start — sets up the interval timer
+   */
+  private _startInternal(intervalSeconds: number) {
+    if (this.intervalId) return; // Already running
 
     console.log('▶️ Background Scanner: Starting (interval: ' + intervalSeconds + 's)');
     this.state.isRunning = true;
@@ -223,8 +254,10 @@ class BackgroundScannerService {
 
             // Check if we already sent this notification (dedup)
             if (!this.hasNotificationBeenSent(notifKey)) {
-              await this.sendNotifications(match, result.filter);
+              // Mark as sent BEFORE sending to prevent cross-tab race condition
+              // (Another tab checking localStorage will see this write immediately)
               this.markNotificationAsSent(notifKey);
+              await this.sendNotifications(match, result.filter);
               notificationsSentThisScan++;
             }
           }
@@ -274,7 +307,10 @@ class BackgroundScannerService {
       };
 
       // Log to database via API route (bypasses RLS)
+      // The server checks for duplicates — if another tab/instance already logged this,
+      // it returns { duplicate: true } and we skip sending notifications
       let triggeredMatchId: string | undefined;
+      let isDuplicate = false;
       const currentUser = authHelpers.getCurrentUser();
       if (currentUser) {
         try {
@@ -300,13 +336,24 @@ class BackgroundScannerService {
           const logResult = await logResponse.json();
           if (logResult.success && logResult.id) {
             triggeredMatchId = logResult.id;
-            console.log(`✅ Triggered match logged: ${logResult.id}`);
+            if (logResult.duplicate) {
+              isDuplicate = true;
+              console.log(`⏭️ Duplicate trigger (already logged): ${logResult.id} — skipping notifications`);
+            } else {
+              console.log(`✅ Triggered match logged: ${logResult.id}`);
+            }
           } else {
             console.error('❌ Failed to log triggered match:', logResult.error);
           }
         } catch (logErr) {
           console.error('❌ Error calling triggered-matches/log API:', logErr);
         }
+      }
+
+      // If server detected this was already logged, skip sending notifications
+      // (another tab or previous scan cycle already sent them)
+      if (isDuplicate) {
+        return;
       }
 
       // Send web push notification with triggered match ID
@@ -357,17 +404,11 @@ class BackgroundScannerService {
   }
 
   /**
-   * Check if notification already sent - checks both in-memory and localStorage
+   * Check if notification already sent - checks localStorage FIRST (cross-tab),
+   * then in-memory cache
    */
   private hasNotificationBeenSent(key: string): boolean {
-    // Check in-memory first
-    const lastSent = this.notificationsSent.get(key);
-    if (lastSent) {
-      const hoursSince = (Date.now() - lastSent.getTime()) / (1000 * 60 * 60);
-      if (hoursSince < 24) return true;
-    }
-
-    // Check localStorage (persists across page refreshes/reconnects)
+    // Check localStorage FIRST — this catches writes from other tabs
     try {
       const stored = localStorage.getItem('rsq_notif_sent');
       if (stored) {
@@ -383,6 +424,13 @@ class BackgroundScannerService {
         }
       }
     } catch { /* localStorage not available */ }
+
+    // Then check in-memory (faster for same-tab dedup)
+    const lastSent = this.notificationsSent.get(key);
+    if (lastSent) {
+      const hoursSince = (Date.now() - lastSent.getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 24) return true;
+    }
 
     return false;
   }
