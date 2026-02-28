@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, TrendingUp, BarChart3, Clock, Activity, Filter as FilterIcon, Target, ChevronDown } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
-import MatchPredictionsWrapper from '@/components/MatchPredictionsWrapper';
 import type { FilterMatchResult } from '@/lib/filter-engine';
 
 interface AdvancedMatchDetailProps {
@@ -109,8 +108,8 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
     statusShort === 'FT' || statusShort === 'AET' || statusShort === 'PEN';
   const isMatchUpcoming = !isMatchLive && !isMatchFinished;
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'history' | 'predictions'>(
-    isMatchUpcoming ? 'predictions' : 'stats'
+  const [activeTab, setActiveTab] = useState<'stats' | 'history'>(
+    isMatchUpcoming ? 'history' : 'stats'
   );
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [homeForm, setHomeForm] = useState<TeamRecentFormResult | null>(null);
@@ -360,17 +359,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
             <Clock className="w-4 h-4 inline mr-1.5 -mt-0.5" />
             Previous
           </button>
-          <button
-            onClick={() => setActiveTab('predictions')}
-            className={`shrink-0 px-4 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${
-              activeTab === 'predictions'
-                ? 'bg-accent-cyan/10 text-accent-cyan border-b-2 border-accent-cyan'
-                : 'text-text-muted hover:text-white hover:bg-glass-light'
-            }`}
-          >
-            <Target className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-            Predictions
-          </button>
+
         </div>
 
         {/* Tab Content */}
@@ -448,21 +437,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
             />
           )}
 
-          {/* ===== PREDICTIONS TAB ===== */}
-          {activeTab === 'predictions' && (
-            <>
-              {/* Previous Games: Home / H2H / Away with expandable stats */}
-              <UnifiedPreviousGames
-                match={match}
-                homeForm={homeForm}
-                awayForm={awayForm}
-                h2hMatches={h2hMatches}
-                loading={formLoading}
-              />
-              {/* ML Predictions */}
-              <MatchPredictionsWrapper match={match} />
-            </>
-          )}
+
 
         </div>
       </motion.div>

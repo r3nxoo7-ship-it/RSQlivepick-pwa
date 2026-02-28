@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { TrendingUp, AlertCircle, BarChart3, Search, X, ChevronDown, Check, Clock } from 'lucide-react';
 import { LiveMatch } from '@/lib/unified-api';
 import { Filter } from '@/lib/supabase';
-import { getMatchingFiltersForMatch, calculateMatchPredictability, FilterMatchDetails } from '@/lib/live-filter-matcher';
+import { getMatchingFiltersForMatch, FilterMatchDetails } from '@/lib/live-filter-matcher';
 import AdvancedMatchDetail from './AdvancedMatchDetail';
 
 interface LiveMatchesDashboardProps {
@@ -22,7 +22,6 @@ interface LiveMatchesDashboardProps {
 interface MatchWithPredictions extends LiveMatch {
   matchingFilters?: FilterMatchDetails[];
   matchingCount?: number;
-  predictability?: number;
 }
 
 interface DayTab {
@@ -127,16 +126,14 @@ export default function LiveMatchesDashboardV2({
     return ['All', ...Array.from(leagueSet).sort()];
   }, [allMatches]);
 
-  // Enhance matches with predictions
+  // Enhance matches with filter matching info
   const enhanceMatch = useCallback((match: LiveMatch): MatchWithPredictions => {
-    if (userFilters.length === 0) return { ...match, matchingCount: 0, predictability: 0 };
+    if (userFilters.length === 0) return { ...match, matchingCount: 0 };
     const matching = getMatchingFiltersForMatch(match, userFilters);
-    const predictability = calculateMatchPredictability(match, matching);
     return {
       ...match,
       matchingFilters: matching,
       matchingCount: matching.filter(m => m.isMatching).length,
-      predictability,
     };
   }, [userFilters]);
 
@@ -176,7 +173,7 @@ export default function LiveMatchesDashboardV2({
       );
     }
 
-    // Enhance with predictions
+    // Enhance with filter matching
     let enhanced = raw.map(enhanceMatch);
 
     // Apply league filter (multi-select: empty set = all leagues)
@@ -658,20 +655,7 @@ function MatchCard({
           </>
         )}
 
-        {/* Prediction badge */}
-        {match.matchingCount! > 0 && (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-glass-light/30">
-            <TrendingUp className="w-3.5 h-3.5 text-accent-cyan shrink-0" />
-            <div className="flex-1 h-1 bg-glass-light rounded-full overflow-hidden">
-              <div
-                className={`h-full shrink-0 bg-gradient-to-r from-accent-cyan to-accent-blue rounded-full w-[${Math.max(0, Math.min(100, Math.round(match.predictability ?? 0)))}%]`}
-              />
-            </div>
-            <span className="text-[10px] text-accent-cyan font-semibold shrink-0">
-              {match.predictability}%
-            </span>
-          </div>
-        )}
+
       </div>
     </motion.div>
   );

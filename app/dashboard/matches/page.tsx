@@ -115,7 +115,7 @@ export default function MatchesAnalyticsPage() {
             </button>
           </div>
           <p className="text-text-secondary mt-1">
-            7-day match schedule with AI predictions{lastUpdate && ` • Updated: ${lastUpdate}`}
+            7-day match schedule{lastUpdate && ` • Updated: ${lastUpdate}`}
           </p>
         </div>
       </motion.div>
