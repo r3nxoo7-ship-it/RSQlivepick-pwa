@@ -408,6 +408,13 @@ export default function SettingsPage() {
               Logout
             </button>
           </motion.div>
+
+          {/* Build Version - for debugging cache issues */}
+          <div className="mt-8 pt-4 border-t border-glass-light text-center">
+            <p className="text-xs text-text-tertiary">
+              Build: 2026-02-28-v2
+            </p>
+          </div>
         </motion.div>
       </div>
     </AuthWrapper>
