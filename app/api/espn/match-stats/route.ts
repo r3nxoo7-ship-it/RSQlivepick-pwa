@@ -56,6 +56,11 @@ export async function GET(request: NextRequest) {
         awayFouls: parsed.away['foulsCommitted'] || 0,
         homeOffsides: parsed.home['offsides'] || 0,
         awayOffsides: parsed.away['offsides'] || 0,
+        // Attacks (may not be available from ESPN — typically from SofaScore)
+        homeAttacks: parsed.home['attacks'] || 0,
+        awayAttacks: parsed.away['attacks'] || 0,
+        homeDangerousAttacks: parsed.home['dangerousAttacks'] || parsed.home['dangerous attacks'] || 0,
+        awayDangerousAttacks: parsed.away['dangerousAttacks'] || parsed.away['dangerous attacks'] || 0,
         // Halftime scores from linescores (period 1)
         homeHalfScore: parsed.homeHalfScore,
         awayHalfScore: parsed.awayHalfScore,

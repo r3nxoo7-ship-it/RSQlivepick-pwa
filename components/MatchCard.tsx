@@ -276,8 +276,8 @@ function MatchCard({
 
               {/* Circular progress indicators */}
               <div className="grid grid-cols-3 gap-2">
+                {possession.home + possession.away > 0 && <CircleStat label="Possession" home={possession.home} away={possession.away} unit="%" />}
                 {attacks.home + attacks.away > 0 && <CircleStat label="Attacks" home={attacks.home} away={attacks.away} />}
-                {shotsOn.home + shotsOn.away > 0 && <CircleStat label="On Target" home={shotsOn.home} away={shotsOn.away} />}
                 {dangerousAttacks.home + dangerousAttacks.away > 0 && <CircleStat label="Dangerous" home={dangerousAttacks.home} away={dangerousAttacks.away} />}
               </div>
             </div>

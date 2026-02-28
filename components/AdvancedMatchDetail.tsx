@@ -472,10 +472,12 @@ function StatRow({
         </div>
         <div className="flex-1 h-2.5 bg-glass-light rounded-full overflow-hidden flex">
           <div
-            className={`h-full shrink-0 transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'} w-[${homePercent}%]`}
+            className={`h-full shrink-0 transition-all duration-500 rounded-l-full ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'}`}
+            style={{ width: `${homePercent}%` }}
           />
           <div
-            className={`h-full shrink-0 transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'} w-[${awayPercent}%]`}
+            className={`h-full shrink-0 transition-all duration-500 rounded-r-full ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'}`}
+            style={{ width: `${awayPercent}%` }}
           />
         </div>
         <div className={`w-12 text-left text-lg font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>
@@ -1280,10 +1282,12 @@ function MiniStatRow({ label, home, away, unit = '', decimals = 0 }: { label: st
       </span>
       <div className="flex-1 h-1.5 bg-glass-light rounded-full overflow-hidden flex">
         <div
-          className={`h-full shrink-0 bg-accent-cyan/60 rounded-l w-[${homePercent}%]`}
+          className="h-full shrink-0 bg-accent-cyan/60 rounded-l"
+          style={{ width: `${homePercent}%` }}
         />
         <div
-          className={`h-full shrink-0 bg-accent-blue/60 rounded-r w-[${100 - homePercent}%]`}
+          className="h-full shrink-0 bg-accent-blue/60 rounded-r"
+          style={{ width: `${100 - homePercent}%` }}
         />
       </div>
       <span className={`w-8 text-left font-bold ${away > home ? 'text-accent-blue' : 'text-text-secondary'}`}>
