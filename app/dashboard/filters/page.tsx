@@ -17,6 +17,9 @@ import {
   ToggleRight,
   Filter as FilterIcon,
   Bell,
+  BellOff,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -38,6 +41,7 @@ export default function FiltersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingNotifications, setUpdatingNotifications] = useState<string[]>([]);
+  const [updatingTelegram, setUpdatingTelegram] = useState<string[]>([]);
   const [lastApiDebug, setLastApiDebug] = useState<any>(null);
   // Multi-select state for mobile bulk actions
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -141,6 +145,51 @@ export default function FiltersPage() {
   };
 
   /**
+   * Toggle filter Telegram notifications
+   */
+  const handleToggleTelegram = async (filterId: string, currentStatus: boolean) => {
+    console.log('📨 Toggling Telegram (optimistic):', filterId, 'from', currentStatus, 'to', !currentStatus);
+
+    const currentUser = authHelpers.getCurrentUser();
+    if (!currentUser) {
+      alert('Please log in');
+      return;
+    }
+
+    // Optimistic UI update
+    setUpdatingTelegram(prev => [...prev, filterId]);
+    setFilters(prev => prev.map(f => f.id === filterId ? { ...f, telegram_enabled: !currentStatus } : f));
+
+    try {
+      const response = await fetch('/api/filters/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          filterId: filterId,
+          updates: { telegram_enabled: !currentStatus },
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        console.error('❌ Toggle Telegram failed:', data.error || response.statusText);
+        setFilters(prev => prev.map(f => f.id === filterId ? { ...f, telegram_enabled: currentStatus } : f));
+        alert(`Error: ${data.error || 'Failed to update Telegram notifications'}`);
+        return;
+      }
+
+      await loadFilters();
+    } catch (err) {
+      console.error('❌ Exception in handleToggleTelegram:', err);
+      setFilters(prev => prev.map(f => f.id === filterId ? { ...f, telegram_enabled: currentStatus } : f));
+      alert('Error updating Telegram notifications');
+    } finally {
+      setUpdatingTelegram(prev => prev.filter(id => id !== filterId));
+    }
+  };
+
+  /**
    * Toggle filter active/inactive - IMPLEMENTARE COMPLETĂ
    */
   const handleToggleActive = async (filterId: string, currentStatus: boolean) => {
@@ -172,7 +221,7 @@ export default function FiltersPage() {
    */
   const handleDelete = async (filterId: string, filterName: string) => {
     // Confirmare
-    const confirmed = confirm(`Are you sure you want to delete the filter "${filterName}"?`);
+    const confirmed = confirm(`Delete filter "${filterName}"?\n\n• The filter will be permanently removed from your list\n• Your triggered match history is preserved\n• Templates and library filters are not affected`);
     if (!confirmed) {
       console.log('❌ Delete cancelled by user');
       return;
@@ -359,7 +408,7 @@ export default function FiltersPage() {
           
           {/* ========== STATS ========== */}
           <div className="glass-card p-4 sm:p-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <div className="text-center">
                 <div className="stat-label text-xs sm:text-sm">Total</div>
                 <div className="stat-value text-xl sm:text-2xl">{filters.length}</div>
@@ -370,10 +419,16 @@ export default function FiltersPage() {
                   {filters.filter(f => f.is_active).length}
                 </div>
               </div>
-              <div className="text-center md:col-span-1 col-span-2">
-                <div className="stat-label text-xs sm:text-sm">Notifications</div>
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Browser Push</div>
                 <div className="stat-value text-accent-cyan text-xl sm:text-2xl">
                   {filters.filter(f => f.notification_enabled).length}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="stat-label text-xs sm:text-sm">Telegram</div>
+                <div className="stat-value text-accent-blue text-xl sm:text-2xl">
+                  {filters.filter(f => f.telegram_enabled).length}
                 </div>
               </div>
             </div>
@@ -511,7 +566,19 @@ export default function FiltersPage() {
                                 {filter.notification_enabled && (
                                   <span className="px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs flex items-center gap-1 whitespace-nowrap">
                                     <Bell className="w-3 h-3" />
-                                    Notifications
+                                    Push
+                                  </span>
+                                )}
+                                {filter.telegram_enabled && (
+                                  <span className="px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue text-xs flex items-center gap-1 whitespace-nowrap">
+                                    <Send className="w-3 h-3" />
+                                    Telegram
+                                  </span>
+                                )}
+                                {!filter.notification_enabled && !filter.telegram_enabled && (
+                                  <span className="px-2 py-0.5 rounded-full bg-glass-medium text-text-muted text-xs flex items-center gap-1 whitespace-nowrap">
+                                    <BellOff className="w-3 h-3" />
+                                    No alerts
                                   </span>
                                 )}
                               </div>
@@ -536,7 +603,19 @@ export default function FiltersPage() {
                                 {filter.notification_enabled && (
                                   <span className="px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs flex items-center gap-1 whitespace-nowrap">
                                     <Bell className="w-3 h-3" />
-                                    Notifications
+                                    Push
+                                  </span>
+                                )}
+                                {filter.telegram_enabled && (
+                                  <span className="px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue text-xs flex items-center gap-1 whitespace-nowrap">
+                                    <Send className="w-3 h-3" />
+                                    Telegram
+                                  </span>
+                                )}
+                                {!filter.notification_enabled && !filter.telegram_enabled && (
+                                  <span className="px-2 py-0.5 rounded-full bg-glass-medium text-text-muted text-xs flex items-center gap-1 whitespace-nowrap">
+                                    <BellOff className="w-3 h-3" />
+                                    No alerts
                                   </span>
                                 )}
                               </div>
@@ -554,13 +633,26 @@ export default function FiltersPage() {
                           <button
                             onClick={() => handleToggleNotifications(filter.id, filter.notification_enabled)}
                             className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
-                            title={filter.notification_enabled ? 'Disable notifications' : 'Enable notifications'}
+                            title={filter.notification_enabled ? 'Disable browser push notifications' : 'Enable browser push notifications'}
                             disabled={updatingNotifications.includes(filter.id)}
                           >
                             {updatingNotifications.includes(filter.id) ? (
                               <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
                             ) : (
                               <Bell className={`w-5 h-5 ${filter.notification_enabled ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleTelegram(filter.id, filter.telegram_enabled)}
+                            className="p-2 rounded-xl hover:bg-glass-light transition-all flex-shrink-0"
+                            title={filter.telegram_enabled ? 'Disable Telegram notifications' : 'Enable Telegram notifications'}
+                            disabled={updatingTelegram.includes(filter.id)}
+                          >
+                            {updatingTelegram.includes(filter.id) ? (
+                              <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            ) : (
+                              <Send className={`w-5 h-5 ${filter.telegram_enabled ? 'text-accent-blue' : 'text-text-muted'}`} />
                             )}
                           </button>
 
@@ -659,8 +751,9 @@ export default function FiltersPage() {
             <ul className="space-y-1 text-text-muted">
               <li>• Create filters with custom conditions (corners, shots, cards, etc.)</li>
               <li>• The app scans live matches every 45 seconds</li>
-              <li>• When a match matches your filter → you receive a notification!</li>
-              <li>• You can have multiple active filters at the same time</li>
+              <li>• <Bell className="w-3 h-3 inline text-accent-cyan" /> Push and <Send className="w-3 h-3 inline text-accent-blue" /> Telegram can be toggled independently per filter</li>
+              <li>• If both Push &amp; Telegram are off → no messages will be sent for that filter</li>
+              <li>• Deleting a filter removes it from your list — history data &amp; templates are preserved</li>
               <li>• Success rate is calculated automatically from history</li>
             </ul>
           </div>
