@@ -1545,11 +1545,26 @@ function UnifiedPreviousGames({
                         {m.home_team_name}
                       </span>
                     </div>
-                    <span className={`font-bold text-xs px-2 shrink-0 tabular-nums ${
-                      isDraw ? 'text-accent-yellow' : homeTeamWon ? 'text-accent-cyan' : 'text-accent-blue'
-                    }`}>
-                      {homeScore} - {awayScore}
-                    </span>
+                    <div className="shrink-0 px-2 text-center tabular-nums">
+                      <span className={`font-bold text-xs ${
+                        isDraw ? 'text-accent-yellow' : homeTeamWon ? 'text-accent-cyan' : 'text-accent-blue'
+                      }`}>
+                        {homeScore} - {awayScore}
+                      </span>
+                      {m.raw_data?.period1Home != null && m.raw_data?.period1Away != null && (() => {
+                        const p1H = isCurrentHomeAtHome ? m.raw_data.period1Home : m.raw_data.period1Away;
+                        const p1A = isCurrentHomeAtHome ? m.raw_data.period1Away : m.raw_data.period1Home;
+                        const p2H = Math.max(0, homeScore - p1H);
+                        const p2A = Math.max(0, awayScore - p1A);
+                        return (
+                          <div className="flex gap-1.5 text-[8px] text-text-muted justify-center mt-0.5 leading-tight">
+                            <span className="text-accent-cyan/60">{p1H}-{p1A}</span>
+                            <span className="opacity-40">|</span>
+                            <span className="text-accent-blue/60">{p2H}-{p2A}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                     <div className="flex-1 min-w-0 truncate">
                       <span className={awayTeamWon ? 'text-accent-green font-bold' : 'text-white'}>
                         {m.away_team_name}
@@ -1585,11 +1600,24 @@ function UnifiedPreviousGames({
                   <div className="flex-1 min-w-0 text-right truncate">
                     <span className="text-white">{m.home_team_name}</span>
                   </div>
-                  <span className={`font-bold text-xs px-2 shrink-0 ${
-                    result === 'W' ? 'text-accent-green' : result === 'D' ? 'text-accent-yellow' : 'text-accent-red'
-                  }`}>
-                    {m.home_score} - {m.away_score}
-                  </span>
+                  <div className="shrink-0 px-2 text-center tabular-nums">
+                    <span className={`font-bold text-xs ${
+                      result === 'W' ? 'text-accent-green' : result === 'D' ? 'text-accent-yellow' : 'text-accent-red'
+                    }`}>
+                      {m.home_score} - {m.away_score}
+                    </span>
+                    {m.raw_data?.period1Home != null && m.raw_data?.period1Away != null && (() => {
+                      const p2H = Math.max(0, m.home_score - m.raw_data.period1Home);
+                      const p2A = Math.max(0, m.away_score - m.raw_data.period1Away);
+                      return (
+                        <div className="flex gap-1.5 text-[8px] text-text-muted justify-center mt-0.5 leading-tight">
+                          <span className="text-accent-cyan/60">{m.raw_data.period1Home}-{m.raw_data.period1Away}</span>
+                          <span className="opacity-40">|</span>
+                          <span className="text-accent-blue/60">{p2H}-{p2A}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <div className="flex-1 min-w-0 truncate">
                     <span className="text-white">{m.away_team_name}</span>
                   </div>
