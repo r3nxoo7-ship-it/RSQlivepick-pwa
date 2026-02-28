@@ -19,6 +19,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers } from '@/lib/supabase';
 import type { TriggeredMatch } from '@/lib/supabase';
@@ -571,9 +572,13 @@ function MatchGroupCard({
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <FilterIcon className="w-3 h-3 text-accent-purple shrink-0" />
-                      <span className="text-xs text-white font-medium truncate">
+                      <Link
+                        href={`/dashboard/triggered/${trigger.id}`}
+                        className="text-xs text-accent-cyan font-medium truncate hover:text-accent-cyan/80 underline underline-offset-2 decoration-accent-cyan/40"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {trigger.filter_name}
-                      </span>
+                      </Link>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {trigger.match_time != null && (
@@ -617,6 +622,13 @@ function MatchGroupCard({
                           })}
                         </span>
                       </div>
+                      <Link
+                        href={`/dashboard/triggered/${trigger.id}`}
+                        className="mt-2 flex items-center justify-center gap-1 text-[10px] text-accent-cyan font-semibold hover:text-accent-cyan/80 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Full Details →
+                      </Link>
                     </motion.div>
                   )}
                 </div>
@@ -704,9 +716,13 @@ function FilterGroupCard({ group }: { group: FilterGroup }) {
                       <span className="text-xs font-bold text-accent-blue">{trigger.score_away ?? 0}</span>
                     </div>
                     <div className="min-w-0">
-                      <span className="text-xs text-white font-medium truncate block">
+                      <Link
+                        href={`/dashboard/triggered/${trigger.id}`}
+                        className="text-xs text-accent-cyan font-medium truncate block hover:text-accent-cyan/80 underline underline-offset-2 decoration-accent-cyan/40"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {trigger.home_team} vs {trigger.away_team}
-                      </span>
+                      </Link>
                       {trigger.league_name && (
                         <span className="text-[9px] text-text-muted truncate block">{trigger.league_name}</span>
                       )}
@@ -758,6 +774,13 @@ function FilterGroupCard({ group }: { group: FilterGroup }) {
                         <span className="text-text-secondary">{trigger.league_name}</span>
                       </div>
                     )}
+                      <Link
+                        href={`/dashboard/triggered/${trigger.id}`}
+                        className="mt-2 flex items-center justify-center gap-1 text-[10px] text-accent-cyan font-semibold hover:text-accent-cyan/80 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Full Details →
+                      </Link>
                   </motion.div>
                 )}
               </div>

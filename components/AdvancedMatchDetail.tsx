@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, TrendingUp, BarChart3, Clock, Activity, Filter as FilterIcon, Target, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
 import { LiveMatch } from '@/lib/unified-api';
 import type { FilterMatchResult } from '@/lib/filter-engine';
 
@@ -10,6 +11,8 @@ interface AdvancedMatchDetailProps {
   match: LiveMatch;
   onClose: () => void;
   filterResults?: FilterMatchResult[];
+  /** Map of filter_id → triggered match id for deep-linking filter names */
+  triggeredIdMap?: Record<string, string>;
 }
 
 interface RecentMatchData {
@@ -98,7 +101,7 @@ function getSecondHalfGoals(match: LiveMatch, team: 'home' | 'away'): number {
   return Math.max(0, fulltime - halftime);
 }
 
-export default function AdvancedMatchDetail({ match, onClose, filterResults }: AdvancedMatchDetailProps) {
+export default function AdvancedMatchDetail({ match, onClose, filterResults, triggeredIdMap }: AdvancedMatchDetailProps) {
   // Determine match state
   const statusShort = match.fixture?.status?.short || 'NS';
   const isMatchLive =
@@ -324,13 +327,23 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                   <div key={idx} className="flex items-start gap-2 p-2.5 rounded-md bg-accent-green/10 border border-accent-green/20 text-xs">
                     <FilterIcon className="w-3 h-3 text-accent-green mt-0.5 shrink-0" />
                     <div>
-                      <a
-                        href="/dashboard/history"
-                        className="font-semibold text-accent-cyan hover:text-accent-cyan/80 underline underline-offset-2 decoration-accent-cyan/40"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {result.filter.name}
-                      </a>
+                      {triggeredIdMap?.[result.filter.id] ? (
+                        <Link
+                          href={`/dashboard/triggered/${triggeredIdMap[result.filter.id]}`}
+                          className="font-semibold text-accent-cyan hover:text-accent-cyan/80 underline underline-offset-2 decoration-accent-cyan/40"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {result.filter.name}
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/dashboard/history"
+                          className="font-semibold text-accent-cyan hover:text-accent-cyan/80 underline underline-offset-2 decoration-accent-cyan/40"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {result.filter.name}
+                        </Link>
+                      )}
                       <p className="text-text-secondary mt-0.5">{result.matchedConditions.join(', ')}</p>
                     </div>
                   </div>

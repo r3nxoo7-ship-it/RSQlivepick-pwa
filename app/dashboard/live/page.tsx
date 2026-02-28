@@ -760,6 +760,21 @@ filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has
                   ? filterResults.get(selectedMatch.fixture.id)
                   : undefined
               }
+              triggeredIdMap={
+                selectedMatch.fixture?.id
+                  ? (() => {
+                      // Build map of filter_id → triggered match id from recentlyTriggered
+                      const matchIdStr = String(selectedMatch.fixture.id);
+                      const map: Record<string, string> = {};
+                      for (const t of recentlyTriggered) {
+                        if (String(t.match_id) === matchIdStr && t.filter_id && t.id) {
+                          map[t.filter_id] = t.id;
+                        }
+                      }
+                      return Object.keys(map).length > 0 ? map : undefined;
+                    })()
+                  : undefined
+              }
             />
           )}
           

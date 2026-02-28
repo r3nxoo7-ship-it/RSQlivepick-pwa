@@ -143,9 +143,18 @@ export default function TriggeredMatchDetailsPage() {
   const homeScore = match?.score?.fulltime?.home ?? triggered.score_home ?? 0;
   const awayScore = match?.score?.fulltime?.away ?? triggered.score_away ?? 0;
   // Show triggered scores for context
-  const triggeredHomeScore = triggered.score_home || 0;
-  const triggeredAwayScore = triggered.score_away || 0;
+  const triggeredHomeScore = triggered.score_home ?? 0;
+  const triggeredAwayScore = triggered.score_away ?? 0;
   const scoreChanged = homeScore !== triggeredHomeScore || awayScore !== triggeredAwayScore;
+  // Halftime scores from stats (ESPN/SofaScore) or match data
+  const htHome = stats?.homeHalfScore ?? match?.score?.halftime?.home;
+  const htAway = stats?.awayHalfScore ?? match?.score?.halftime?.away;
+  const hasHalfTime = htHome != null && htAway != null;
+  // 2nd half scores (derived)
+  const shHome = hasHalfTime ? homeScore - (htHome ?? 0) : null;
+  const shAway = hasHalfTime ? awayScore - (htAway ?? 0) : null;
+  // Match minute when triggered
+  const triggeredMinute = triggered.match_time;
 
   return (
     <AuthWrapper>
@@ -175,7 +184,7 @@ export default function TriggeredMatchDetailsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
           >
             {/* Filter that triggered */}
             <div className="p-4 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30">
@@ -186,6 +195,24 @@ export default function TriggeredMatchDetailsPage() {
                   <p className="font-semibold text-sm sm:text-base text-accent-cyan truncate">
                     {filterName}
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* When triggered — score + minute */}
+            <div className="p-4 rounded-lg bg-accent-green/10 border border-accent-green/30">
+              <div className="flex items-start gap-3">
+                <Trophy className="w-5 h-5 text-accent-green flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm text-text-secondary mb-1">Score When Triggered</p>
+                  <p className="font-semibold text-lg text-white">
+                    {triggeredHomeScore} - {triggeredAwayScore}
+                  </p>
+                  {triggeredMinute != null && (
+                    <p className="text-xs text-accent-green font-semibold mt-0.5">
+                      at {triggeredMinute}&apos; minute
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -272,7 +299,35 @@ export default function TriggeredMatchDetailsPage() {
             {/* Score Change Indicator */}
             {scoreChanged && (
               <div className="mt-4 pt-4 border-t border-glass-light/30 text-center text-sm text-text-secondary">
-                <p>Triggered at score: <span className="font-semibold text-accent-cyan">{triggeredHomeScore}</span>-<span className="font-semibold text-accent-blue">{triggeredAwayScore}</span></p>
+                <p>Triggered at score: <span className="font-semibold text-accent-cyan">{triggeredHomeScore}</span>-<span className="font-semibold text-accent-blue">{triggeredAwayScore}</span>
+                  {triggeredMinute != null && <span className="text-text-muted"> ({triggeredMinute}&apos;)</span>}
+                </p>
+              </div>
+            )}
+
+            {/* Halftime / 2nd Half Score Breakdown */}
+            {hasHalfTime && (
+              <div className="mt-4 pt-4 border-t border-glass-light/30">
+                <div className="flex items-center justify-center gap-6 text-sm">
+                  <div className="text-center">
+                    <p className="text-[10px] text-text-muted mb-1">1st Half</p>
+                    <p className="font-bold">
+                      <span className="text-accent-cyan">{htHome}</span>
+                      <span className="text-text-muted mx-1">-</span>
+                      <span className="text-accent-blue">{htAway}</span>
+                    </p>
+                  </div>
+                  {shHome != null && shAway != null && shHome >= 0 && shAway >= 0 && (
+                    <div className="text-center">
+                      <p className="text-[10px] text-text-muted mb-1">2nd Half</p>
+                      <p className="font-bold">
+                        <span className="text-accent-cyan">{shHome}</span>
+                        <span className="text-text-muted mx-1">-</span>
+                        <span className="text-accent-blue">{shAway}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </motion.div>
@@ -348,6 +403,9 @@ export default function TriggeredMatchDetailsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow label="League" value={triggered.league_name} />
               <InfoRow label="Status" value={triggered.match_status?.toUpperCase() || 'UNKNOWN'} />
+              {triggeredMinute != null && (
+                <InfoRow label="Match Minute" value={`${triggeredMinute}'`} />
+              )}
               <InfoRow label="Match ID" value={triggered.match_id} isCopyable />
               <InfoRow label="Triggered At" value={triggeredAt.toLocaleString()} />
             </div>
