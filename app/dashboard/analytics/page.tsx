@@ -26,7 +26,7 @@ import {
   categorizeFilters,
   getPerformanceRating,
   formatSuccessRate,
-  exportToCSV,
+  exportFullReport,
   type FilterStats,
 } from '@/lib/analytics';
 
@@ -73,14 +73,24 @@ export default function AnalyticsPage() {
     setTopFilters(overall.topPerformers);
   }, [filters]);
 
-  const handleExport = () => {
-    const csv = exportToCSV(filters);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `livepick-analytics-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+  const handleExport = async () => {
+    try {
+      // Fetch triggered matches history
+      const res = await fetch(`/api/triggered-matches/list?user_id=${userId}&range=all&limit=5000`);
+      const data = res.ok ? await res.json() : { matches: [] };
+      const triggeredMatches = data.matches || [];
+
+      const csv = exportFullReport(filters, triggeredMatches);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `livepick-full-report-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
   };
 
   // When feedback updates a filter's success_rate, reload filters to get fresh data

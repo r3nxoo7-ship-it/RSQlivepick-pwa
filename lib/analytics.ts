@@ -3,7 +3,7 @@
 // ============================================
 // Helper functions for filter analytics and statistics
 
-import { Filter } from './supabase';
+import { Filter, TriggeredMatch } from './supabase';
 
 // ============================================
 // TYPES
@@ -235,7 +235,41 @@ export function getPerformanceRating(successRate: number): {
 }
 
 /**
- * Export analytics data to CSV
+ * Escape a CSV field — wraps in quotes if it contains commas, quotes or newlines
+ */
+function csvEscape(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/**
+ * Summarize filter conditions into a readable string
+ */
+function summarizeConditions(conditions: Record<string, any>): string {
+  if (!conditions || typeof conditions !== 'object') return '';
+  const parts: string[] = [];
+  for (const [key, val] of Object.entries(conditions)) {
+    if (!val || typeof val !== 'object') continue;
+    const { min, max, team } = val as { min?: number; max?: number; team?: string };
+    const label = key.replace(/_/g, ' ');
+    const teamSuffix = team ? ` (${team})` : '';
+    if (min !== undefined && max !== undefined) {
+      parts.push(`${label}: ${min}-${max}${teamSuffix}`);
+    } else if (min !== undefined) {
+      parts.push(`${label}: ≥${min}${teamSuffix}`);
+    } else if (max !== undefined) {
+      parts.push(`${label}: ≤${max}${teamSuffix}`);
+    }
+  }
+  return parts.join('; ');
+}
+
+/**
+ * Export analytics data to CSV (simple, filters only — legacy)
  */
 export function exportToCSV(filters: Filter[]): string {
   const headers = [
@@ -250,7 +284,7 @@ export function exportToCSV(filters: Filter[]): string {
   ].join(',');
   
   const rows = filters.map(f => [
-    f.name,
+    csvEscape(f.name),
     f.trigger_count || 0,
     formatSuccessRate(f.success_rate || 0),
     f.is_active ? 'Yes' : 'No',
@@ -261,6 +295,114 @@ export function exportToCSV(filters: Filter[]): string {
   ].join(','));
   
   return [headers, ...rows].join('\n');
+}
+
+/**
+ * Export full report with analytics + triggered matches history.
+ * Multi-section CSV with UTF-8 BOM for Excel compatibility.
+ */
+export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredMatch[]): string {
+  const BOM = '\uFEFF';
+  const sections: string[] = [];
+
+  // ── SECTION 1: FILTER ANALYTICS ──
+  const filterHeaders = [
+    'Filter Name', 'Description', 'Status', 'Triggers', 'Success Rate %',
+    'Avg Triggers/Day', 'Notifications', 'Telegram', 'Public',
+    'Conditions', 'Created', 'Last Triggered',
+  ].map(csvEscape).join(',');
+
+  const filterRows = filters.map(f => {
+    const stats = calculateFilterStats(f);
+    return [
+      csvEscape(f.name),
+      csvEscape(f.description || ''),
+      f.is_active ? 'Active' : 'Inactive',
+      f.trigger_count || 0,
+      Math.round((f.success_rate || 0) * 10) / 10,
+      stats.avgTriggersPerDay,
+      f.notification_enabled ? 'Yes' : 'No',
+      f.telegram_enabled ? 'Yes' : 'No',
+      f.is_public ? 'Yes' : 'No',
+      csvEscape(summarizeConditions(f.conditions)),
+      new Date(f.created_at).toLocaleDateString('en-US'),
+      f.last_triggered ? new Date(f.last_triggered).toLocaleString('en-US') : 'Never',
+    ].join(',');
+  });
+
+  sections.push('=== FILTER ANALYTICS ===');
+  sections.push(filterHeaders);
+  sections.push(...filterRows);
+
+  // ── SECTION 2: TRIGGERED MATCHES HISTORY ──
+  sections.push('');
+  sections.push('=== TRIGGERED MATCHES HISTORY ===');
+
+  const matchHeaders = [
+    'Date', 'Time', 'Filter Name', 'Home Team', 'Away Team',
+    'League', 'Score', 'Match Minute', 'Match Status',
+    'User Feedback', 'Final Score',
+  ].map(csvEscape).join(',');
+
+  // Sort triggered matches by date descending
+  const sorted = [...triggeredMatches].sort(
+    (a, b) => new Date(b.triggered_at).getTime() - new Date(a.triggered_at).getTime()
+  );
+
+  const matchRows = sorted.map(m => {
+    const dt = new Date(m.triggered_at);
+    const score = (m.score_home !== null && m.score_away !== null)
+      ? `${m.score_home}-${m.score_away}` : '';
+    const finalScore = ((m as any).final_score_home !== null && (m as any).final_score_away !== null)
+      ? `${(m as any).final_score_home}-${(m as any).final_score_away}` : '';
+    return [
+      dt.toLocaleDateString('en-US'),
+      dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      csvEscape(m.filter_name || ''),
+      csvEscape(m.home_team),
+      csvEscape(m.away_team),
+      csvEscape(m.league_name || ''),
+      score,
+      m.match_time !== null ? `${m.match_time}'` : '',
+      m.match_status || '',
+      (m as any).user_feedback || '',
+      finalScore,
+    ].join(',');
+  });
+
+  sections.push(matchHeaders);
+  sections.push(...matchRows);
+
+  // ── SECTION 3: SUMMARY ──
+  sections.push('');
+  sections.push('=== SUMMARY ===');
+
+  const overall = calculateAllFiltersStats(filters);
+  const uniqueMatches = new Set(triggeredMatches.map(m => m.match_id)).size;
+  const uniqueLeagues = new Set(triggeredMatches.map(m => m.league_name).filter(Boolean)).size;
+  const feedbackCount = triggeredMatches.filter(m => (m as any).user_feedback).length;
+  const positiveFeedback = triggeredMatches.filter(m => (m as any).user_feedback === 'positive').length;
+
+  const summaryData: [string, string | number][] = [
+    ['Total Filters', overall.total],
+    ['Active Filters', overall.active],
+    ['Filters with Notifications', overall.withNotifications],
+    ['Filters with Telegram', overall.withTelegram],
+    ['Total Triggers (all filters)', overall.totalTriggers],
+    ['Average Success Rate', formatSuccessRate(overall.avgSuccessRate)],
+    ['Total Triggered Matches Logged', triggeredMatches.length],
+    ['Unique Matches', uniqueMatches],
+    ['Unique Leagues', uniqueLeagues],
+    ['Matches with Feedback', feedbackCount],
+    ['Positive Feedback', positiveFeedback],
+    ['Report Generated', new Date().toLocaleString('en-US')],
+  ];
+
+  summaryData.forEach(([label, val]) => {
+    sections.push(`${csvEscape(label)},${csvEscape(val)}`);
+  });
+
+  return BOM + sections.join('\n');
 }
 
 // ============================================
@@ -279,6 +421,7 @@ const analyticsLib = {
   formatTriggers,
   getPerformanceRating,
   exportToCSV,
+  exportFullReport,
 };
 
 export default analyticsLib;
