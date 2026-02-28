@@ -27,6 +27,8 @@ import type { TriggeredMatch } from '@/lib/supabase';
 // TYPES
 // ============================================
 
+type ViewMode = 'matches' | 'filters';
+
 interface MatchGroup {
   matchId: string;
   homeTeam: string;
@@ -38,6 +40,14 @@ interface MatchGroup {
   latestTriggerAt: string;
   // Deduplicated: one entry per filter_id
   triggers: TriggeredMatch[];
+}
+
+interface FilterGroup {
+  filterId: string;
+  filterName: string;
+  matches: TriggeredMatch[];
+  latestTriggerAt: string;
+  matchCount: number;
 }
 
 interface FinalResult {
@@ -113,6 +123,44 @@ function groupByMatch(matches: TriggeredMatch[]): MatchGroup[] {
   );
 }
 
+function groupByFilter(matches: TriggeredMatch[]): FilterGroup[] {
+  // Only show matches from last 12 hours
+  const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+  const recent = matches.filter(m => new Date(m.triggered_at).getTime() > twelveHoursAgo);
+
+  const map = new Map<string, FilterGroup>();
+
+  for (const m of recent) {
+    const key = m.filter_id;
+    if (!map.has(key)) {
+      map.set(key, {
+        filterId: key,
+        filterName: m.filter_name,
+        matches: [],
+        latestTriggerAt: m.triggered_at,
+        matchCount: 0,
+      });
+    }
+    const group = map.get(key)!;
+
+    // Deduplicate: only keep first trigger per match_id within a filter
+    const alreadyHasMatch = group.matches.some(t => t.match_id === m.match_id);
+    if (!alreadyHasMatch) {
+      group.matches.push(m);
+      group.matchCount++;
+    }
+
+    // Track latest
+    if (new Date(m.triggered_at) > new Date(group.latestTriggerAt)) {
+      group.latestTriggerAt = m.triggered_at;
+    }
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.latestTriggerAt).getTime() - new Date(a.latestTriggerAt).getTime()
+  );
+}
+
 function getTimeSince(triggeredAt: string): string {
   const diffMs = Date.now() - new Date(triggeredAt).getTime();
   const mins = Math.floor(diffMs / 60000);
@@ -137,6 +185,7 @@ export default function HistoryTriggeredPage() {
   const [timeRange, setTimeRange] = useState<'all' | '30m' | '2h' | '24h'>('24h');
   const [refreshing, setRefreshing] = useState(false);
   const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('matches');
 
   const itemsPerPage = 50;
 
@@ -183,6 +232,7 @@ export default function HistoryTriggeredPage() {
   };
 
   const matchGroups = groupByMatch(triggeredMatches);
+  const filterGroups = groupByFilter(triggeredMatches);
   const uniqueFilters = new Set(triggeredMatches.map(m => m.filter_id)).size;
 
   return (
@@ -215,69 +265,132 @@ export default function HistoryTriggeredPage() {
             </button>
           </div>
 
-          {/* TIME PILLS + STATS inline */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {(['30m', '2h', '24h', 'all'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => handleTimeRangeChange(range)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                  timeRange === range
-                    ? 'bg-accent-cyan text-black'
-                    : 'bg-glass-light text-text-muted hover:text-white'
-                }`}
-              >
-                {range === 'all' ? 'All' : range}
-              </button>
-            ))}
-            {matchGroups.length > 0 && (
-              <span className="text-[10px] text-text-muted ml-auto">
-                {matchGroups.length} matches {'\u00B7'} {uniqueFilters} filters
-              </span>
-            )}
+          {/* VIEW MODE TABS */}
+          <div className="flex gap-1 bg-glass-light/50 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('matches')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold transition ${
+                viewMode === 'matches'
+                  ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30'
+                  : 'text-text-muted hover:text-white'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              By Match
+            </button>
+            <button
+              onClick={() => setViewMode('filters')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold transition ${
+                viewMode === 'filters'
+                  ? 'bg-accent-purple/15 text-accent-purple border border-accent-purple/30'
+                  : 'text-text-muted hover:text-white'
+              }`}
+            >
+              <FilterIcon className="w-3.5 h-3.5" />
+              By Filter
+            </button>
           </div>
 
-          {/* MATCH LIST */}
+          {/* TIME PILLS + STATS inline — only for Matches view */}
+          {viewMode === 'matches' && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {(['30m', '2h', '24h', 'all'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => handleTimeRangeChange(range)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                    timeRange === range
+                      ? 'bg-accent-cyan text-black'
+                      : 'bg-glass-light text-text-muted hover:text-white'
+                  }`}
+                >
+                  {range === 'all' ? 'All' : range}
+                </button>
+              ))}
+              {matchGroups.length > 0 && (
+                <span className="text-[10px] text-text-muted ml-auto">
+                  {matchGroups.length} matches {'\u00B7'} {uniqueFilters} filters
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* By Filter view info */}
+          {viewMode === 'filters' && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-text-muted flex items-center gap-1.5">
+                <Clock className="w-3 h-3" />
+                Last 12 hours
+              </span>
+              {filterGroups.length > 0 && (
+                <span className="text-[10px] text-text-muted">
+                  {filterGroups.length} filter{filterGroups.length !== 1 ? 's' : ''} {'\u00B7'} {filterGroups.reduce((sum, g) => sum + g.matchCount, 0)} matches
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* CONTENT */}
           {loading && triggeredMatches.length === 0 ? (
             <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
               <Zap className="w-6 h-6 text-accent-cyan mx-auto mb-2 animate-pulse" />
               <p className="text-sm text-text-muted">Loading...</p>
             </div>
-          ) : matchGroups.length === 0 ? (
-            <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
-              <Trophy className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
-              <p className="text-sm text-text-secondary">
-                No triggered matches {timeRange !== 'all' ? `in the last ${timeRange === '30m' ? '30 minutes' : timeRange === '2h' ? '2 hours' : '24 hours'}` : ''}
-              </p>
-              <p className="text-[11px] text-text-muted mt-1.5 max-w-xs mx-auto">
-                Keep the app open during match times. Your active filters will trigger automatically.
-              </p>
-              {timeRange !== 'all' && (
-                <button
-                  onClick={() => handleTimeRangeChange('all')}
-                  className="text-accent-cyan text-xs mt-3 hover:underline"
-                >
-                  Show All Time
-                </button>
-              )}
-            </div>
+          ) : viewMode === 'matches' ? (
+            /* ===== BY MATCH VIEW ===== */
+            matchGroups.length === 0 ? (
+              <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+                <Trophy className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
+                <p className="text-sm text-text-secondary">
+                  No triggered matches {timeRange !== 'all' ? `in the last ${timeRange === '30m' ? '30 minutes' : timeRange === '2h' ? '2 hours' : '24 hours'}` : ''}
+                </p>
+                <p className="text-[11px] text-text-muted mt-1.5 max-w-xs mx-auto">
+                  Keep the app open during match times. Your active filters will trigger automatically.
+                </p>
+                {timeRange !== 'all' && (
+                  <button
+                    onClick={() => handleTimeRangeChange('all')}
+                    className="text-accent-cyan text-xs mt-3 hover:underline"
+                  >
+                    Show All Time
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {matchGroups.map((group) => (
+                  <MatchGroupCard
+                    key={group.matchId}
+                    group={group}
+                    isExpanded={expandedMatch === group.matchId}
+                    onToggle={() => setExpandedMatch(
+                      expandedMatch === group.matchId ? null : group.matchId
+                    )}
+                  />
+                ))}
+              </div>
+            )
           ) : (
-            <div className="space-y-2">
-              {matchGroups.map((group) => (
-                <MatchGroupCard
-                  key={group.matchId}
-                  group={group}
-                  isExpanded={expandedMatch === group.matchId}
-                  onToggle={() => setExpandedMatch(
-                    expandedMatch === group.matchId ? null : group.matchId
-                  )}
-                />
-              ))}
-            </div>
+            /* ===== BY FILTER VIEW ===== */
+            filterGroups.length === 0 ? (
+              <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
+                <FilterIcon className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
+                <p className="text-sm text-text-secondary">No filter triggers in the last 12 hours</p>
+                <p className="text-[11px] text-text-muted mt-1.5 max-w-xs mx-auto">
+                  Switch to &quot;By Match&quot; to see all history, or keep the app open during match times.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filterGroups.map((group) => (
+                  <FilterGroupCard key={group.filterId} group={group} />
+                ))}
+              </div>
+            )
           )}
 
-          {/* LOAD MORE */}
-          {hasMore && !loading && (
+          {/* LOAD MORE — only for matches view */}
+          {viewMode === 'matches' && hasMore && !loading && (
             <button
               onClick={() => setPage(prev => prev + 1)}
               className="w-full py-2.5 rounded-lg border border-white/10 bg-[rgba(15,23,42,0.85)] text-sm font-semibold text-accent-cyan hover:bg-glass-light transition"
@@ -520,6 +633,143 @@ function MatchGroupCard({
 }
 
 // ============================================
+// FILTER GROUP CARD (By Filter view)
+// ============================================
+
+function FilterGroupCard({ group }: { group: FilterGroup }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+
+  // Sort matches within this filter by trigger time (newest first)
+  const sortedMatches = [...group.matches].sort(
+    (a, b) => new Date(b.triggered_at).getTime() - new Date(a.triggered_at).getTime()
+  );
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+      {/* Filter header — always visible */}
+      <button
+        onClick={() => { setIsExpanded(!isExpanded); setExpandedMatchId(null); }}
+        className="w-full text-left p-3 hover:bg-white/5 transition"
+      >
+        <div className="flex items-center gap-3">
+          {/* Filter icon + name */}
+          <div className="w-8 h-8 rounded-lg bg-accent-purple/15 border border-accent-purple/30 flex items-center justify-center shrink-0">
+            <FilterIcon className="w-4 h-4 text-accent-purple" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-white truncate">
+              {group.filterName}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+              <span className="text-accent-purple font-medium">
+                {group.matchCount} match{group.matchCount !== 1 ? 'es' : ''}
+              </span>
+              <span className="text-text-muted">{'\u00B7'}</span>
+              <span className="text-accent-blue">{getTimeSince(group.latestTriggerAt)}</span>
+            </div>
+          </div>
+
+          {/* Match count badge + chevron */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="bg-accent-purple/20 text-accent-purple text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {group.matchCount}
+            </span>
+            <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          </div>
+        </div>
+      </button>
+
+      {/* Expanded: list of triggered matches */}
+      {isExpanded && (
+        <div className="border-t border-white/8 px-3 py-2 space-y-1">
+          {sortedMatches.map((trigger) => {
+            const isMatchExpanded = expandedMatchId === trigger.match_id;
+            const triggerScore = (trigger.score_home !== null && trigger.score_away !== null)
+              ? `${trigger.score_home}-${trigger.score_away}`
+              : '0-0';
+
+            return (
+              <div key={trigger.id || trigger.match_id}>
+                {/* Match row */}
+                <button
+                  onClick={() => setExpandedMatchId(isMatchExpanded ? null : trigger.match_id)}
+                  className="w-full flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg hover:bg-white/5 transition text-left"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* Score badge */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-xs font-bold text-accent-cyan">{trigger.score_home ?? 0}</span>
+                      <span className="text-[10px] text-text-muted">-</span>
+                      <span className="text-xs font-bold text-accent-blue">{trigger.score_away ?? 0}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs text-white font-medium truncate block">
+                        {trigger.home_team} vs {trigger.away_team}
+                      </span>
+                      {trigger.league_name && (
+                        <span className="text-[9px] text-text-muted truncate block">{trigger.league_name}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {trigger.match_time != null && (
+                      <span className="bg-accent-cyan/10 text-accent-cyan text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                        {trigger.match_time}&apos;
+                      </span>
+                    )}
+                    <span className="text-[10px] text-accent-blue">{getTimeSince(trigger.triggered_at)}</span>
+                    <ChevronDown className={`w-3 h-3 text-text-muted transition-transform ${isMatchExpanded ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+
+                {/* Match detail — trigger context */}
+                {isMatchExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mx-2 mb-1.5 px-3 py-2.5 rounded-lg bg-white/3 border border-white/5"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="w-3 h-3 text-accent-blue shrink-0" />
+                      <span className="text-[11px] text-text-secondary">
+                        Triggered <span className="text-accent-cyan font-semibold">{getTimeSince(trigger.triggered_at)}</span>
+                        {trigger.match_time != null && (
+                          <> at <span className="text-white font-semibold">{trigger.match_time}&apos;</span> minute</>
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-text-muted">Score when triggered:</span>
+                      <span className="font-bold text-white">{triggerScore}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] mt-1">
+                      <span className="text-text-muted">Time:</span>
+                      <span className="text-text-secondary">
+                        {new Date(trigger.triggered_at).toLocaleString([], {
+                          day: '2-digit', month: 'short',
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    {trigger.league_name && (
+                      <div className="flex items-center justify-between text-[11px] mt-1">
+                        <span className="text-text-muted">League:</span>
+                        <span className="text-text-secondary">{trigger.league_name}</span>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // LIVEPICK-STYLE STATS (circular gauges + bars)
 // ============================================
 
@@ -735,12 +985,14 @@ function StatBar({ label, home, away }: { label: string; home: number; away: num
       <div className="flex gap-0.5 h-1.5">
         <div className="flex-1 flex justify-end">
           <div
-            className={`h-full shrink-0 rounded-l-full bg-accent-cyan transition-all w-[${homeP}%]`}
+            className="h-full shrink-0 rounded-l-full bg-accent-cyan transition-all"
+            style={{ width: `${homeP}%` }}
           />
         </div>
         <div className="flex-1 flex justify-start">
           <div
-            className={`h-full shrink-0 rounded-r-full bg-accent-blue transition-all w-[${100 - homeP}%]`}
+            className="h-full shrink-0 rounded-r-full bg-accent-blue transition-all"
+            style={{ width: `${100 - homeP}%` }}
           />
         </div>
       </div>
