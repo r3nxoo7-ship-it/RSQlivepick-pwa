@@ -319,11 +319,17 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                 className="mt-1 space-y-1 px-1"
               >
                 {filterResults.map((result, idx) => (
-                  <div key={idx} className="flex items-start gap-2 p-2 rounded-md bg-glass-light/50 text-xs">
-                    <FilterIcon className="w-3 h-3 text-accent-cyan mt-0.5 shrink-0" />
+                  <div key={idx} className="flex items-start gap-2 p-2.5 rounded-md bg-accent-green/10 border border-accent-green/20 text-xs">
+                    <FilterIcon className="w-3 h-3 text-accent-green mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-semibold text-accent-cyan">{result.filter.name}</span>
-                      <p className="text-text-muted mt-0.5">{result.matchedConditions.join(', ')}</p>
+                      <a
+                        href="/dashboard/history"
+                        className="font-semibold text-accent-cyan hover:text-accent-cyan/80 underline underline-offset-2 decoration-accent-cyan/40"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {result.filter.name}
+                      </a>
+                      <p className="text-text-secondary mt-0.5">{result.matchedConditions.join(', ')}</p>
                     </div>
                   </div>
                 ))}

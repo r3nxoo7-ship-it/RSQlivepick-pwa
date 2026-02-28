@@ -41,7 +41,11 @@ function parseMatchStatsCompat(statistics: any[] | undefined) {
     if (!stat) return 0;
     const val = stat.value;
     if (typeof val === 'number') return val;
-    if (typeof val === 'string') return parseInt(val.replace(/[^0-9]/g, '')) || 0;
+    if (typeof val === 'string') {
+      // Use parseFloat to preserve decimals (e.g. "50.0%" → 50, not 500)
+      const num = parseFloat(val.replace('%', ''));
+      return isNaN(num) ? 0 : Math.round(num);
+    }
     return 0;
   };
 
