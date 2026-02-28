@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { LiveMatch } from '@/lib/unified-api';
+import { getLiveAndUpcomingMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
 import AdvancedMatchDetail from '@/components/AdvancedMatchDetail';
 import AuthWrapper from '@/components/AuthWrapper';
@@ -206,9 +206,7 @@ export default function LiveMatchesPage() {
     
     try {
       console.log('🔍 Fetching live + upcoming matches...');
-      const res = await fetch('/api/matches/live-and-upcoming');
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      const { live, upcoming, scheduled, teamForm } = await res.json();
+      const { live, upcoming, scheduled, teamForm } = await getLiveAndUpcomingMatches();
       // Show live + today's upcoming + next 50 scheduled (tomorrow onwards)
       const scheduledToShow = (scheduled || []).slice(0, 50);
       const allMatches = [...live, ...upcoming, ...scheduledToShow];

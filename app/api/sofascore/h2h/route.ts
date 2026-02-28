@@ -61,20 +61,15 @@ export async function GET(req: NextRequest) {
   const awayTeamId = awayTeamIdParam ? parseInt(awayTeamIdParam, 10) : null;
 
   if (homeTeamId && awayTeamId && !isNaN(homeTeamId) && !isNaN(awayTeamId)) {
-    // Fetch both teams' last events and merge — 4 pages each for better H2H coverage
-    const [homePage0, homePage1, homePage2, homePage3, awayPage0, awayPage1, awayPage2, awayPage3] = await Promise.all([
+    // Fetch both teams' last events and merge — 2 pages each for better coverage
+    const [homePage0, homePage1, awayPage0] = await Promise.all([
       getTeamLastEvents(homeTeamId, 0),
       getTeamLastEvents(homeTeamId, 1),
-      getTeamLastEvents(homeTeamId, 2),
-      getTeamLastEvents(homeTeamId, 3),
       getTeamLastEvents(awayTeamId, 0),
-      getTeamLastEvents(awayTeamId, 1),
-      getTeamLastEvents(awayTeamId, 2),
-      getTeamLastEvents(awayTeamId, 3),
     ]);
 
-    const allHomeEvents = [...homePage0.events, ...homePage1.events, ...homePage2.events, ...homePage3.events];
-    const allAwayEvents = [...awayPage0.events, ...awayPage1.events, ...awayPage2.events, ...awayPage3.events];
+    const allHomeEvents = [...homePage0.events, ...homePage1.events];
+    const allAwayEvents = awayPage0.events;
 
     // Combine and de-duplicate by event ID
     const seen = new Set<number>();

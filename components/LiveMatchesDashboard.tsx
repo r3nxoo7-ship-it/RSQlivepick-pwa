@@ -18,7 +18,7 @@ import {
   Settings,
   Radio
 } from 'lucide-react';
-import type { LiveMatch } from '@/lib/unified-api';
+import { getLiveMatches, getLiveAndUpcomingMatches, LiveMatch } from '@/lib/unified-api';
 import MatchCard from '@/components/MatchCard';
 import MatchStatsDisplay from '@/components/MatchStatsDisplay';
 import AdvancedMatchDetail from '@/components/AdvancedMatchDetail';
@@ -162,9 +162,7 @@ export default function LiveMatchesPage() {
     try {
       console.log('🔍 Fetching live matches...');
       // Use the separated API to ensure we only show actual live matches in this view
-      const res = await fetch('/api/matches/live-and-upcoming');
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      const { live } = await res.json();
+      const { live } = await getLiveAndUpcomingMatches();
       setMatches(live);
       setLastUpdate(new Date());
       

@@ -20,7 +20,7 @@ import {
 import { useRouter, useParams } from 'next/navigation';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import AuthWrapper from '@/components/AuthWrapper';
-import type { LiveMatch } from '@/lib/unified-api';
+import { LiveMatch, getMatchById } from '@/lib/unified-api';
 import Link from 'next/link';
 
 export default function TriggeredMatchDetailsPage() {
@@ -59,11 +59,8 @@ export default function TriggeredMatchDetailsPage() {
 
         // Fetch live match data and ESPN statistics
         try {
-          const matchRes = await fetch(`/api/matches/${foundTriggered.match_id}`);
-          if (matchRes.ok) {
-            const { match: matchData } = await matchRes.json();
-            setMatch(matchData);
-          }
+          const matchData = await getMatchById(foundTriggered.match_id);
+          setMatch(matchData);
         } catch (matchError) {
           console.error('Error fetching match data:', matchError);
         }
