@@ -401,10 +401,10 @@ async function espnFetch(path: string, retriesPerHost = 2, timeoutMs = 8000): Pr
       return json;
     } catch (err) {
       lastErr = err;
-      // Only log 403/404 at debug level - expected when teams don't compete in certain leagues
+      // Only log 403/404/400 at debug level - expected when teams don't compete in certain leagues
       // Avoids spamming logs while still helping with real connectivity issues
-      if (err instanceof Error && (err.message.includes('HTTP 403') || err.message.includes('HTTP 404'))) {
-        // Silent fail for 403/404 - will fall back to SofaScore or DB
+      if (err instanceof Error && (err.message.includes('HTTP 400') || err.message.includes('HTTP 403') || err.message.includes('HTTP 404'))) {
+        // Silent fail for 400/403/404 - will fall back to SofaScore or DB
       } else {
         console.warn(`[ESPN API] Host ${base} failed for ${path}:`, err instanceof Error ? err.message : err);
       }
@@ -517,25 +517,48 @@ export async function getTeamSchedule(
       .filter(Boolean) as ESPNMatch[];
   };
 
-  // Fetch all selected leagues in parallel
-  const results = await Promise.allSettled(leaguesToTry.map(fetchLeagueSchedule));
+  // Phase 1: Try domestic leagues first. Once a hit is found, skip remaining domestic leagues
+  // (a team only plays in one domestic league — no need to try the rest)
+  const domesticLeagues = leaguesToTry.filter(l => !uefaComps.includes(l));
+  const continentalLeagues = leaguesToTry.filter(l => uefaComps.includes(l));
 
-  // Merge, deduplicate by id, sort by date descending
   const allMatches: ESPNMatch[] = [];
   const seen = new Set<string>();
-  for (const r of results) {
-    if (r.status === 'fulfilled') {
-      for (const m of r.value) {
-        if (!seen.has(m.id)) {
-          seen.add(m.id);
-          allMatches.push(m);
+  let domesticFound = false;
+  let domesticTriedCount = 0;
+
+  // Try domestic leagues sequentially — stop at first hit to avoid unnecessary 400 errors
+  for (const lg of domesticLeagues) {
+    domesticTriedCount++;
+    const matches = await fetchLeagueSchedule(lg);
+    if (matches.length > 0) {
+      for (const m of matches) {
+        if (!seen.has(m.id)) { seen.add(m.id); allMatches.push(m); }
+      }
+      domesticFound = true;
+      break; // Team found in this league — skip all other domestic leagues
+    }
+  }
+
+  // Phase 2: Always try continental competitions in parallel (teams can play in multiple)
+  if (continentalLeagues.length > 0) {
+    const contResults = await Promise.allSettled(continentalLeagues.map(fetchLeagueSchedule));
+    for (const r of contResults) {
+      if (r.status === 'fulfilled') {
+        for (const m of r.value) {
+          if (!seen.has(m.id)) { seen.add(m.id); allMatches.push(m); }
         }
       }
     }
   }
 
   allMatches.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  console.log(`[ESPN] Team ${teamId} schedule: ${allMatches.length} completed matches (tried ${leaguesToTry.length} leagues)`);
+  const triedCount = domesticTriedCount + continentalLeagues.length;
+  console.log(`[ESPN] Team ${teamId} schedule: ${allMatches.length} completed matches (tried ${triedCount} leagues${domesticFound ? ', domestic found early' : ''})`);
+  // Warn if no domestic league found — team ID may be invalid or not in tracked leagues
+  if (!domesticFound && !league) {
+    console.warn(`[ESPN] Team ${teamId}: no domestic league found — team may not exist in tracked leagues`);
+  }
   return allMatches;
 }
 
