@@ -294,29 +294,33 @@ export default function TriggeredMatchDetailsPage() {
 
             {stats ? (
               <div className="space-y-3 p-4 rounded-lg bg-glass-dark border border-glass-light">
+                <TriggeredStatRow label="Goals" home={homeScore} away={awayScore} />
                 {stats.homePoss > 0 && (
                   <TriggeredStatRow label="Possession" home={stats.homePoss} away={stats.awayPoss} unit="%" />
-                )}
-                {(stats.homeSoT > 0 || stats.awaySoT > 0) && (
-                  <TriggeredStatRow label="Shots on Target" home={stats.homeSoT} away={stats.awaySoT} />
                 )}
                 {(stats.homeShots > 0 || stats.awayShots > 0) && (
                   <TriggeredStatRow label="Total Shots" home={stats.homeShots} away={stats.awayShots} />
                 )}
+                {(stats.homeSoT > 0 || stats.awaySoT > 0) && (
+                  <TriggeredStatRow label="Shots on Target" home={stats.homeSoT} away={stats.awaySoT} />
+                )}
+                {(stats.homeShots > 0 || stats.awayShots > 0) && (stats.homeShots - stats.homeSoT > 0 || stats.awayShots - stats.awaySoT > 0) && (
+                  <TriggeredStatRow label="Shots off Target" home={Math.max(0, stats.homeShots - stats.homeSoT)} away={Math.max(0, stats.awayShots - stats.awaySoT)} />
+                )}
                 {(stats.homeCorners > 0 || stats.awayCorners > 0) && (
                   <TriggeredStatRow label="Corners" home={stats.homeCorners} away={stats.awayCorners} />
+                )}
+                {(stats.homeOffsides > 0 || stats.awayOffsides > 0) && (
+                  <TriggeredStatRow label="Offsides" home={stats.homeOffsides} away={stats.awayOffsides} />
+                )}
+                {(stats.homeFouls > 0 || stats.awayFouls > 0) && (
+                  <TriggeredStatRow label="Fouls" home={stats.homeFouls} away={stats.awayFouls} />
                 )}
                 {(stats.homeYellow > 0 || stats.awayYellow > 0) && (
                   <TriggeredStatRow label="Yellow Cards" home={stats.homeYellow} away={stats.awayYellow} />
                 )}
                 {(stats.homeRed > 0 || stats.awayRed > 0) && (
                   <TriggeredStatRow label="Red Cards" home={stats.homeRed} away={stats.awayRed} />
-                )}
-                {(stats.homeFouls > 0 || stats.awayFouls > 0) && (
-                  <TriggeredStatRow label="Fouls" home={stats.homeFouls} away={stats.awayFouls} />
-                )}
-                {(stats.homeOffsides > 0 || stats.awayOffsides > 0) && (
-                  <TriggeredStatRow label="Offsides" home={stats.homeOffsides} away={stats.awayOffsides} />
                 )}
               </div>
             ) : (

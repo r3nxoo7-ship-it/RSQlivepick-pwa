@@ -371,19 +371,42 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
               {/* Match Events & Momentum (top) */}
               <MomentumSection homeStats={homeStats} awayStats={awayStats} match={match} />
 
-              {/* Live Statistics */}
-              <div className="space-y-4">
-                <StatRow label="Possession" home={homeStats.possession} away={awayStats.possession} unit="%" compare={true} />
-                <StatRow label="Shots on Target" home={homeStats.shotsOnTarget} away={awayStats.shotsOnTarget} compare={true} />
-                <StatRow label="Shots Off Target" home={homeStats.shotsOffTarget} away={awayStats.shotsOffTarget} compare={true} />
-                <StatRow label="Total Shots" home={homeStats.shotsOnTarget + homeStats.shotsOffTarget} away={awayStats.shotsOnTarget + awayStats.shotsOffTarget} compare={true} />
-                <StatRow label="Attacks" home={homeStats.attacks} away={awayStats.attacks} compare={true} />
-                <StatRow label="Dangerous Attacks" home={homeStats.dangerousAttacks} away={awayStats.dangerousAttacks} compare={true} />
-                <StatRow label="Corners" home={homeStats.corners} away={awayStats.corners} compare={true} />
-                <StatRow label="Fouls" home={homeStats.fouls} away={awayStats.fouls} compare={true} />
-                <StatRow label="Offsides" home={homeStats.offsides} away={awayStats.offsides} compare={true} />
-                <StatRow label="Yellow Cards" home={homeStats.yellowCards} away={awayStats.yellowCards} compare={true} />
-                <StatRow label="Red Cards" home={homeStats.redCards} away={awayStats.redCards} compare={false} />
+              {/* Comprehensive Match Statistics */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="w-4 h-4 text-accent-cyan" />
+                  <h3 className="text-sm font-bold text-white">Match Statistics</h3>
+                </div>
+                <StatRow label="Goals" home={homeStats.goals} away={awayStats.goals} />
+                <StatRow label="Possession" home={homeStats.possession} away={awayStats.possession} unit="%" />
+                {ss && (ss.homeXg > 0 || ss.awayXg > 0) && (
+                  <StatRow label="Expected Goals (xG)" home={Math.round(ss.homeXg * 100) / 100} away={Math.round(ss.awayXg * 100) / 100} />
+                )}
+                <StatRow label="Total Shots" home={homeStats.shotsOnTarget + homeStats.shotsOffTarget} away={awayStats.shotsOnTarget + awayStats.shotsOffTarget} />
+                <StatRow label="Shots on Target" home={homeStats.shotsOnTarget} away={awayStats.shotsOnTarget} />
+                <StatRow label="Shots off Target" home={homeStats.shotsOffTarget} away={awayStats.shotsOffTarget} />
+                {ss && (ss.homeShotsInBox > 0 || ss.awayShotsInBox > 0) && (
+                  <StatRow label="Shots Inside Box" home={ss.homeShotsInBox} away={ss.awayShotsInBox} />
+                )}
+                {ss && (ss.homeBigChances > 0 || ss.awayBigChances > 0) && (
+                  <StatRow label="Big Chances" home={ss.homeBigChances} away={ss.awayBigChances} />
+                )}
+                <StatRow label="Corners" home={homeStats.corners} away={awayStats.corners} />
+                <StatRow label="Offsides" home={homeStats.offsides} away={awayStats.offsides} />
+                <StatRow label="Fouls" home={homeStats.fouls} away={awayStats.fouls} />
+                <StatRow label="Attacks" home={homeStats.attacks} away={awayStats.attacks} />
+                <StatRow label="Dangerous Attacks" home={homeStats.dangerousAttacks} away={awayStats.dangerousAttacks} />
+                <StatRow label="Yellow Cards" home={homeStats.yellowCards} away={awayStats.yellowCards} />
+                <StatRow label="Red Cards" home={homeStats.redCards} away={awayStats.redCards} />
+                {ss && (ss.homePassPct > 0 || ss.awayPassPct > 0) && (
+                  <StatRow label="Pass Accuracy" home={ss.homePassPct ?? 0} away={ss.awayPassPct ?? 0} unit="%" />
+                )}
+                {ss && (ss.homeInterceptions > 0 || ss.awayInterceptions > 0) && (
+                  <StatRow label="Interceptions" home={ss.homeInterceptions} away={ss.awayInterceptions} />
+                )}
+                {ss && (ss.homeClearances > 0 || ss.awayClearances > 0) && (
+                  <StatRow label="Clearances" home={ss.homeClearances} away={ss.awayClearances} />
+                )}
               </div>
 
               {/* Odds Section */}
@@ -393,35 +416,6 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                   homeName={match.teams?.home?.name || 'Home'}
                   awayName={match.teams?.away?.name || 'Away'}
                 />
-              )}
-
-              {/* SofaScore Enhanced Stats — shown only when sofascore_stats is populated */}
-              {ss && (ss.homeXg > 0 || ss.homeBigChances > 0 || ss.homePassPct > 0) && (
-                <div className="rounded-xl border border-accent-purple/30 bg-[rgba(15,8,32,0.85)] overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/8">
-                    <span className="text-[10px] font-bold text-accent-purple uppercase tracking-wide">⚡ SofaScore Enhanced</span>
-                  </div>
-                  <div className="px-4 py-3 space-y-2.5">
-                    {(ss.homeXg > 0 || ss.awayXg > 0) && (
-                      <MiniStatRow label="Expected Goals (xG)" home={ss.homeXg} away={ss.awayXg} decimals={2} />
-                    )}
-                    {(ss.homeBigChances > 0 || ss.awayBigChances > 0) && (
-                      <MiniStatRow label="Big Chances" home={ss.homeBigChances} away={ss.awayBigChances} />
-                    )}
-                    {(ss.homeShotsInBox > 0 || ss.awayShotsInBox > 0) && (
-                      <MiniStatRow label="Shots in Box" home={ss.homeShotsInBox} away={ss.awayShotsInBox} />
-                    )}
-                    {(ss.homePassPct > 0 || ss.awayPassPct > 0) && (
-                      <MiniStatRow label="Pass Accuracy" home={ss.homePassPct ?? 0} away={ss.awayPassPct ?? 0} unit="%" />
-                    )}
-                    {(ss.homeInterceptions > 0 || ss.awayInterceptions > 0) && (
-                      <MiniStatRow label="Interceptions" home={ss.homeInterceptions} away={ss.awayInterceptions} />
-                    )}
-                    {(ss.homeClearances > 0 || ss.awayClearances > 0) && (
-                      <MiniStatRow label="Clearances" home={ss.homeClearances} away={ss.awayClearances} />
-                    )}
-                  </div>
-                </div>
               )}
             </>
           )}

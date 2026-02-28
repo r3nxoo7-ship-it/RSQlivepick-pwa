@@ -87,6 +87,10 @@ function MatchCard({
   const dangerousAttacks = { home: getStat(match, homeName, 'dangerous'), away: getStat(match, awayName, 'dangerous') };
   const yellowCards = { home: getStat(match, homeName, 'yellow'), away: getStat(match, awayName, 'yellow') };
   const redCards = { home: getStat(match, homeName, 'red'), away: getStat(match, awayName, 'red') };
+  const fouls = { home: getStat(match, homeName, 'fouls'), away: getStat(match, awayName, 'fouls') };
+  const offsides = { home: getStat(match, homeName, 'offsides'), away: getStat(match, awayName, 'offsides') };
+  const ss = match.sofascore_stats;
+  const xg = ss && (ss.homeXg > 0 || ss.awayXg > 0) ? { home: ss.homeXg, away: ss.awayXg } : null;
 
   // Odds shortcuts
   const bk = odds?.bookmakers;
@@ -252,63 +256,30 @@ function MatchCard({
 
           {/* Inline Stats - only show when match has statistics data */}
           {hasStats && (isLive || isFinished) && (
-            <div className="border-t border-white/8 pt-3 space-y-2">
-              {/* Circular stats row: Attacks, Dangerous Attacks, Possession */}
-              {(possession.home > 0 || attacks.home > 0 || dangerousAttacks.home > 0) && (
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  {attacks.home + attacks.away > 0 && (
-                    <CircleStat label="Attacks" home={attacks.home} away={attacks.away} />
-                  )}
-                  {dangerousAttacks.home + dangerousAttacks.away > 0 && (
-                    <CircleStat label="Dangerous" home={dangerousAttacks.home} away={dangerousAttacks.away} />
-                  )}
-                  {possession.home + possession.away > 0 && (
-                    <CircleStat label="Possession" home={possession.home} away={possession.away} unit="%" />
-                  )}
-                </div>
-              )}
+            <div className="border-t border-white/8 pt-3 space-y-3">
+              {/* Compact icon stats grid */}
+              <div className="flex flex-wrap gap-1 justify-center">
+                <IconStat icon={<span className="w-2 h-2.5 rounded-[1px] bg-red-500 inline-block" />} label="Red" home={redCards.home} away={redCards.away} />
+                <IconStat icon={<span className="w-2 h-2.5 rounded-[1px] bg-yellow-400 inline-block" />} label="Yellow" home={yellowCards.home} away={yellowCards.away} />
+                {(fouls.home + fouls.away > 0 || (ss?.homeFouls ?? 0) + (ss?.awayFouls ?? 0) > 0) && (
+                  <IconStat icon="⚠️" label="Fouls" home={fouls.home || ss?.homeFouls || 0} away={fouls.away || ss?.awayFouls || 0} />
+                )}
+                <IconStat icon="🎯" label="Shots OT" home={shotsOn.home} away={shotsOn.away} />
+                <IconStat icon="🚩" label="Corners" home={corners.home} away={corners.away} />
+                {offsides.home + offsides.away > 0 && (
+                  <IconStat icon="🏳️" label="Offsides" home={offsides.home} away={offsides.away} />
+                )}
+                {xg && (
+                  <IconStat icon="📊" label="xG" home={xg.home} away={xg.away} decimal />
+                )}
+              </div>
 
-              {/* Horizontal bars: On Target, Off Target */}
-              {(shotsOn.home + shotsOn.away > 0 || shotsOff.home + shotsOff.away > 0) && (
-                <div className="space-y-1.5">
-                  {shotsOn.home + shotsOn.away > 0 && (
-                    <CompactBar label="On Target" home={shotsOn.home} away={shotsOn.away} />
-                  )}
-                  {shotsOff.home + shotsOff.away > 0 && (
-                    <CompactBar label="Off Target" home={shotsOff.home} away={shotsOff.away} />
-                  )}
-                </div>
-              )}
-
-              {/* Bottom row: Corners + Cards */}
-              {(corners.home + corners.away > 0 || yellowCards.home + yellowCards.away > 0 || redCards.home + redCards.away > 0) && (
-                <div className="flex items-center justify-between pt-1 text-[10px]">
-                  {corners.home + corners.away > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-text-muted">🚩</span>
-                      <span className="font-bold text-accent-cyan">{corners.home}</span>
-                      <span className="text-text-muted">-</span>
-                      <span className="font-bold text-accent-blue">{corners.away}</span>
-                    </div>
-                  )}
-                  {yellowCards.home + yellowCards.away > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-3 rounded-[1px] bg-yellow-400 inline-block" />
-                      <span className="font-bold text-white">{yellowCards.home}</span>
-                      <span className="text-text-muted">-</span>
-                      <span className="font-bold text-white">{yellowCards.away}</span>
-                    </div>
-                  )}
-                  {redCards.home + redCards.away > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-3 rounded-[1px] bg-red-500 inline-block" />
-                      <span className="font-bold text-white">{redCards.home}</span>
-                      <span className="text-text-muted">-</span>
-                      <span className="font-bold text-white">{redCards.away}</span>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Circular progress indicators */}
+              <div className="grid grid-cols-3 gap-2">
+                {attacks.home + attacks.away > 0 && <CircleStat label="Attacks" home={attacks.home} away={attacks.away} />}
+                {shotsOn.home + shotsOn.away > 0 && <CircleStat label="On Target" home={shotsOn.home} away={shotsOn.away} />}
+                {dangerousAttacks.home + dangerousAttacks.away > 0 && <CircleStat label="Dangerous" home={dangerousAttacks.home} away={dangerousAttacks.away} />}
+              </div>
             </div>
           )}
 
@@ -405,26 +376,18 @@ function CircleStat({ label, home, away, unit = '' }: { label: string; home: num
   );
 }
 
-/** Compact horizontal comparison bar */
-function CompactBar({ label, home, away }: { label: string; home: number; away: number }) {
-  const total = home + away;
-  const homePercent = total === 0 ? 50 : Math.round((home / total) * 100);
-  const homeLeads = home > away;
-  const awayLeads = away > home;
-
+/** Compact icon stat badge for match card */
+function IconStat({ icon, label, home, away, decimal }: { icon: React.ReactNode; label: string; home: number; away: number; decimal?: boolean }) {
+  const fmt = (v: number) => decimal ? v.toFixed(1) : String(v);
   return (
-    <div className="flex items-center gap-2 text-[10px]">
-      <span className={`w-5 text-right font-bold ${homeLeads ? 'text-accent-cyan' : 'text-text-secondary'}`}>{home}</span>
-      <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex">
-        <div
-          className={`h-full shrink-0 rounded-l-full transition-all ${homeLeads ? 'bg-accent-cyan' : 'bg-accent-cyan/40'} w-[${homePercent}%]`}
-        />
-        <div
-          className={`h-full shrink-0 rounded-r-full transition-all ${awayLeads ? 'bg-accent-blue' : 'bg-accent-blue/40'} w-[${100 - homePercent}%]`}
-        />
+    <div className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg bg-white/5 min-w-[48px]">
+      <div className="text-[10px] leading-none">{icon}</div>
+      <div className="text-[10px] font-bold whitespace-nowrap">
+        <span className="text-accent-cyan">{fmt(home)}</span>
+        <span className="text-text-muted mx-0.5">-</span>
+        <span className="text-accent-blue">{fmt(away)}</span>
       </div>
-      <span className={`w-5 text-left font-bold ${awayLeads ? 'text-accent-blue' : 'text-text-secondary'}`}>{away}</span>
-      <span className="text-text-muted w-[52px] text-[9px] truncate">{label}</span>
+      <div className="text-[8px] text-text-muted leading-none">{label}</div>
     </div>
   );
 }
