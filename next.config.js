@@ -51,6 +51,20 @@ const withPWA = require('@ducanh2912/next-pwa').default({
         }
       }
     },
+    // Override next-pwa default CacheFirst for _next/static JS — use NetworkFirst
+    // so new deployments are immediately visible on mobile
+    {
+      urlPattern: /\/_next\/static.+\.js$/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'next-static-js-assets',
+        networkTimeoutSeconds: 3,
+        expiration: {
+          maxEntries: 64,
+          maxAgeSeconds: 24 * 60 * 60 // 24 hours
+        }
+      }
+    },
     {
       urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
       handler: 'StaleWhileRevalidate',

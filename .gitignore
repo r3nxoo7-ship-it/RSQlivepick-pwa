@@ -6,3 +6,11 @@ node_modules
 out
 .env*.local
 .vercel
+
+# PWA generated files (regenerated each build)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/swe-worker-*.js
+public/swe-worker-*.js.map
