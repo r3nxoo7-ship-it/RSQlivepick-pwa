@@ -21,6 +21,8 @@ import {
   Target,
   Shield,
   Sparkles,
+  Bell,
+  MessageCircle,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -65,6 +67,8 @@ export default function FilterTemplatesPage() {
   const [lastImportResult, setLastImportResult] = useState<{ success: number; failed: number } | null>(null);
   const [sortBy, setSortBy] = useState<'popular' | 'recent' | 'success' | 'name'>('popular');
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
+  const [importWithNotifications, setImportWithNotifications] = useState(true);
+  const [importWithTelegram, setImportWithTelegram] = useState(false);
   
   // ============================================
   // DATA
@@ -157,8 +161,8 @@ export default function FilterTemplatesPage() {
             description: template.description,
             conditions: template.conditions as any,
             is_active: true,
-            notification_enabled: template.notificationEnabled && template.category !== 'experimental',
-            telegram_enabled: false,
+            notification_enabled: importWithNotifications,
+            telegram_enabled: importWithTelegram,
             is_shared: false,
             trigger_count: 0,
             success_rate: null,
@@ -222,8 +226,8 @@ export default function FilterTemplatesPage() {
             description: template.description,
             conditions: template.conditions as any,
             is_active: true,
-            notification_enabled: template.notificationEnabled && template.category !== 'experimental',
-            telegram_enabled: false,
+            notification_enabled: importWithNotifications,
+            telegram_enabled: importWithTelegram,
             is_shared: false,
             trigger_count: 0,
             success_rate: null,
@@ -290,8 +294,8 @@ export default function FilterTemplatesPage() {
         description: template.description,
         conditions: template.conditions as any,
         is_active: true,
-        notification_enabled: template.notificationEnabled && template.category !== 'experimental',
-        telegram_enabled: false,
+        notification_enabled: importWithNotifications,
+        telegram_enabled: importWithTelegram,
         is_shared: false,
         trigger_count: 0,
         success_rate: null,
@@ -474,6 +478,34 @@ export default function FilterTemplatesPage() {
             transition={{ delay: 0.05 }}
             className="glass-card p-6 border-t border-glass-lighter space-y-4"
           >
+            {/* Notification preferences for imported templates */}
+            <div className="flex flex-wrap items-center gap-4 p-4 rounded-lg bg-glass-light border border-glass-lighter">
+              <span className="text-sm font-semibold text-text-secondary">Import settings:</span>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={importWithNotifications}
+                  onChange={(e) => setImportWithNotifications(e.target.checked)}
+                  className="w-5 h-5 rounded"
+                />
+                <Bell className={`w-4 h-4 ${importWithNotifications ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                <span className="text-sm">Browser Notifications</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={importWithTelegram}
+                  onChange={(e) => {
+                    setImportWithTelegram(e.target.checked);
+                    if (e.target.checked) setImportWithNotifications(true);
+                  }}
+                  className="w-5 h-5 rounded"
+                />
+                <MessageCircle className={`w-4 h-4 ${importWithTelegram ? 'text-accent-green' : 'text-text-muted'}`} />
+                <span className="text-sm">Telegram</span>
+              </label>
+            </div>
+
             {selectedTemplates.length > 0 && (
               <div className="flex items-center justify-between p-4 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30">
                 <div className="text-sm font-semibold text-accent-cyan">
