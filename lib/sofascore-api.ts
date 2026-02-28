@@ -272,6 +272,35 @@ export function normalizeSofascoreStats(
   };
 }
 
+/**
+ * Convert NormalizedSofascoreStats into the team-based MatchStatistics[] format
+ * that getStatValue() in AdvancedMatchDetail expects.
+ */
+function convertToTeamStats(
+  s: NormalizedSofascoreStats,
+  homeName: string, homeId: number,
+  awayName: string, awayId: number,
+): any[] {
+  const buildStats = (side: 'home' | 'away') => {
+    const h = side === 'home';
+    return [
+      { type: 'Ball Possession', value: `${h ? s.homePoss : s.awayPoss}%` },
+      { type: 'Shots on Goal', value: h ? s.homeSoT : s.awaySoT },
+      { type: 'Total Shots', value: h ? s.homeShots : s.awayShots },
+      { type: 'Shots off Goal', value: h ? (s.homeShotsOff ?? 0) : (s.awayShotsOff ?? 0) },
+      { type: 'Corner Kicks', value: h ? s.homeCorners : s.awayCorners },
+      { type: 'Fouls', value: h ? s.homeFouls : s.awayFouls },
+      { type: 'Offsides', value: h ? s.homeOffsides : s.awayOffsides },
+      { type: 'Yellow Cards', value: h ? s.homeYellow : s.awayYellow },
+      { type: 'Red Cards', value: h ? s.homeRed : s.awayRed },
+    ];
+  };
+  return [
+    { team: { id: homeId, name: homeName }, statistics: buildStats('home') },
+    { team: { id: awayId, name: awayName }, statistics: buildStats('away') },
+  ];
+}
+
 /** Convert a SofaScore event object into the RecentMatchData-compatible shape */
 export function sofascoreEventToMatch(event: SofascoreEvent): SofascoreRecentMatch {
   const homeGoals = event.homeScore?.normaltime ?? event.homeScore?.current ?? 0;
@@ -530,6 +559,11 @@ export async function getLiveMatchesFromSofascore(): Promise<any[]> {
           ? await getMatchStatistics(event.id) 
           : null;
 
+        // Normalize stats into flat shape + team-based format for frontend
+        const normalizedStats = stats
+          ? normalizeSofascoreStats(stats, event.homeScore?.period1, event.awayScore?.period1)
+          : null;
+
         // Build match object compatible with LiveMatch interface
         const homeGoals = event.homeScore?.current ?? 0;
         const awayGoals = event.awayScore?.current ?? 0;
@@ -539,6 +573,27 @@ export async function getLiveMatchesFromSofascore(): Promise<any[]> {
         if (event.tournament?.name) leagueParts.push(event.tournament.name);
         const league = leagueParts.join(' — ') || 'Football';
 
+        // Map SofaScore status to API-Football-compatible status object
+        const statusType = event.status?.type || 'notstarted';
+        const statusDesc = event.status?.description || '';
+        // Approximate elapsed minutes from start timestamp
+        const minutesSinceStart = statusType === 'inprogress'
+          ? Math.min(90, Math.floor((Date.now() / 1000 - event.startTimestamp) / 60))
+          : null;
+        const fixStatus = (() => {
+          switch (statusType) {
+            case 'inprogress':
+              if (statusDesc.toLowerCase().includes('halftime')) return { long: 'Halftime', short: 'HT', elapsed: 45 };
+              if (statusDesc.toLowerCase().includes('2nd half')) return { long: 'Second Half', short: '2H', elapsed: minutesSinceStart };
+              return { long: 'First Half', short: '1H', elapsed: minutesSinceStart };
+            case 'finished': return { long: 'Match Finished', short: 'FT', elapsed: 90 };
+            case 'notstarted': return { long: 'Not Started', short: 'NS', elapsed: null };
+            case 'postponed': return { long: 'Postponed', short: 'PST', elapsed: null };
+            case 'canceled': return { long: 'Cancelled', short: 'CANC', elapsed: null };
+            default: return { long: statusDesc || statusType, short: statusType.toUpperCase().slice(0, 3), elapsed: null };
+          }
+        })();
+
         const match: any = {
           id: `ss_${event.id}`,
           fixtureId: `ss_${event.id}`,
@@ -546,7 +601,7 @@ export async function getLiveMatchesFromSofascore(): Promise<any[]> {
           fixture: {
             id: event.id,
             date: new Date(event.startTimestamp * 1000).toISOString(),
-            status: event.status?.type || 'notstarted',
+            status: fixStatus,
             timestamp: event.startTimestamp,
           },
           league: {
@@ -579,9 +634,47 @@ export async function getLiveMatchesFromSofascore(): Promise<any[]> {
             halftime: { home: event.homeScore?.period1, away: event.awayScore?.period1 },
             fulltime: { home: homeGoals, away: awayGoals },
           },
-          statistics: stats ? [
-            normalizeSofascoreStats(stats, event.homeScore?.period1, event.awayScore?.period1)
-          ] : [],
+          statistics: normalizedStats ? convertToTeamStats(
+            normalizedStats, event.homeTeam.name, event.homeTeam.id,
+            event.awayTeam.name, event.awayTeam.id
+          ) : [],
+          // Populate sofascore_stats so frontend can read xG, big chances, etc.
+          sofascore_stats: normalizedStats ? {
+            sofascoreEventId: event.id,
+            homeXg: normalizedStats.homeXg ?? 0,
+            awayXg: normalizedStats.awayXg ?? 0,
+            homeBigChances: normalizedStats.homeBigChances ?? 0,
+            awayBigChances: normalizedStats.awayBigChances ?? 0,
+            homeShotsInBox: normalizedStats.homeShotsInBox ?? 0,
+            awayShotsInBox: normalizedStats.awayShotsInBox ?? 0,
+            homePassPct: normalizedStats.homePassPct ?? 0,
+            awayPassPct: normalizedStats.awayPassPct ?? 0,
+            homeInterceptions: normalizedStats.homeInterceptions ?? 0,
+            awayInterceptions: normalizedStats.awayInterceptions ?? 0,
+            homeClearances: normalizedStats.homeClearances ?? 0,
+            awayClearances: normalizedStats.awayClearances ?? 0,
+            homeFouls: normalizedStats.homeFouls ?? 0,
+            awayFouls: normalizedStats.awayFouls ?? 0,
+            homeShotsOff: normalizedStats.homeShotsOff ?? 0,
+            awayShotsOff: normalizedStats.awayShotsOff ?? 0,
+            homeGoalsPrevented: normalizedStats.homeGoalsPrevented ?? 0,
+            awayGoalsPrevented: normalizedStats.awayGoalsPrevented ?? 0,
+            homeShotsOnTarget: normalizedStats.homeSoT ?? 0,
+            awayShotsOnTarget: normalizedStats.awaySoT ?? 0,
+            homeTotalShots: normalizedStats.homeShots ?? 0,
+            awayTotalShots: normalizedStats.awayShots ?? 0,
+            homeCorners: normalizedStats.homeCorners ?? 0,
+            awayCorners: normalizedStats.awayCorners ?? 0,
+            homePossession: normalizedStats.homePoss ?? 0,
+            awayPossession: normalizedStats.awayPoss ?? 0,
+            homeOffsides: normalizedStats.homeOffsides ?? 0,
+            awayOffsides: normalizedStats.awayOffsides ?? 0,
+            homeYellowCards: normalizedStats.homeYellow ?? 0,
+            awayYellowCards: normalizedStats.awayYellow ?? 0,
+            homeRedCards: normalizedStats.homeRed ?? 0,
+            awayRedCards: normalizedStats.awayRed ?? 0,
+            fetchedAt: Date.now(),
+          } : undefined,
           _source: 'sofascore',
           _sofascoreEventId: event.id,
           _hasStats: stats !== null,

@@ -223,32 +223,34 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
   const ss = match.sofascore_stats;
   const homeStats = {
     goals: match.goals?.home || 0,
-    shotsOnTarget: getStatValue(match.statistics, match.teams?.home?.name, 'shots on goal') || ss?.homeShotsInBox || 0,
-    shotsOffTarget: getStatValue(match.statistics, match.teams?.home?.name, 'shots off goal'),
-    corners: getStatValue(match.statistics, match.teams?.home?.name, 'corners'),
-    possession: getStatValue(match.statistics, match.teams?.home?.name, 'possession'),
-    yellowCards: getStatValue(match.statistics, match.teams?.home?.name, 'yellow card'),
-    redCards: getStatValue(match.statistics, match.teams?.home?.name, 'red card'),
+    shotsOnTarget: getStatValue(match.statistics, match.teams?.home?.name, 'shots on goal') || ss?.homeShotsOnTarget || 0,
+    shotsOffTarget: getStatValue(match.statistics, match.teams?.home?.name, 'shots off goal') || ss?.homeShotsOff || 0,
+    totalShots: getStatValue(match.statistics, match.teams?.home?.name, 'total shots') || ss?.homeTotalShots || 0,
+    corners: getStatValue(match.statistics, match.teams?.home?.name, 'corners') || ss?.homeCorners || 0,
+    possession: getStatValue(match.statistics, match.teams?.home?.name, 'possession') || ss?.homePossession || 0,
+    yellowCards: getStatValue(match.statistics, match.teams?.home?.name, 'yellow card') || ss?.homeYellowCards || 0,
+    redCards: getStatValue(match.statistics, match.teams?.home?.name, 'red card') || ss?.homeRedCards || 0,
     attacks: getStatValue(match.statistics, match.teams?.home?.name, 'attacks'),
     dangerousAttacks: getStatValue(match.statistics, match.teams?.home?.name, 'dangerous attacks'),
     fouls: getStatValue(match.statistics, match.teams?.home?.name, 'fouls') || ss?.homeFouls || 0,
-    offsides: getStatValue(match.statistics, match.teams?.home?.name, 'offsides'),
+    offsides: getStatValue(match.statistics, match.teams?.home?.name, 'offsides') || ss?.homeOffsides || 0,
     firstHalf: getFirstHalfGoals(match, 'home'),
     secondHalf: getSecondHalfGoals(match, 'home'),
   };
 
   const awayStats = {
     goals: match.goals?.away || 0,
-    shotsOnTarget: getStatValue(match.statistics, match.teams?.away?.name, 'shots on goal') || ss?.awayShotsInBox || 0,
-    shotsOffTarget: getStatValue(match.statistics, match.teams?.away?.name, 'shots off goal'),
-    corners: getStatValue(match.statistics, match.teams?.away?.name, 'corners'),
-    possession: getStatValue(match.statistics, match.teams?.away?.name, 'possession'),
-    yellowCards: getStatValue(match.statistics, match.teams?.away?.name, 'yellow card'),
-    redCards: getStatValue(match.statistics, match.teams?.away?.name, 'red card'),
+    shotsOnTarget: getStatValue(match.statistics, match.teams?.away?.name, 'shots on goal') || ss?.awayShotsOnTarget || 0,
+    shotsOffTarget: getStatValue(match.statistics, match.teams?.away?.name, 'shots off goal') || ss?.awayShotsOff || 0,
+    totalShots: getStatValue(match.statistics, match.teams?.away?.name, 'total shots') || ss?.awayTotalShots || 0,
+    corners: getStatValue(match.statistics, match.teams?.away?.name, 'corners') || ss?.awayCorners || 0,
+    possession: getStatValue(match.statistics, match.teams?.away?.name, 'possession') || ss?.awayPossession || 0,
+    yellowCards: getStatValue(match.statistics, match.teams?.away?.name, 'yellow card') || ss?.awayYellowCards || 0,
+    redCards: getStatValue(match.statistics, match.teams?.away?.name, 'red card') || ss?.awayRedCards || 0,
     attacks: getStatValue(match.statistics, match.teams?.away?.name, 'attacks'),
     dangerousAttacks: getStatValue(match.statistics, match.teams?.away?.name, 'dangerous attacks'),
     fouls: getStatValue(match.statistics, match.teams?.away?.name, 'fouls') || ss?.awayFouls || 0,
-    offsides: getStatValue(match.statistics, match.teams?.away?.name, 'offsides'),
+    offsides: getStatValue(match.statistics, match.teams?.away?.name, 'offsides') || ss?.awayOffsides || 0,
     firstHalf: getFirstHalfGoals(match, 'away'),
     secondHalf: getSecondHalfGoals(match, 'away'),
   };
@@ -388,7 +390,7 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                 {ss && (ss.homeXg > 0 || ss.awayXg > 0) && (
                   <StatRow label="Expected Goals (xG)" home={Math.round(ss.homeXg * 100) / 100} away={Math.round(ss.awayXg * 100) / 100} />
                 )}
-                <StatRow label="Total Shots" home={homeStats.shotsOnTarget + homeStats.shotsOffTarget} away={awayStats.shotsOnTarget + awayStats.shotsOffTarget} />
+                <StatRow label="Total Shots" home={homeStats.totalShots || (homeStats.shotsOnTarget + homeStats.shotsOffTarget)} away={awayStats.totalShots || (awayStats.shotsOnTarget + awayStats.shotsOffTarget)} />
                 <StatRow label="Shots on Target" home={homeStats.shotsOnTarget} away={awayStats.shotsOnTarget} />
                 <StatRow label="Shots off Target" home={homeStats.shotsOffTarget} away={awayStats.shotsOffTarget} />
                 {ss && (ss.homeShotsInBox > 0 || ss.awayShotsInBox > 0) && (
@@ -412,6 +414,9 @@ export default function AdvancedMatchDetail({ match, onClose, filterResults }: A
                 )}
                 {ss && (ss.homeClearances > 0 || ss.awayClearances > 0) && (
                   <StatRow label="Clearances" home={ss.homeClearances} away={ss.awayClearances} />
+                )}
+                {ss && ((ss.homeGoalsPrevented ?? 0) > 0 || (ss.awayGoalsPrevented ?? 0) > 0) && (
+                  <StatRow label="Goals Prevented" home={ss.homeGoalsPrevented ?? 0} away={ss.awayGoalsPrevented ?? 0} />
                 )}
               </div>
 
@@ -1249,6 +1254,9 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
           {((stats as any).homeXg > 0 || (stats as any).awayXg > 0) && (
             <MiniStatRow label="xG" home={parseFloat(((stats as any).homeXg ?? 0).toFixed(2))} away={parseFloat(((stats as any).awayXg ?? 0).toFixed(2))} />
           )}
+          {((stats as any).homeShotsOff > 0 || (stats as any).awayShotsOff > 0) && (
+            <MiniStatRow label="Shots Off Target" home={(stats as any).homeShotsOff ?? 0} away={(stats as any).awayShotsOff ?? 0} />
+          )}
           {((stats as any).homeBigChances > 0 || (stats as any).awayBigChances > 0) && (
             <MiniStatRow label="Big Chances" home={(stats as any).homeBigChances ?? 0} away={(stats as any).awayBigChances ?? 0} />
           )}
@@ -1257,6 +1265,15 @@ function ExpandedMatchStats({ match }: { match: RecentMatchData }) {
           )}
           {((stats as any).homePassPct > 0 || (stats as any).awayPassPct > 0) && (
             <MiniStatRow label="Pass Accuracy" home={(stats as any).homePassPct ?? 0} away={(stats as any).awayPassPct ?? 0} unit="%" />
+          )}
+          {((stats as any).homeInterceptions > 0 || (stats as any).awayInterceptions > 0) && (
+            <MiniStatRow label="Interceptions" home={(stats as any).homeInterceptions ?? 0} away={(stats as any).awayInterceptions ?? 0} />
+          )}
+          {((stats as any).homeClearances > 0 || (stats as any).awayClearances > 0) && (
+            <MiniStatRow label="Clearances" home={(stats as any).homeClearances ?? 0} away={(stats as any).awayClearances ?? 0} />
+          )}
+          {((stats as any).homeGoalsPrevented > 0 || (stats as any).awayGoalsPrevented > 0) && (
+            <MiniStatRow label="Goals Prevented" home={(stats as any).homeGoalsPrevented ?? 0} away={(stats as any).awayGoalsPrevented ?? 0} />
           )}
         </>
       )}

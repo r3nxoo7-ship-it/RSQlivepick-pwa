@@ -99,6 +99,25 @@ export interface LiveMatch {
     awayClearances: number;
     homeFouls: number;       // fouls from SofaScore (more reliable than ESPN)
     awayFouls: number;
+    // Additional SofaScore stats for complete coverage
+    homeShotsOff?: number;   // shots off target
+    awayShotsOff?: number;
+    homeGoalsPrevented?: number;
+    awayGoalsPrevented?: number;
+    homeShotsOnTarget?: number;
+    awayShotsOnTarget?: number;
+    homeTotalShots?: number;
+    awayTotalShots?: number;
+    homeCorners?: number;
+    awayCorners?: number;
+    homePossession?: number;
+    awayPossession?: number;
+    homeOffsides?: number;
+    awayOffsides?: number;
+    homeYellowCards?: number;
+    awayYellowCards?: number;
+    homeRedCards?: number;
+    awayRedCards?: number;
     fetchedAt: number;       // Unix ms — for cache staleness check
   };
 

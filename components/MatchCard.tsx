@@ -78,18 +78,18 @@ function MatchCard({
   })();
 
   // Extract key stats for inline display
-  const hasStats = match.statistics && match.statistics.length > 0;
-  const possession = { home: getStat(match, homeName, 'possession'), away: getStat(match, awayName, 'possession') };
-  const shotsOn = { home: getStat(match, homeName, 'shots on goal'), away: getStat(match, awayName, 'shots on goal') };
-  const shotsOff = { home: getStat(match, homeName, 'shots off goal'), away: getStat(match, awayName, 'shots off goal') };
-  const corners = { home: getStat(match, homeName, 'corner'), away: getStat(match, awayName, 'corner') };
+  const ss = match.sofascore_stats;
+  const hasStats = (match.statistics && match.statistics.length > 0) || !!ss;
+  const possession = { home: getStat(match, homeName, 'possession') || ss?.homePossession || 0, away: getStat(match, awayName, 'possession') || ss?.awayPossession || 0 };
+  const shotsOn = { home: getStat(match, homeName, 'shots on goal') || ss?.homeShotsOnTarget || 0, away: getStat(match, awayName, 'shots on goal') || ss?.awayShotsOnTarget || 0 };
+  const shotsOff = { home: getStat(match, homeName, 'shots off goal') || ss?.homeShotsOff || 0, away: getStat(match, awayName, 'shots off goal') || ss?.awayShotsOff || 0 };
+  const corners = { home: getStat(match, homeName, 'corner') || ss?.homeCorners || 0, away: getStat(match, awayName, 'corner') || ss?.awayCorners || 0 };
   const attacks = { home: getStat(match, homeName, 'attacks'), away: getStat(match, awayName, 'attacks') };
   const dangerousAttacks = { home: getStat(match, homeName, 'dangerous'), away: getStat(match, awayName, 'dangerous') };
-  const yellowCards = { home: getStat(match, homeName, 'yellow'), away: getStat(match, awayName, 'yellow') };
-  const redCards = { home: getStat(match, homeName, 'red'), away: getStat(match, awayName, 'red') };
-  const fouls = { home: getStat(match, homeName, 'fouls'), away: getStat(match, awayName, 'fouls') };
-  const offsides = { home: getStat(match, homeName, 'offsides'), away: getStat(match, awayName, 'offsides') };
-  const ss = match.sofascore_stats;
+  const yellowCards = { home: getStat(match, homeName, 'yellow') || ss?.homeYellowCards || 0, away: getStat(match, awayName, 'yellow') || ss?.awayYellowCards || 0 };
+  const redCards = { home: getStat(match, homeName, 'red') || ss?.homeRedCards || 0, away: getStat(match, awayName, 'red') || ss?.awayRedCards || 0 };
+  const fouls = { home: getStat(match, homeName, 'fouls') || ss?.homeFouls || 0, away: getStat(match, awayName, 'fouls') || ss?.awayFouls || 0 };
+  const offsides = { home: getStat(match, homeName, 'offsides') || ss?.homeOffsides || 0, away: getStat(match, awayName, 'offsides') || ss?.awayOffsides || 0 };
   const xg = ss && (ss.homeXg > 0 || ss.awayXg > 0) ? { home: ss.homeXg, away: ss.awayXg } : null;
 
   // Odds shortcuts
@@ -261,8 +261,8 @@ function MatchCard({
               <div className="flex flex-wrap gap-1 justify-center">
                 <IconStat icon={<span className="w-2 h-2.5 rounded-[1px] bg-red-500 inline-block" />} label="Red" home={redCards.home} away={redCards.away} />
                 <IconStat icon={<span className="w-2 h-2.5 rounded-[1px] bg-yellow-400 inline-block" />} label="Yellow" home={yellowCards.home} away={yellowCards.away} />
-                {(fouls.home + fouls.away > 0 || (ss?.homeFouls ?? 0) + (ss?.awayFouls ?? 0) > 0) && (
-                  <IconStat icon="⚠️" label="Fouls" home={fouls.home || ss?.homeFouls || 0} away={fouls.away || ss?.awayFouls || 0} />
+                {(fouls.home + fouls.away > 0) && (
+                  <IconStat icon="⚠️" label="Fouls" home={fouls.home} away={fouls.away} />
                 )}
                 <IconStat icon="🎯" label="Shots OT" home={shotsOn.home} away={shotsOn.away} />
                 <IconStat icon="🚩" label="Corners" home={corners.home} away={corners.away} />
