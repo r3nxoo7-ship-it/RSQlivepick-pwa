@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, Calendar } from 'lucide-react';
-import { getLiveMatches, getLiveAndUpcomingMatches, LiveMatch } from '@/lib/unified-api';
+import type { LiveMatch } from '@/lib/unified-api';
 import LiveMatchesDashboardV2 from '@/components/LiveMatchesDashboardV2';
 import { dbHelpers, authHelpers } from '@/lib/supabase';
 import type { Filter } from '@/lib/supabase';
@@ -31,7 +31,9 @@ export default function MatchesAnalyticsPage() {
       console.log('🔄 Matches page: Loading data...');
 
       // Try to get separated live and upcoming matches first
-      const separated = await getLiveAndUpcomingMatches();
+      const separatedRes = await fetch('/api/matches/live-and-upcoming');
+      if (!separatedRes.ok) throw new Error(`API returned ${separatedRes.status}`);
+      const separated = await separatedRes.json();
       if (separated.upcoming.length > 0 || separated.scheduled.length > 0) {
         console.log(`📊 Got ${separated.upcoming.length} upcoming, ${separated.scheduled.length} scheduled matches`);
         setUpcomingMatches(separated.upcoming);
@@ -51,10 +53,14 @@ export default function MatchesAnalyticsPage() {
         }
       } else {
         // Fallback to old format
-        const allMatches = await getLiveMatches();
-        console.log(`📊 Got ${allMatches?.length || 0} total matches (fallback)`);
-        setMatches(allMatches || []);
-        setUpcomingMatches([]);
+        const liveRes = await fetch('/api/matches/live');
+        if (liveRes.ok) {
+          const { matches } = await liveRes.json();
+          const allMatches = matches;
+          console.log(`📊 Got ${allMatches?.length || 0} total matches (fallback)`);
+          setMatches(allMatches || []);
+          setUpcomingMatches([]);
+        }
       }
 
       // Load user filters

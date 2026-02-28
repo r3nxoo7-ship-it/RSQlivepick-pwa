@@ -9,8 +9,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
-import { checkAPIStatus } from '@/lib/unified-api';
-import { getLiveMatches } from '@/lib/unified-api';
 
 export default function APITestPage() {
   const [testing, setTesting] = useState(false);
@@ -26,12 +24,18 @@ export default function APITestPage() {
       console.log('🧪 Testing APIs...');
       
       // Check API status
-      const apiStatus = await checkAPIStatus();
-      setStatus(apiStatus);
+      const statusRes = await fetch('/api/status');
+      if (statusRes.ok) {
+        const apiStatus = await statusRes.json();
+        setStatus(apiStatus);
+      }
       
       // Try to fetch matches
-      const liveMatches = await getLiveMatches();
-      setMatches(liveMatches);
+      const matchesRes = await fetch('/api/matches/live');
+      if (matchesRes.ok) {
+        const { matches: liveMatches } = await matchesRes.json();
+        setMatches(liveMatches);
+      }
       
       console.log('✅ Test complete');
       

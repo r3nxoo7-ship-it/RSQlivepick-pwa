@@ -16,7 +16,7 @@ import AuthWrapper from '@/components/AuthWrapper';
 import PredictionsTable from '@/components/PredictionsTable';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
-import { getLiveMatches, getLiveAndUpcomingMatches, type LiveMatch } from '@/lib/unified-api';
+import type { LiveMatch } from '@/lib/unified-api';
 
 // Group triggers by match_id, dedup by filter_id
 interface RecentMatchGroup {
@@ -92,14 +92,27 @@ export default function DashboardPage() {
       // Load matches - try separated first for today's upcoming
       let allMatches: LiveMatch[] = [];
       try {
-        const separated = await getLiveAndUpcomingMatches();
-        if (separated.upcoming.length > 0 || separated.live.length > 0) {
-          allMatches = [...separated.live, ...separated.upcoming];
-        } else {
-          allMatches = await getLiveMatches();
+        const separatedRes = await fetch('/api/matches/live-and-upcoming');
+        if (separatedRes.ok) {
+          const separated = await separatedRes.json();
+          if (separated.upcoming.length > 0 || separated.live.length > 0) {
+            allMatches = [...separated.live, ...separated.upcoming];
+          } else {
+            const liveRes = await fetch('/api/matches/live');
+            if (liveRes.ok) {
+              const { matches } = await liveRes.json();
+              allMatches = matches;
+            }
+          }
         }
       } catch {
-        try { allMatches = await getLiveMatches(); } catch { /* ignore */ }
+        try {
+          const liveRes = await fetch('/api/matches/live');
+          if (liveRes.ok) {
+            const { matches } = await liveRes.json();
+            allMatches = matches;
+          }
+        } catch { /* ignore */ }
       }
 
       // Filter to today's matches only for predictions table
