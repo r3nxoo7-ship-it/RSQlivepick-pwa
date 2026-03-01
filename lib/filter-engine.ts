@@ -16,6 +16,12 @@ import {
 } from '@/lib/extended-filters';
 import { countEventsInWindow } from '@/lib/match-events-enricher';
 
+/** Safely coerce any value to number and call toFixed — prevents "t.toFixed is not a function" crashes when API returns strings */
+function numFixed(val: any, decimals: number): string {
+  const n = typeof val === 'string' ? parseFloat(val) : Number(val);
+  return isNaN(n) ? '?' : n.toFixed(decimals);
+}
+
 /**
  * Extract parsed stats from match.statistics (API-Football / ESPN format)
  * Falls back to match.sofascore_stats (enriched by SofaScore) when statistics array is empty
@@ -406,8 +412,8 @@ export async function matchesFilter(
   // ============================================
   if (conditions.possession) {
     const poss = conditions.possession;
-    const homePoss = stats.possession.home;
-    const awayPoss = stats.possession.away;
+    const homePoss = Number(stats.possession.home) || 0;
+    const awayPoss = Number(stats.possession.away) || 0;
 
     if (poss.home || poss.away || poss.dominant) {
       // Extended format: { home: {min,max}, away: {min,max}, dominant }
@@ -447,9 +453,9 @@ export async function matchesFilter(
       const maxOk = max === undefined || avgPossession <= max;
 
       if (minOk && maxOk) {
-        matchedConditions.push(`Possession: ${avgPossession.toFixed(1)}%`);
+        matchedConditions.push(`Possession: ${numFixed(avgPossession, 1)}%`);
       } else {
-        failedConditions.push(`Possession: ${avgPossession.toFixed(1)}% not in range ${min}-${max ?? '∞'}%`);
+        failedConditions.push(`Possession: ${numFixed(avgPossession, 1)}% not in range ${min}-${max ?? '∞'}%`);
       }
     }
   }
@@ -675,15 +681,16 @@ export async function matchesFilter(
     const matchOdds = match.odds as any;
     if (matchOdds) {
       // Legacy generic odds: find any available odds value to check
-      const anyOdd = matchOdds.home_win ?? matchOdds.away_win ?? matchOdds.draw ?? null;
-      if (anyOdd != null) {
+      const anyOddRaw = matchOdds.home_win ?? matchOdds.away_win ?? matchOdds.draw ?? null;
+      if (anyOddRaw != null) {
+        const anyOdd = Number(anyOddRaw);
         const { min, max } = conditions.odds;
         const minOk = min === undefined || anyOdd >= min;
         const maxOk = max === undefined || anyOdd <= max;
         if (minOk && maxOk) {
-          matchedConditions.push(`Odds: ${anyOdd.toFixed(2)}`);
+          matchedConditions.push(`Odds: ${numFixed(anyOdd, 2)}`);
         } else {
-          failedConditions.push(`Odds: ${anyOdd.toFixed(2)} not in range ${min ?? 0}-${max ?? '∞'}`);
+          failedConditions.push(`Odds: ${numFixed(anyOdd, 2)} not in range ${min ?? 0}-${max ?? '∞'}`);
         }
       }
       // else: no odds data found — silently skip
@@ -722,9 +729,9 @@ export async function matchesFilter(
     const odds = match.odds as any;
     if (odds) {
       const oddsKey = `goals_${type}_${value}`;
-      const oddsValue = odds[oddsKey];
+      const oddsValue = Number(odds[oddsKey]);
       if (oddsValue) {
-        matchedConditions.push(`Goal Line ${type.toUpperCase()} ${value}: Odds ${oddsValue.toFixed(2)}`);
+        matchedConditions.push(`Goal Line ${type.toUpperCase()} ${value}: Odds ${numFixed(oddsValue, 2)}`);
       } else {
         failedConditions.push(`Goal Line ${type.toUpperCase()} ${value}: Odds not available`);
       }
@@ -738,9 +745,9 @@ export async function matchesFilter(
     const odds = match.odds as any;
     if (odds) {
       const oddsKey = `goals_${type}_${value}`;
-      const oddsValue = odds[oddsKey];
+      const oddsValue = Number(odds[oddsKey]);
       if (oddsValue) {
-        matchedConditions.push(`Match Goals ${type.toUpperCase()} ${value}: Odds available (${oddsValue.toFixed(2)})`);
+        matchedConditions.push(`Match Goals ${type.toUpperCase()} ${value}: Odds available (${numFixed(oddsValue, 2)})`);
       } else {
         failedConditions.push(`Match Goals ${type.toUpperCase()} ${value}: Odds not available`);
       }
@@ -761,26 +768,26 @@ export async function matchesFilter(
       let mlPassed = true;
 
       // 1X2 probabilities (stored 0-100 in Bzzoiro, confidence is 0-1)
-      const mlConfidence0to100 = (mlPrediction.confidence ?? 0) * 100;
+      const mlConfidence0to100 = (Number(mlPrediction.confidence) || 0) * 100;
 
       if (ml.prob_home_win) {
-        const v = mlPrediction.prob_home_win ?? 0;
+        const v = Number(mlPrediction.prob_home_win) || 0;
         if (!matchesSimpleRange(v, ml.prob_home_win)) {
-          failedConditions.push(`ML home win prob: ${v.toFixed(1)}% not in range`);
+          failedConditions.push(`ML home win prob: ${numFixed(v, 1)}% not in range`);
           mlPassed = false;
         }
       }
       if (ml.prob_draw) {
-        const v = mlPrediction.prob_draw ?? 0;
+        const v = Number(mlPrediction.prob_draw) || 0;
         if (!matchesSimpleRange(v, ml.prob_draw)) {
-          failedConditions.push(`ML draw prob: ${v.toFixed(1)}% not in range`);
+          failedConditions.push(`ML draw prob: ${numFixed(v, 1)}% not in range`);
           mlPassed = false;
         }
       }
       if (ml.prob_away_win) {
-        const v = mlPrediction.prob_away_win ?? 0;
+        const v = Number(mlPrediction.prob_away_win) || 0;
         if (!matchesSimpleRange(v, ml.prob_away_win)) {
-          failedConditions.push(`ML away win prob: ${v.toFixed(1)}% not in range`);
+          failedConditions.push(`ML away win prob: ${numFixed(v, 1)}% not in range`);
           mlPassed = false;
         }
       }
@@ -791,36 +798,36 @@ export async function matchesFilter(
         }
       }
       if (ml.prob_over_15) {
-        const v = mlPrediction.prob_over_15 ?? 0;
+        const v = Number(mlPrediction.prob_over_15) || 0;
         if (!matchesSimpleRange(v, ml.prob_over_15)) {
-          failedConditions.push(`ML over 1.5 prob: ${v.toFixed(1)}% not in range`);
+          failedConditions.push(`ML over 1.5 prob: ${numFixed(v, 1)}% not in range`);
           mlPassed = false;
         }
       }
       if (ml.prob_over_25) {
-        const v = mlPrediction.prob_over_25 ?? 0;
+        const v = Number(mlPrediction.prob_over_25) || 0;
         if (!matchesSimpleRange(v, ml.prob_over_25)) {
-          failedConditions.push(`ML over 2.5 prob: ${v.toFixed(1)}% not in range`);
+          failedConditions.push(`ML over 2.5 prob: ${numFixed(v, 1)}% not in range`);
           mlPassed = false;
         }
       }
       if (ml.prob_over_35) {
-        const v = mlPrediction.prob_over_35 ?? 0;
+        const v = Number(mlPrediction.prob_over_35) || 0;
         if (!matchesSimpleRange(v, ml.prob_over_35)) {
-          failedConditions.push(`ML over 3.5 prob: ${v.toFixed(1)}% not in range`);
+          failedConditions.push(`ML over 3.5 prob: ${numFixed(v, 1)}% not in range`);
           mlPassed = false;
         }
       }
       if (ml.prob_btts_yes) {
-        const v = mlPrediction.prob_btts_yes ?? 0;
+        const v = Number(mlPrediction.prob_btts_yes) || 0;
         if (!matchesSimpleRange(v, ml.prob_btts_yes)) {
-          failedConditions.push(`ML BTTS prob: ${v.toFixed(1)}% not in range`);
+          failedConditions.push(`ML BTTS prob: ${numFixed(v, 1)}% not in range`);
           mlPassed = false;
         }
       }
       if (ml.confidence) {
         if (!matchesSimpleRange(mlConfidence0to100, ml.confidence)) {
-          failedConditions.push(`ML confidence: ${mlConfidence0to100.toFixed(1)}% not in range`);
+          failedConditions.push(`ML confidence: ${numFixed(mlConfidence0to100, 1)}% not in range`);
           mlPassed = false;
         }
       }
@@ -839,45 +846,45 @@ export async function matchesFilter(
       }
       // Bookmaker odds
       if (ml.odds_home) {
-        const v = mlPrediction.resolved_odds_home;
-        if (v != null && !matchesSimpleRange(v, ml.odds_home)) {
-          failedConditions.push(`Bzzoiro home odds: ${v.toFixed(2)} not in range`);
+        const v = mlPrediction.resolved_odds_home != null ? Number(mlPrediction.resolved_odds_home) : null;
+        if (v != null && !isNaN(v) && !matchesSimpleRange(v, ml.odds_home)) {
+          failedConditions.push(`Bzzoiro home odds: ${numFixed(v, 2)} not in range`);
           mlPassed = false;
         }
       }
       if (ml.odds_draw) {
-        const v = mlPrediction.resolved_odds_draw;
-        if (v != null && !matchesSimpleRange(v, ml.odds_draw)) {
-          failedConditions.push(`Bzzoiro draw odds: ${v.toFixed(2)} not in range`);
+        const v = mlPrediction.resolved_odds_draw != null ? Number(mlPrediction.resolved_odds_draw) : null;
+        if (v != null && !isNaN(v) && !matchesSimpleRange(v, ml.odds_draw)) {
+          failedConditions.push(`Bzzoiro draw odds: ${numFixed(v, 2)} not in range`);
           mlPassed = false;
         }
       }
       if (ml.odds_away) {
-        const v = mlPrediction.resolved_odds_away;
-        if (v != null && !matchesSimpleRange(v, ml.odds_away)) {
-          failedConditions.push(`Bzzoiro away odds: ${v.toFixed(2)} not in range`);
+        const v = mlPrediction.resolved_odds_away != null ? Number(mlPrediction.resolved_odds_away) : null;
+        if (v != null && !isNaN(v) && !matchesSimpleRange(v, ml.odds_away)) {
+          failedConditions.push(`Bzzoiro away odds: ${numFixed(v, 2)} not in range`);
           mlPassed = false;
         }
       }
       if (ml.odds_over_25) {
-        const v = mlPrediction.resolved_odds_over_25;
-        if (v != null && !matchesSimpleRange(v, ml.odds_over_25)) {
-          failedConditions.push(`Bzzoiro over 2.5 odds: ${v.toFixed(2)} not in range`);
+        const v = mlPrediction.resolved_odds_over_25 != null ? Number(mlPrediction.resolved_odds_over_25) : null;
+        if (v != null && !isNaN(v) && !matchesSimpleRange(v, ml.odds_over_25)) {
+          failedConditions.push(`Bzzoiro over 2.5 odds: ${numFixed(v, 2)} not in range`);
           mlPassed = false;
         }
       }
       if (ml.odds_btts_yes) {
-        const v = mlPrediction.resolved_odds_btts_yes;
-        if (v != null && !matchesSimpleRange(v, ml.odds_btts_yes)) {
-          failedConditions.push(`Bzzoiro BTTS odds: ${v.toFixed(2)} not in range`);
+        const v = mlPrediction.resolved_odds_btts_yes != null ? Number(mlPrediction.resolved_odds_btts_yes) : null;
+        if (v != null && !isNaN(v) && !matchesSimpleRange(v, ml.odds_btts_yes)) {
+          failedConditions.push(`Bzzoiro BTTS odds: ${numFixed(v, 2)} not in range`);
           mlPassed = false;
         }
       }
 
       if (mlPassed) {
         const summary: string[] = [];
-        if (mlPrediction.prob_over_25 != null) summary.push(`O2.5:${mlPrediction.prob_over_25.toFixed(0)}%`);
-        if (mlPrediction.prob_btts_yes != null) summary.push(`BTTS:${mlPrediction.prob_btts_yes.toFixed(0)}%`);
+        if (mlPrediction.prob_over_25 != null) summary.push(`O2.5:${numFixed(mlPrediction.prob_over_25, 0)}%`);
+        if (mlPrediction.prob_btts_yes != null) summary.push(`BTTS:${numFixed(mlPrediction.prob_btts_yes, 0)}%`);
         if (mlPrediction.predicted_result) summary.push(`→${mlPrediction.predicted_result}`);
         matchedConditions.push(`ML predictions: ${summary.join(' ') || 'met'}`);
       }
