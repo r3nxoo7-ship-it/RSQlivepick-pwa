@@ -352,17 +352,17 @@ export default function LiveMatchesPage() {
   // FILTER LOGIC
   // ============================================
   
+  // Build set of match IDs from recently triggered (DB records)
+  const triggeredMatchIds = new Set(
+    recentlyTriggered.map(t => Number(t.match_id)).filter(id => !isNaN(id))
+  );
+
   const matchesWithFilters = new Set([
     ...Array.from(filterResults.keys()),
     ...Array.from(triggeredMatchIds),
   ]).size;
   const activeFiltersCount = userFilters.filter(f => f.is_active).length;
   const filtersWithNotifications = userFilters.filter(f => f.is_active && f.notification_enabled).length;
-
-  // Build set of match IDs from recently triggered (DB records)
-  const triggeredMatchIds = new Set(
-    recentlyTriggered.map(t => Number(t.match_id)).filter(id => !isNaN(id))
-  );
 
    let filteredMatches = selectedLeague === 'all' 
     ? matches 
