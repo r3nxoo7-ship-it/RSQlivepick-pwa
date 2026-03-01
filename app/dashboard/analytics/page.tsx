@@ -16,6 +16,10 @@ import {
   ThumbsUp,
   ThumbsDown,
   RefreshCw,
+  ChevronDown,
+  X,
+  Calendar,
+  Layers,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { FilterFeedbackCard } from '@/components/FilterFeedbackCard';
@@ -38,6 +42,12 @@ export default function AnalyticsPage() {
   const [overallStats, setOverallStats] = useState<any>(null);
   const [categoryStats, setCategoryStats] = useState<any>(null);
   const [topFilters, setTopFilters] = useState<FilterStats[]>([]);
+  const [showExportPanel, setShowExportPanel] = useState(false);
+  const [exportRange, setExportRange] = useState<'today' | '7d' | '30d' | 'all'>('all');
+  const [exportLeague, setExportLeague] = useState<string>('all');
+  const [exportFilterId, setExportFilterId] = useState<string>('all');
+  const [exporting, setExporting] = useState(false);
+  const [availableLeagues, setAvailableLeagues] = useState<string[]>([]);
 
   // Load filters and finalize old triggered matches
   const loadFilters = useCallback(async () => {
@@ -85,24 +95,66 @@ export default function AnalyticsPage() {
   }, [filters]);
 
   const handleExport = async () => {
+    setExporting(true);
     try {
-      // Fetch triggered matches history
-      const res = await fetch(`/api/triggered-matches/list?user_id=${userId}&range=all&limit=5000`);
-      const data = res.ok ? await res.json() : { matches: [] };
-      const triggeredMatches = data.matches || [];
+      // Build API params based on selected range
+      const rangeParam = exportRange === 'today' ? '24h' : exportRange;
+      let url = `/api/triggered-matches/list?user_id=${userId}&range=${rangeParam}&limit=5000`;
+      if (exportFilterId !== 'all') {
+        url += `&filter_id=${exportFilterId}`;
+      }
 
-      const csv = exportFullReport(filters, triggeredMatches);
+      const res = await fetch(url);
+      const data = res.ok ? await res.json() : { matches: [] };
+      let triggeredMatches = data.matches || [];
+
+      // Client-side league filter
+      if (exportLeague !== 'all') {
+        triggeredMatches = triggeredMatches.filter(
+          (m: any) => m.league_name === exportLeague
+        );
+      }
+
+      // Filter the filters list too if a specific filter was chosen
+      const filtersForExport = exportFilterId !== 'all'
+        ? filters.filter(f => f.id === exportFilterId)
+        : filters;
+
+      const csv = exportFullReport(filtersForExport, triggeredMatches);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `livepick-full-report-${new Date().toISOString().split('T')[0]}.csv`;
+      a.href = blobUrl;
+
+      // Build descriptive filename
+      const rangeName = { today: 'today', '7d': 'last-7d', '30d': 'last-30d', all: 'full' }[exportRange];
+      const leagueName = exportLeague !== 'all' ? `-${exportLeague.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const filterName = exportFilterId !== 'all' ? `-${(filters.find(f => f.id === exportFilterId)?.name || 'filter').replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      a.download = `livepick-${rangeName}${leagueName}${filterName}-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
+      setShowExportPanel(false);
     } catch (err) {
       console.error('Export failed:', err);
+    } finally {
+      setExporting(false);
     }
   };
+
+  // Fetch unique leagues from triggered matches when export panel opens
+  useEffect(() => {
+    if (!showExportPanel || !userId) return;
+    fetch(`/api/triggered-matches/list?user_id=${userId}&range=all&limit=5000`)
+      .then(r => r.json())
+      .then(data => {
+        const matches = data.matches || [];
+        const leagues = Array.from(
+          new Set(matches.map((m: any) => m.league_name).filter(Boolean))
+        ).sort() as string[];
+        setAvailableLeagues(leagues);
+      })
+      .catch(() => {});
+  }, [showExportPanel, userId]);
 
   // When feedback updates a filter's success_rate, reload filters to get fresh data
   const handleSuccessRateUpdated = useCallback(async () => {
@@ -175,13 +227,106 @@ export default function AnalyticsPage() {
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-glass-light hover:bg-glass-medium text-text-muted hover:text-white transition-colors text-xs"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportPanel(!showExportPanel)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-glass-light hover:bg-glass-medium text-text-muted hover:text-white transition-colors text-xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showExportPanel ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Export filter panel */}
+                {showExportPanel && (
+                  <div className="absolute right-0 top-full mt-2 w-72 glass-card p-4 rounded-xl shadow-2xl border border-glass-lighter z-50 space-y-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold text-white">Export Options</span>
+                      <button onClick={() => setShowExportPanel(false)} className="text-text-muted hover:text-white">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Date Range */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs text-text-muted mb-1.5">
+                        <Calendar className="w-3 h-3" />
+                        Date Range
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { value: 'today' as const, label: 'Today' },
+                          { value: '7d' as const, label: 'Last 7 days' },
+                          { value: '30d' as const, label: 'Last 30 days' },
+                          { value: 'all' as const, label: 'All time' },
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setExportRange(opt.value)}
+                            className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              exportRange === opt.value
+                                ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30'
+                                : 'bg-glass-light text-text-muted hover:text-white hover:bg-glass-medium'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filter selection */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs text-text-muted mb-1.5">
+                        <FilterIcon className="w-3 h-3" />
+                        Filter
+                      </label>
+                      <select
+                        value={exportFilterId}
+                        onChange={e => setExportFilterId(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-glass-light border border-glass-lighter text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-accent-cyan/50"
+                      >
+                        <option value="all">All filters</option>
+                        {filters.map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* League selection */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs text-text-muted mb-1.5">
+                        <Layers className="w-3 h-3" />
+                        League
+                      </label>
+                      <select
+                        value={exportLeague}
+                        onChange={e => setExportLeague(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-glass-light border border-glass-lighter text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-accent-cyan/50"
+                      >
+                        <option value="all">All leagues</option>
+                        {availableLeagues.map(l => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Export button */}
+                    <button
+                      onClick={handleExport}
+                      disabled={exporting}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-accent-cyan/20 hover:bg-accent-cyan/30 text-accent-cyan font-medium text-sm transition-colors disabled:opacity-50"
+                    >
+                      {exporting ? (
+                        <div className="w-4 h-4 rounded-full border-2 border-accent-cyan border-t-transparent animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      {exporting ? 'Exporting...' : 'Download CSV'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
