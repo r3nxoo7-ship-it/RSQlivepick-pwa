@@ -9,10 +9,9 @@
 
 import * as FootballData from './football-data';
 import * as APIFootball from './api-football';
-import * as SofaScore from './sofascore-api';
-// Note: Do NOT import server-only modules (espn-sync) here — this file
-// is used by client components. We'll fetch synced data via the server API
-// endpoint `/api/espn/matches` to avoid bundling server secrets.
+// Note: Do NOT import server-only modules (sofascore-api, espn-sync) here —
+// this file is used by client components. SofaScore is accessed via the
+// server-side proxy /api/sofascore/live-matches to avoid 403 browser blocks.
 
 export type { LiveMatch, MatchStatistics } from '@/lib/types';
 
@@ -33,15 +32,19 @@ const ENABLE_FALLBACK = true;
 export async function getLiveMatches() {
   console.log('🔍 Fetching live matches (SofaScore PRIMARY)...');
 
-  // 1. PRIMARY: Try SofaScore first (best real-time stats, xG, big chances, coverage)
+  // 1. PRIMARY: SofaScore via server-side proxy (avoids 403 browser blocks)
   try {
-    console.log('📡 Trying SofaScore (PRIMARY)...');
-    const matches = await SofaScore.getLiveMatchesFromSofascore();
-    if (matches && matches.length > 0) {
-      console.log(`✅ SofaScore PRIMARY SUCCESS: ${matches.length} matches with enriched stats`);
-      return matches;
-    } else {
-      console.warn('⚠️ SofaScore returned no matches, trying fallbacks...');
+    console.log('📡 Trying SofaScore (PRIMARY via /api/sofascore/live-matches)...');
+    const res = await fetch('/api/sofascore/live-matches', { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      const matches = data.matches as any[];
+      if (matches && matches.length > 0) {
+        console.log(`✅ SofaScore PRIMARY SUCCESS: ${matches.length} matches with enriched stats`);
+        return matches;
+      } else {
+        console.warn('⚠️ SofaScore returned no matches, trying fallbacks...');
+      }
     }
   } catch (err) {
     console.warn('⚠️ SofaScore fetch failed:', err instanceof Error ? err.message : err);
@@ -100,10 +103,11 @@ export async function getLiveMatches() {
  * Uses SofaScore as primary and ESPN as fallback
  */
 export async function getLiveAndUpcomingMatches() {
-  // 1. PRIMARY: SofaScore (better stats)
+  // 1. PRIMARY: SofaScore via server-side proxy (avoids 403 browser blocks)
   try {
-    console.log('📡 Fetching live and upcoming matches (SofaScore PRIMARY)...');
-    const allMatches = await SofaScore.getLiveMatchesFromSofascore();
+    console.log('📡 Fetching live and upcoming matches (SofaScore PRIMARY via proxy)...');
+    const res = await fetch('/api/sofascore/live-matches', { signal: AbortSignal.timeout(8000) });
+    const allMatches = res.ok ? (await res.json()).matches as any[] : null;
     if (allMatches && allMatches.length > 0) {
       const live = allMatches.filter((m: any) => {
         const s = m.fixture?.status;
