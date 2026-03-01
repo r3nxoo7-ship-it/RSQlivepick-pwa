@@ -79,7 +79,7 @@ function evaluateFilterCondition(
  * POST /api/triggered-matches/finalize
  *
  * Finalizes triggered matches that have completed:
- * 1. Finds 'ongoing' triggered matches older than 2 hours
+ * 1. Finds 'ongoing' triggered matches older than 30 minutes
  * 2. Fetches final match data from ESPN
  * 3. Updates triggered_matches with final scores and status='finished'
  * 4. Recalculates filter success_rate
@@ -114,9 +114,9 @@ export async function POST(request: NextRequest) {
         if (!error) updatedCount++;
       }
     } else {
-      // Auto-finalize: mark old 'ongoing' matches (>2 hours) as finished
-      // First, fetch them so we can look up final scores
-      const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      // Auto-finalize: mark old 'ongoing' matches (>30 minutes) as finished
+      // Most matches end within ~105 min of kickoff; 30 min after trigger is safe
+      const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const { data: ongoingMatches } = await supabaseAdmin
         .from('triggered_matches')
         .select('id, match_id')

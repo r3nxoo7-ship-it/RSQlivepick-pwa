@@ -353,8 +353,14 @@ export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredM
     const dt = new Date(m.triggered_at);
     const score = (m.score_home !== null && m.score_away !== null)
       ? `${m.score_home}-${m.score_away}` : '';
-    const finalScore = ((m as any).final_score_home !== null && (m as any).final_score_away !== null)
-      ? `${(m as any).final_score_home}-${(m as any).final_score_away}` : '';
+    // Use final_score if available, otherwise fall back to trigger-time score for finished matches
+    const hasFinal = (m as any).final_score_home !== null && (m as any).final_score_home !== undefined
+      && (m as any).final_score_away !== null && (m as any).final_score_away !== undefined;
+    const isFinished = m.match_status === 'finished' || m.match_status === 'FT'
+      || m.match_status === 'AET' || m.match_status === 'PEN';
+    const finalScore = hasFinal
+      ? `${(m as any).final_score_home}-${(m as any).final_score_away}`
+      : (isFinished && score ? score : '');
     return [
       dt.toLocaleDateString('en-US'),
       dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
