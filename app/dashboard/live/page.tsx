@@ -357,9 +357,11 @@ export default function LiveMatchesPage() {
     recentlyTriggered.map(t => Number(t.match_id)).filter(id => !isNaN(id))
   );
 
+  // Only count matches that are currently in the live/upcoming matches list
+  const currentMatchIds = new Set(matches.map(m => m.fixture?.id).filter((id): id is number => id !== undefined));
   const matchesWithFilters = new Set([
-    ...Array.from(filterResults.keys()),
-    ...Array.from(triggeredMatchIds),
+    ...Array.from(filterResults.keys()).filter(id => currentMatchIds.has(id)),
+    ...Array.from(triggeredMatchIds).filter(id => currentMatchIds.has(id)),
   ]).size;
   const activeFiltersCount = userFilters.filter(f => f.is_active).length;
   const filtersWithNotifications = userFilters.filter(f => f.is_active && f.notification_enabled).length;
@@ -370,10 +372,9 @@ export default function LiveMatchesPage() {
 
   // "Show only matched" toggle: keep matches that have real-time filter hits
   // OR were recently triggered by the background scanner (DB records).
-  if (showOnlyFiltered === true && (filterResults.size > 0 || triggeredMatchIds.size > 0)) {
+  if (showOnlyFiltered === true) {
     filteredMatches = filteredMatches.filter(m =>
-      (m.fixture?.id && filterResults.has(m.fixture.id)) ||
-      (m.fixture?.id && triggeredMatchIds.has(m.fixture.id))
+      (m.fixture?.id && (filterResults.has(m.fixture.id) || triggeredMatchIds.has(m.fixture.id)))
     );
   }
   
