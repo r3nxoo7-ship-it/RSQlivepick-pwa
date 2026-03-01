@@ -105,8 +105,21 @@ export async function getLiveAndUpcomingMatches() {
     console.log('📡 Fetching live and upcoming matches (SofaScore PRIMARY)...');
     const allMatches = await SofaScore.getLiveMatchesFromSofascore();
     if (allMatches && allMatches.length > 0) {
-      const live = allMatches.filter((m: any) => m.fixture?.status === 'inprogress');
-      const upcoming = allMatches.filter((m: any) => m.fixture?.status === 'notstarted');
+      const live = allMatches.filter((m: any) => {
+        const s = m.fixture?.status;
+        if (!s) return false;
+        // status can be an object {short, long, elapsed} or a string
+        const short = typeof s === 'object' ? s.short : s;
+        return ['1H', '2H', 'HT', 'ET', 'BT', 'P'].includes(short) ||
+          (typeof s === 'string' && s === 'inprogress');
+      });
+      const upcoming = allMatches.filter((m: any) => {
+        const s = m.fixture?.status;
+        if (!s) return false;
+        const short = typeof s === 'object' ? s.short : s;
+        return short === 'NS' || short === 'TBD' ||
+          (typeof s === 'string' && s === 'notstarted');
+      });
       console.log(`✅ SofaScore: ${live.length} live, ${upcoming.length} upcoming`);
       return {
         live,
