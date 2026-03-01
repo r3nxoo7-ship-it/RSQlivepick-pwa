@@ -148,9 +148,7 @@ export default function LiveMatchesPage() {
       const params = new URLSearchParams({ user_id: currentUser.id, range: '24h', limit: '10' });
       const res = await fetch(`/api/triggered-matches/list?${params}`);
       const result = await res.json();
-      const matches = result.matches || [];
-      setRecentlyTriggered(matches);
-      console.log('📋 Loaded triggered matches:', matches.length, matches.slice(0, 2));
+      setRecentlyTriggered(result.matches || []);
     } catch (err) {
       console.error('Error loading triggered matches:', err);
     } finally {
@@ -361,14 +359,6 @@ export default function LiveMatchesPage() {
 
   // Only count matches that are currently in the live/upcoming matches list
   const currentMatchIds = new Set(matches.map(m => m.fixture?.id).filter((id): id is number => id !== undefined));
-  
-  // Debug: Log ID matching
-  if (triggeredMatchIds.size > 0) {
-    console.log('🔍 Triggered match IDs:', Array.from(triggeredMatchIds));
-    console.log('🔍 Current match IDs:', Array.from(currentMatchIds).slice(0, 10));
-    console.log('🔍 Matches in both:', Array.from(triggeredMatchIds).filter(id => currentMatchIds.has(id)));
-  }
-  
   const matchesWithFilters = new Set([
     ...Array.from(filterResults.keys()).filter(id => currentMatchIds.has(id)),
     ...Array.from(triggeredMatchIds).filter(id => currentMatchIds.has(id)),
