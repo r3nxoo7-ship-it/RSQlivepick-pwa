@@ -17,10 +17,69 @@ import {
 import { countEventsInWindow } from '@/lib/match-events-enricher';
 
 /**
- * Extract parsed stats directly from ESPN match.statistics array
+ * Extract parsed stats from match.statistics (API-Football / ESPN format)
+ * Falls back to match.sofascore_stats (enriched by SofaScore) when statistics array is empty
  */
 function extractStatsFromMatch(match: LiveMatch): ReturnType<typeof parseMatchStatsCompat> | null {
-  return parseMatchStatsCompat(match.statistics);
+  const fromStats = parseMatchStatsCompat(match.statistics);
+  if (fromStats) return fromStats;
+
+  // Fallback: build stats from sofascore_stats (populated by initial SofaScore fetch or enricher)
+  const ss = (match as any).sofascore_stats as {
+    homeCorners?: number; awayCorners?: number;
+    homeShotsOnTarget?: number; awayShotsOnTarget?: number;
+    homeShotsOff?: number; awayShotsOff?: number;
+    homeTotalShots?: number; awayTotalShots?: number;
+    homePossession?: number; awayPossession?: number;
+    homeYellowCards?: number; awayYellowCards?: number;
+    homeRedCards?: number; awayRedCards?: number;
+    homeFouls?: number; awayFouls?: number;
+  } | undefined;
+
+  if (ss) {
+    return {
+      corners: {
+        home: ss.homeCorners ?? 0,
+        away: ss.awayCorners ?? 0,
+        total: (ss.homeCorners ?? 0) + (ss.awayCorners ?? 0),
+      },
+      shots_on_target: {
+        home: ss.homeShotsOnTarget ?? 0,
+        away: ss.awayShotsOnTarget ?? 0,
+        total: (ss.homeShotsOnTarget ?? 0) + (ss.awayShotsOnTarget ?? 0),
+      },
+      shots_off_target: {
+        home: ss.homeShotsOff ?? 0,
+        away: ss.awayShotsOff ?? 0,
+      },
+      total_shots: {
+        home: ss.homeTotalShots ?? 0,
+        away: ss.awayTotalShots ?? 0,
+      },
+      attacks: { home: 0, away: 0, total: 0 },
+      dangerous_attacks: { home: 0, away: 0, total: 0 },
+      possession: {
+        home: ss.homePossession ?? 0,
+        away: ss.awayPossession ?? 0,
+      },
+      yellow_cards: {
+        home: ss.homeYellowCards ?? 0,
+        away: ss.awayYellowCards ?? 0,
+        total: (ss.homeYellowCards ?? 0) + (ss.awayYellowCards ?? 0),
+      },
+      red_cards: {
+        home: ss.homeRedCards ?? 0,
+        away: ss.awayRedCards ?? 0,
+        total: (ss.homeRedCards ?? 0) + (ss.awayRedCards ?? 0),
+      },
+      fouls: {
+        home: ss.homeFouls ?? 0,
+        away: ss.awayFouls ?? 0,
+      },
+    };
+  }
+
+  return null;
 }
 
 /** Simple min/max range check for ML probability values */
@@ -55,9 +114,9 @@ function parseMatchStatsCompat(statistics: any[] | undefined) {
 
   return {
     corners: {
-      home: getNum(home, 'corners'),
-      away: getNum(away, 'corners'),
-      total: getNum(home, 'corners') + getNum(away, 'corners'),
+      home: getNum(home, 'corner'),
+      away: getNum(away, 'corner'),
+      total: getNum(home, 'corner') + getNum(away, 'corner'),
     },
     shots_on_target: {
       home: getNum(home, 'shots on goal'),

@@ -25,6 +25,7 @@ import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, TriggeredMatch } from '@/lib/supabase';
 import { applyFiltersToMatches, FilterMatchResult } from '@/lib/filter-engine';
+import { enrichMatchesWithSofascore } from '@/lib/sofascore-live-enricher';
 import { useBackgroundScanner } from '@/lib/background-scanner';
 import { checkNotificationStatus, requestNotificationPermission } from '@/lib/notifications';
 import { useRouter } from 'next/navigation';
@@ -237,6 +238,15 @@ export default function LiveMatchesPage() {
       if (userFilters.length > 0) {
         setApplyingFilters(true);
         try {
+          // Enrich live matches with SofaScore stats before filter evaluation
+          // (same enrichment the background scanner does)
+          try {
+            await enrichMatchesWithSofascore(allMatches, userFilters);
+            console.log('✅ Enriched live matches with SofaScore stats');
+          } catch (enrichErr) {
+            console.warn('⚠️ SofaScore enrichment failed (non-fatal):', enrichErr);
+          }
+
           console.log('🎯 Applying filters to matches...');
           const results = await applyFiltersToMatches(allMatches, userFilters);
           setFilterResults(results);
@@ -342,17 +352,29 @@ export default function LiveMatchesPage() {
   // FILTER LOGIC
   // ============================================
   
-  const matchesWithFilters = Array.from(filterResults.keys()).length;
+  const matchesWithFilters = new Set([
+    ...Array.from(filterResults.keys()),
+    ...Array.from(triggeredMatchIds),
+  ]).size;
   const activeFiltersCount = userFilters.filter(f => f.is_active).length;
   const filtersWithNotifications = userFilters.filter(f => f.is_active && f.notification_enabled).length;
+
+  // Build set of match IDs from recently triggered (DB records)
+  const triggeredMatchIds = new Set(
+    recentlyTriggered.map(t => Number(t.match_id)).filter(id => !isNaN(id))
+  );
+
    let filteredMatches = selectedLeague === 'all' 
     ? matches 
     : matches.filter(m => m.league?.name === selectedLeague);
 
-  // Only apply "show only filtered" when there are actual filter matches;
-  // otherwise the toggle would hide ALL matches, leaving an empty page.
-  if (showOnlyFiltered === true && filterResults.size > 0) {
-    filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has(m.fixture.id));
+  // "Show only matched" toggle: keep matches that have real-time filter hits
+  // OR were recently triggered by the background scanner (DB records).
+  if (showOnlyFiltered === true && (filterResults.size > 0 || triggeredMatchIds.size > 0)) {
+    filteredMatches = filteredMatches.filter(m =>
+      (m.fixture?.id && filterResults.has(m.fixture.id)) ||
+      (m.fixture?.id && triggeredMatchIds.has(m.fixture.id))
+    );
   }
   
   const leagues = Array.from(new Set(matches.map(m => m.league?.name || 'Unknown')));
