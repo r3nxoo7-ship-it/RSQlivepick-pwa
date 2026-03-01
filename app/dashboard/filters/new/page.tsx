@@ -171,10 +171,14 @@ export default function CompleteFilterBuilder() {
   // Yellow cards
   const [yellowCardsEnabled, setYellowCardsEnabled] = useState(false);
   const [yellowCards, setYellowCards] = useState<TeamCondition>({});
+  const [yellowCardsTimeWindow, setYellowCardsTimeWindow] = useState<{ from?: number; to?: number }>({});
+  const [yellowCardsTimeEnabled, setYellowCardsTimeEnabled] = useState(false);
   
   // Red cards
   const [redCardsEnabled, setRedCardsEnabled] = useState(false);
   const [redCards, setRedCards] = useState<TeamCondition>({});
+  const [redCardsTimeWindow, setRedCardsTimeWindow] = useState<{ from?: number; to?: number }>({});
+  const [redCardsTimeEnabled, setRedCardsTimeEnabled] = useState(false);
   
   // Dangerous attacks
   const [attacksEnabled, setAttacksEnabled] = useState(false);
@@ -192,6 +196,8 @@ export default function CompleteFilterBuilder() {
   // Substitutions
   const [substitutionsEnabled, setSubstitutionsEnabled] = useState(false);
   const [substitutions, setSubstitutions] = useState<TeamCondition>({});
+  const [substitutionsTimeWindow, setSubstitutionsTimeWindow] = useState<{ from?: number; to?: number }>({});
+  const [substitutionsTimeEnabled, setSubstitutionsTimeEnabled] = useState(false);
   
   // ── SofaScore-exclusive live stats ────────────────────────────────────────
   const [xgEnabled, setXgEnabled] = useState(false);
@@ -440,12 +446,20 @@ export default function CompleteFilterBuilder() {
 
       // Yellow cards
       if (yellowCardsEnabled) {
-        conditions.yellow_cards = buildTeamCond(yellowCards);
+        const yc = buildTeamCond(yellowCards) as any;
+        if (yellowCardsTimeEnabled && yellowCardsTimeWindow.from != null && yellowCardsTimeWindow.to != null) {
+          yc.time_window = { from: yellowCardsTimeWindow.from, to: yellowCardsTimeWindow.to };
+        }
+        conditions.yellow_cards = yc;
       }
 
       // Red cards
       if (redCardsEnabled) {
-        conditions.red_cards = buildTeamCond(redCards);
+        const rc = buildTeamCond(redCards) as any;
+        if (redCardsTimeEnabled && redCardsTimeWindow.from != null && redCardsTimeWindow.to != null) {
+          rc.time_window = { from: redCardsTimeWindow.from, to: redCardsTimeWindow.to };
+        }
+        conditions.red_cards = rc;
       }
 
       // Dangerous attacks
@@ -469,7 +483,11 @@ export default function CompleteFilterBuilder() {
 
       // Substitutions
       if (substitutionsEnabled) {
-        conditions.substitutions = buildTeamCond(substitutions);
+        const sc = buildTeamCond(substitutions) as any;
+        if (substitutionsTimeEnabled && substitutionsTimeWindow.from != null && substitutionsTimeWindow.to != null) {
+          sc.time_window = { from: substitutionsTimeWindow.from, to: substitutionsTimeWindow.to };
+        }
+        conditions.substitutions = sc;
       }
 
       // ── SofaScore-exclusive live stats ──────────────────────────────────
@@ -565,7 +583,17 @@ export default function CompleteFilterBuilder() {
     values: TeamCondition,
     setValues: (val: TeamCondition) => void,
     icon: React.ReactNode,
-    opts?: { useFloat?: boolean; noTotal?: boolean; hint?: string }
+    opts?: {
+      useFloat?: boolean;
+      noTotal?: boolean;
+      hint?: string;
+      timeWindow?: {
+        enabled: boolean;
+        setEnabled: (val: boolean) => void;
+        values: { from?: number; to?: number };
+        setValues: (val: { from?: number; to?: number }) => void;
+      };
+    }
   ) => {
     const useFloat = opts?.useFloat ?? false;
     const noTotal = opts?.noTotal ?? false;
@@ -677,6 +705,52 @@ export default function CompleteFilterBuilder() {
                 />
               </div>
             </div>
+            )}
+
+            {/* Time Window — only for conditions that support it */}
+            {opts?.timeWindow && (
+              <div className="border-t border-glass-light/20 pt-4 mt-4">
+                <label className="flex items-center gap-2 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={opts.timeWindow.enabled}
+                    onChange={(e) => opts.timeWindow!.setEnabled(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm font-semibold text-accent-amber">⏱ Time Window (minutes)</span>
+                </label>
+                {opts.timeWindow.enabled && (
+                  <div>
+                    <p className="text-xs text-text-muted mb-2">Only count events that happen between these minutes</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="number"
+                        placeholder="From min"
+                        value={opts.timeWindow.values.from !== undefined ? opts.timeWindow.values.from : ''}
+                        onChange={(e) => opts.timeWindow!.setValues({
+                          ...opts.timeWindow!.values,
+                          from: e.target.value !== '' ? parseInt(e.target.value) : undefined,
+                        })}
+                        min={0}
+                        max={120}
+                        className="input-field"
+                      />
+                      <input
+                        type="number"
+                        placeholder="To min"
+                        value={opts.timeWindow.values.to !== undefined ? opts.timeWindow.values.to : ''}
+                        onChange={(e) => opts.timeWindow!.setValues({
+                          ...opts.timeWindow!.values,
+                          to: e.target.value !== '' ? parseInt(e.target.value) : undefined,
+                        })}
+                        min={0}
+                        max={120}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -1260,7 +1334,15 @@ export default function CompleteFilterBuilder() {
               setYellowCardsEnabled,
               yellowCards,
               setYellowCards,
-              <div className="w-5 h-5 bg-yellow-500 rounded" />
+              <div className="w-5 h-5 bg-yellow-500 rounded" />,
+              {
+                timeWindow: {
+                  enabled: yellowCardsTimeEnabled,
+                  setEnabled: setYellowCardsTimeEnabled,
+                  values: yellowCardsTimeWindow,
+                  setValues: setYellowCardsTimeWindow,
+                },
+              }
             )}
             
             {renderTeamCondition(
@@ -1269,7 +1351,15 @@ export default function CompleteFilterBuilder() {
               setRedCardsEnabled,
               redCards,
               setRedCards,
-              <div className="w-5 h-5 bg-red-500 rounded" />
+              <div className="w-5 h-5 bg-red-500 rounded" />,
+              {
+                timeWindow: {
+                  enabled: redCardsTimeEnabled,
+                  setEnabled: setRedCardsTimeEnabled,
+                  values: redCardsTimeWindow,
+                  setValues: setRedCardsTimeWindow,
+                },
+              }
             )}
             
             {renderTeamCondition(
@@ -1287,7 +1377,15 @@ export default function CompleteFilterBuilder() {
               setSubstitutionsEnabled,
               substitutions,
               setSubstitutions,
-              <Users className="w-5 h-5 text-accent-cyan" />
+              <Users className="w-5 h-5 text-accent-cyan" />,
+              {
+                timeWindow: {
+                  enabled: substitutionsTimeEnabled,
+                  setEnabled: setSubstitutionsTimeEnabled,
+                  values: substitutionsTimeWindow,
+                  setValues: setSubstitutionsTimeWindow,
+                },
+              }
             )}
           </div>
 

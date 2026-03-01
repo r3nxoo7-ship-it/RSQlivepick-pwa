@@ -121,8 +121,27 @@ export interface LiveMatch {
     fetchedAt: number;       // Unix ms — for cache staleness check
   };
 
+  // Optional: match events timeline (enriched by ESPN events enricher)
+  // Individual events with minute, type, team — used for time-windowed filter conditions
+  match_events?: MatchTimelineEvent[];
+
   // Optional: odds/betting information
   odds?: MatchOdds['bookmakers'];
+}
+
+/**
+ * A single match event from the timeline (yellow card, substitution, corner, etc.)
+ * Enriched from ESPN match-events API for time-windowed filter evaluation.
+ */
+export interface MatchTimelineEvent {
+  minute: number;          // Match minute the event occurred
+  period: number;          // 1 = first half, 2 = second half
+  type: string;            // Event type: 'yellow-card', 'red-card', 'substitution', 'goal', 'corner', etc.
+  teamId: string | null;   // ESPN team ID
+  teamName: string | null;  // Team display name
+  player: string | null;    // Player involved
+  playerOut: string | null;  // For substitutions: player subbed out
+  isScoring: boolean;       // Whether this was a scoring event
 }
 
 /**

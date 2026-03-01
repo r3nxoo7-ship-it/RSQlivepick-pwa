@@ -14,6 +14,7 @@ import {
   type TeamSpecificCondition,
   type TimeCondition,
 } from '@/lib/extended-filters';
+import { countEventsInWindow } from '@/lib/match-events-enricher';
 
 /**
  * Extract parsed stats directly from ESPN match.statistics array
@@ -295,14 +296,50 @@ export async function matchesFilter(
   // 7. YELLOW CARDS
   // ============================================
   if (conditions.yellow_cards) {
-    evaluateStat(stats.yellow_cards.home, stats.yellow_cards.away, conditions.yellow_cards, 'Yellow cards', matchedConditions, failedConditions);
+    const tw = conditions.yellow_cards.time_window;
+    if (tw && match.match_events && match.match_events.length > 0) {
+      // Time-windowed: count yellow cards that happened between from-to minutes
+      const team = conditions.yellow_cards.team || 'total';
+      const homeTeamId = String(match.teams?.home?.id ?? '');
+      const awayTeamId = String(match.teams?.away?.id ?? '');
+      const count = countEventsInWindow(match.match_events, 'yellow-card', tw.from, tw.to, team, homeTeamId, awayTeamId);
+      const { min, max } = conditions.yellow_cards;
+      const minOk = min === undefined || count >= min;
+      const maxOk = max === undefined || count <= max;
+      if (minOk && maxOk) {
+        matchedConditions.push(`Yellow cards (${team}, min ${tw.from}-${tw.to}): ${count}`);
+      } else {
+        failedConditions.push(`Yellow cards (${team}, min ${tw.from}-${tw.to}): ${count} not in range ${min ?? 0}-${max ?? '∞'}`);
+      }
+    } else {
+      // Standard: use cumulative stats
+      evaluateStat(stats.yellow_cards.home, stats.yellow_cards.away, conditions.yellow_cards, 'Yellow cards', matchedConditions, failedConditions);
+    }
   }
 
   // ============================================
   // 8. RED CARDS
   // ============================================
   if (conditions.red_cards) {
-    evaluateStat(stats.red_cards.home, stats.red_cards.away, conditions.red_cards, 'Red cards', matchedConditions, failedConditions);
+    const tw = conditions.red_cards.time_window;
+    if (tw && match.match_events && match.match_events.length > 0) {
+      // Time-windowed: count red cards that happened between from-to minutes
+      const team = conditions.red_cards.team || 'total';
+      const homeTeamId = String(match.teams?.home?.id ?? '');
+      const awayTeamId = String(match.teams?.away?.id ?? '');
+      const count = countEventsInWindow(match.match_events, 'red-card', tw.from, tw.to, team, homeTeamId, awayTeamId);
+      const { min, max } = conditions.red_cards;
+      const minOk = min === undefined || count >= min;
+      const maxOk = max === undefined || count <= max;
+      if (minOk && maxOk) {
+        matchedConditions.push(`Red cards (${team}, min ${tw.from}-${tw.to}): ${count}`);
+      } else {
+        failedConditions.push(`Red cards (${team}, min ${tw.from}-${tw.to}): ${count} not in range ${min ?? 0}-${max ?? '∞'}`);
+      }
+    } else {
+      // Standard: use cumulative stats
+      evaluateStat(stats.red_cards.home, stats.red_cards.away, conditions.red_cards, 'Red cards', matchedConditions, failedConditions);
+    }
   }
 
   // ============================================
@@ -420,6 +457,66 @@ export async function matchesFilter(
   }
 
   // ============================================
+  // 12b. GOALS (basic format: { min, max, team })
+  // ============================================
+  if (conditions.goals) {
+    const homeGoals = match.goals?.home ?? 0;
+    const awayGoals = match.goals?.away ?? 0;
+    evaluateStat(homeGoals, awayGoals, conditions.goals, 'Goals', matchedConditions, failedConditions);
+  }
+
+  // ============================================
+  // 12c. SUBSTITUTIONS
+  // ============================================
+  if (conditions.substitutions) {
+    const tw = conditions.substitutions.time_window;
+    if (tw && match.match_events && match.match_events.length > 0) {
+      // Time-windowed: count substitutions that happened between from-to minutes
+      const team = conditions.substitutions.team || 'total';
+      const homeTeamId = String(match.teams?.home?.id ?? '');
+      const awayTeamId = String(match.teams?.away?.id ?? '');
+      const count = countEventsInWindow(match.match_events, 'substitution', tw.from, tw.to, team, homeTeamId, awayTeamId);
+      const { min, max } = conditions.substitutions;
+      const minOk = min === undefined || count >= min;
+      const maxOk = max === undefined || count <= max;
+      if (minOk && maxOk) {
+        matchedConditions.push(`Substitutions (${team}, min ${tw.from}-${tw.to}): ${count}`);
+      } else {
+        failedConditions.push(`Substitutions (${team}, min ${tw.from}-${tw.to}): ${count} not in range ${min ?? 0}-${max ?? '∞'}`);
+      }
+    } else {
+      // Standard: use cumulative stats
+      let homeSubs = 0;
+      let awaySubs = 0;
+      const ssData = (match as any).sofascore_stats;
+      if (ssData?.homeSubstitutions != null) {
+        homeSubs = ssData.homeSubstitutions;
+        awaySubs = ssData.awaySubstitutions ?? 0;
+      } else if (match.match_events && match.match_events.length > 0) {
+        // Count all substitution events from timeline
+        homeSubs = match.match_events.filter(e => e.type === 'substitution' && e.teamName === 'home').length;
+        awaySubs = match.match_events.filter(e => e.type === 'substitution' && e.teamName === 'away').length;
+      } else if (match.statistics && match.statistics.length >= 2) {
+        // Try ESPN statistics
+        const getSubNum = (teamStats: any): number => {
+          if (!teamStats?.statistics) return 0;
+          const stat = teamStats.statistics.find((s: any) =>
+            s.type?.toLowerCase().includes('substitution')
+          );
+          return stat ? (typeof stat.value === 'number' ? stat.value : parseInt(stat.value) || 0) : 0;
+        };
+        homeSubs = getSubNum(match.statistics[0]);
+        awaySubs = getSubNum(match.statistics[1]);
+      }
+      // Only evaluate if we have any substitution data (non-zero)
+      if (homeSubs > 0 || awaySubs > 0) {
+        evaluateStat(homeSubs, awaySubs, conditions.substitutions, 'Substitutions', matchedConditions, failedConditions);
+      }
+      // else: silently skip — substitution data not available from this data source
+    }
+  }
+
+  // ============================================
   // 13. FOULS
   // ============================================
   if (conditions.fouls && stats.fouls) {
@@ -464,18 +561,36 @@ export async function matchesFilter(
     }
   }
 
-  // Pass accuracy % (team-specific only — total doesn't make meaningful sense)
+  // Pass accuracy % (handles both basic { min, max, team } and extended { home: {min,max}, away: {min,max} })
   if (conditions.pass_accuracy) {
     if (ss?.homePassPct != null && ss?.awayPassPct != null) {
       const pa = conditions.pass_accuracy;
-      const { min, max, team = 'home' } = pa;
-      const val = team === 'away' ? ss.awayPassPct : ss.homePassPct;
-      const minOk = min === undefined || val >= min;
-      const maxOk = max === undefined || val <= max;
-      if (minOk && maxOk) {
-        matchedConditions.push(`Pass accuracy (${team}): ${val}%`);
+      if (isTeamSpecific(pa)) {
+        // Extended format: { home: {min,max}, away: {min,max} }
+        // Cannot use evaluateStat directly since pass accuracy is per-team %
+        let passed = true;
+        if (pa.home && !matchesRange(ss.homePassPct, pa.home as RangeCondition)) {
+          failedConditions.push(`Pass accuracy home: ${ss.homePassPct}% not met`);
+          passed = false;
+        }
+        if (pa.away && !matchesRange(ss.awayPassPct, pa.away as RangeCondition)) {
+          failedConditions.push(`Pass accuracy away: ${ss.awayPassPct}% not met`);
+          passed = false;
+        }
+        if (passed) {
+          matchedConditions.push(`Pass accuracy: H${ss.homePassPct}% A${ss.awayPassPct}%`);
+        }
       } else {
-        failedConditions.push(`Pass accuracy (${team}): ${val}% not in range ${min ?? 0}-${max ?? 100}%`);
+        // Basic format: { min, max, team }
+        const { min, max, team = 'home' } = pa;
+        const val = team === 'away' ? ss.awayPassPct : ss.homePassPct;
+        const minOk = min === undefined || val >= min;
+        const maxOk = max === undefined || val <= max;
+        if (minOk && maxOk) {
+          matchedConditions.push(`Pass accuracy (${team}): ${val}%`);
+        } else {
+          failedConditions.push(`Pass accuracy (${team}): ${val}% not in range ${min ?? 0}-${max ?? 100}%`);
+        }
       }
     }
   }
@@ -491,6 +606,28 @@ export async function matchesFilter(
   if (conditions.clearances) {
     if (ss?.homeClearances != null && ss?.awayClearances != null) {
       evaluateStat(ss.homeClearances, ss.awayClearances, conditions.clearances, 'Clearances', matchedConditions, failedConditions);
+    }
+  }
+
+  // ============================================
+  // 13c. LEGACY ODDS (generic { min, max })
+  // ============================================
+  if (conditions.odds) {
+    const matchOdds = match.odds as any;
+    if (matchOdds) {
+      // Legacy generic odds: find any available odds value to check
+      const anyOdd = matchOdds.home_win ?? matchOdds.away_win ?? matchOdds.draw ?? null;
+      if (anyOdd != null) {
+        const { min, max } = conditions.odds;
+        const minOk = min === undefined || anyOdd >= min;
+        const maxOk = max === undefined || anyOdd <= max;
+        if (minOk && maxOk) {
+          matchedConditions.push(`Odds: ${anyOdd.toFixed(2)}`);
+        } else {
+          failedConditions.push(`Odds: ${anyOdd.toFixed(2)} not in range ${min ?? 0}-${max ?? '∞'}`);
+        }
+      }
+      // else: no odds data found — silently skip
     }
   }
 

@@ -175,12 +175,16 @@ export interface FilterConditions {
     max?: number;
     team?: 'home' | 'away' | 'total';
     compare_to_opponent?: boolean;
+    /** Optional time window: only count cards that happened between these minutes */
+    time_window?: { from: number; to: number };
   };
   red_cards?: {
     min?: number;
     max?: number;
     team?: 'home' | 'away' | 'total';
     compare_to_opponent?: boolean;
+    /** Optional time window: only count cards that happened between these minutes */
+    time_window?: { from: number; to: number };
   };
 
   // Advanced stats
@@ -193,6 +197,15 @@ export interface FilterConditions {
     min?: number;
     max?: number;
     team?: 'home' | 'away' | 'total';
+  };
+
+  // Substitutions
+  substitutions?: {
+    min?: number;
+    max?: number;
+    team?: 'home' | 'away' | 'total';
+    /** Optional time window: only count substitutions that happened between these minutes */
+    time_window?: { from: number; to: number };
   };
 
   // ============ SOFASCORE-EXCLUSIVE LIVE STATS ============

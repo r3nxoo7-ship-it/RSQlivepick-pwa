@@ -8,6 +8,7 @@ import type { LiveMatch } from '@/lib/types';
 import type { Filter } from '@/lib/supabase';
 import { applyFiltersToMatch } from '@/lib/filter-engine';
 import { enrichMatchesWithSofascore } from '@/lib/sofascore-live-enricher';
+import { filtersNeedEvents, enrichMatchesWithEvents } from '@/lib/match-events-enricher';
 import { sendMatchNotification } from '@/lib/notifications';
 import { sendTelegramMatchNotification } from '@/lib/telegram';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -189,6 +190,15 @@ class BackgroundScannerService {
         await enrichMatchesWithSofascore(matches, activeFilters);
       } catch (e) {
         console.warn('[Scanner] SofaScore enrichment failed (non-fatal):', e instanceof Error ? e.message : e);
+      }
+
+      // Enrich with match event timelines if any filter uses time_window conditions
+      if (filtersNeedEvents(activeFilters)) {
+        try {
+          await enrichMatchesWithEvents(matches, activeFilters);
+        } catch (e) {
+          console.warn('[Scanner] Match events enrichment failed (non-fatal):', e instanceof Error ? e.message : e);
+        }
       }
 
       // Scan each match - only process matches that are actually live (in progress)

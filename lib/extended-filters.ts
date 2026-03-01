@@ -43,9 +43,9 @@ export interface ExtendedFilterConditions {
   
   // ========== CARDS ==========
   
-  yellow_cards?: TeamSpecificCondition;
+  yellow_cards?: TeamSpecificCondition & { time_window?: { from: number; to: number } };
   
-  red_cards?: TeamSpecificCondition;
+  red_cards?: TeamSpecificCondition & { time_window?: { from: number; to: number } };
   
   total_cards?: TeamSpecificCondition;
   
@@ -80,7 +80,7 @@ export interface ExtendedFilterConditions {
   
   // ========== SUBSTITUTIONS ==========
   
-  substitutions?: TeamSpecificCondition;
+  substitutions?: TeamSpecificCondition & { time_window?: { from: number; to: number } };
   
   // ========== SOFASCORE-EXCLUSIVE LIVE STATS ==========
   

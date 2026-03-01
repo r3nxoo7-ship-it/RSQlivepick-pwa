@@ -43,6 +43,14 @@ export default function FilterEditPage() {
   const [filter, setFilter] = useState<Filter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Time window state for yellow cards, red cards, substitutions
+  const [yellowCardsTimeEnabled, setYellowCardsTimeEnabled] = useState(false);
+  const [yellowCardsTimeWindow, setYellowCardsTimeWindow] = useState<{ from?: number; to?: number }>({});
+  const [redCardsTimeEnabled, setRedCardsTimeEnabled] = useState(false);
+  const [redCardsTimeWindow, setRedCardsTimeWindow] = useState<{ from?: number; to?: number }>({});
+  const [substitutionsTimeEnabled, setSubstitutionsTimeEnabled] = useState(false);
+  const [substitutionsTimeWindow, setSubstitutionsTimeWindow] = useState<{ from?: number; to?: number }>({});
   
   const [formData, setFormData] = useState({
     name: '',
@@ -100,6 +108,21 @@ export default function FilterEditPage() {
         conditions: filterData.conditions,
       });
 
+      // Extract time_window state from loaded conditions
+      const conds = filterData.conditions as any;
+      if (conds?.yellow_cards?.time_window) {
+        setYellowCardsTimeEnabled(true);
+        setYellowCardsTimeWindow(conds.yellow_cards.time_window);
+      }
+      if (conds?.red_cards?.time_window) {
+        setRedCardsTimeEnabled(true);
+        setRedCardsTimeWindow(conds.red_cards.time_window);
+      }
+      if (conds?.substitutions?.time_window) {
+        setSubstitutionsTimeEnabled(true);
+        setSubstitutionsTimeWindow(conds.substitutions.time_window);
+      }
+
     } catch (err) {
       console.error('Error loading filter:', err);
       setError('Error loading filter');
@@ -132,11 +155,34 @@ export default function FilterEditPage() {
         router.push('/login');
         return;
       }
+
+      // Merge time_window into conditions before saving
+      const conditionsToSave = { ...formData.conditions } as any;
+      // Yellow cards time_window
+      if (yellowCardsTimeEnabled && yellowCardsTimeWindow.from != null && yellowCardsTimeWindow.to != null) {
+        conditionsToSave.yellow_cards = { ...(conditionsToSave.yellow_cards || {}), time_window: { from: yellowCardsTimeWindow.from, to: yellowCardsTimeWindow.to } };
+      } else if (conditionsToSave.yellow_cards?.time_window) {
+        const { time_window, ...rest } = conditionsToSave.yellow_cards;
+        conditionsToSave.yellow_cards = Object.keys(rest).length > 0 ? rest : conditionsToSave.yellow_cards;
+        delete conditionsToSave.yellow_cards.time_window;
+      }
+      // Red cards time_window
+      if (redCardsTimeEnabled && redCardsTimeWindow.from != null && redCardsTimeWindow.to != null) {
+        conditionsToSave.red_cards = { ...(conditionsToSave.red_cards || {}), time_window: { from: redCardsTimeWindow.from, to: redCardsTimeWindow.to } };
+      } else if (conditionsToSave.red_cards?.time_window) {
+        delete conditionsToSave.red_cards.time_window;
+      }
+      // Substitutions time_window
+      if (substitutionsTimeEnabled && substitutionsTimeWindow.from != null && substitutionsTimeWindow.to != null) {
+        conditionsToSave.substitutions = { ...(conditionsToSave.substitutions || {}), time_window: { from: substitutionsTimeWindow.from, to: substitutionsTimeWindow.to } };
+      } else if (conditionsToSave.substitutions?.time_window) {
+        delete conditionsToSave.substitutions.time_window;
+      }
       
       const { data, error } = await dbHelpers.updateFilter(filterId, {
         name: formData.name,
         description: formData.description || null,
-        conditions: formData.conditions,
+        conditions: conditionsToSave,
         is_active: formData.is_active,
         notification_enabled: formData.notification_enabled,
         telegram_enabled: formData.telegram_enabled,
@@ -242,6 +288,18 @@ export default function FilterEditPage() {
   checkTeamSpecific('attacks', 'Attacks');
   checkTeamSpecific('yellow_cards', 'Yellow Cards');
   checkTeamSpecific('red_cards', 'Red Cards');
+  checkTeamSpecific('substitutions', 'Substitutions');
+
+  // Time window display
+  const checkTimeWindow = (key: string, label: string) => {
+    const cond = (extConditions as any)[key];
+    if (cond?.time_window?.from != null && cond?.time_window?.to != null) {
+      extendedSummary.push(`${label} time window: ${cond.time_window.from}' – ${cond.time_window.to}'`);
+    }
+  };
+  checkTimeWindow('yellow_cards', 'Yellow Cards');
+  checkTimeWindow('red_cards', 'Red Cards');
+  checkTimeWindow('substitutions', 'Substitutions');
 
   // Score extended
   if (extConditions.score) {
@@ -559,6 +617,46 @@ export default function FilterEditPage() {
                     />
                   </div>
                 </div>
+                {/* Time Window */}
+                <div className="mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={yellowCardsTimeEnabled}
+                      onChange={(e) => setYellowCardsTimeEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-glass-medium checked:bg-accent-amber"
+                    />
+                    <span className="text-accent-amber font-medium">⏱ Time Window (minutes)</span>
+                  </label>
+                  {yellowCardsTimeEnabled && (
+                    <div className="grid grid-cols-2 gap-3 mt-2 pl-6">
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">From min</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          value={yellowCardsTimeWindow.from ?? ''}
+                          onChange={(e) => setYellowCardsTimeWindow({ ...yellowCardsTimeWindow, from: e.target.value === '' ? undefined : parseInt(e.target.value) })}
+                          placeholder="0"
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">To min</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          value={yellowCardsTimeWindow.to ?? ''}
+                          onChange={(e) => setYellowCardsTimeWindow({ ...yellowCardsTimeWindow, to: e.target.value === '' ? undefined : parseInt(e.target.value) })}
+                          placeholder="90"
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Match Time */}
@@ -613,6 +711,46 @@ export default function FilterEditPage() {
                     />
                   </div>
                 </div>
+                {/* Time Window */}
+                <div className="mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={redCardsTimeEnabled}
+                      onChange={(e) => setRedCardsTimeEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-glass-medium checked:bg-accent-amber"
+                    />
+                    <span className="text-accent-amber font-medium">⏱ Time Window (minutes)</span>
+                  </label>
+                  {redCardsTimeEnabled && (
+                    <div className="grid grid-cols-2 gap-3 mt-2 pl-6">
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">From min</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          value={redCardsTimeWindow.from ?? ''}
+                          onChange={(e) => setRedCardsTimeWindow({ ...redCardsTimeWindow, from: e.target.value === '' ? undefined : parseInt(e.target.value) })}
+                          placeholder="0"
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">To min</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          value={redCardsTimeWindow.to ?? ''}
+                          onChange={(e) => setRedCardsTimeWindow({ ...redCardsTimeWindow, to: e.target.value === '' ? undefined : parseInt(e.target.value) })}
+                          placeholder="90"
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Goals */}
@@ -639,6 +777,73 @@ export default function FilterEditPage() {
                       className="input-field"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Substitutions */}
+              <div>
+                <h3 className="font-semibold mb-3">🔄 Substitutions</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Min</label>
+                    <input
+                      type="number"
+                      value={(formData.conditions as any).substitutions?.min || ''}
+                      onChange={(e) => updateCondition('substitutions' as any, 'min', e.target.value)}
+                      placeholder="ex: 2"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-muted mb-2">Max</label>
+                    <input
+                      type="number"
+                      value={(formData.conditions as any).substitutions?.max || ''}
+                      onChange={(e) => updateCondition('substitutions' as any, 'max', e.target.value)}
+                      placeholder="ex: 6"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+                {/* Time Window */}
+                <div className="mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={substitutionsTimeEnabled}
+                      onChange={(e) => setSubstitutionsTimeEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-glass-medium checked:bg-accent-amber"
+                    />
+                    <span className="text-accent-amber font-medium">⏱ Time Window (minutes)</span>
+                  </label>
+                  {substitutionsTimeEnabled && (
+                    <div className="grid grid-cols-2 gap-3 mt-2 pl-6">
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">From min</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          value={substitutionsTimeWindow.from ?? ''}
+                          onChange={(e) => setSubstitutionsTimeWindow({ ...substitutionsTimeWindow, from: e.target.value === '' ? undefined : parseInt(e.target.value) })}
+                          placeholder="0"
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">To min</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          value={substitutionsTimeWindow.to ?? ''}
+                          onChange={(e) => setSubstitutionsTimeWindow({ ...substitutionsTimeWindow, to: e.target.value === '' ? undefined : parseInt(e.target.value) })}
+                          placeholder="90"
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               
