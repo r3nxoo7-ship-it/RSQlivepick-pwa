@@ -127,33 +127,39 @@ export interface BzzoiroMatchedPrediction extends BzzoiroPrediction {
 // ============================================
 
 function normalizePrediction(raw: BzzoiroRawPrediction): BzzoiroPrediction {
+  // Helper to safely parse numbers (handles string inputs from API)
+  const parseNum = (val: any, defaultVal = 0): number => {
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    return isNaN(num) || num == null ? defaultVal : num;
+  };
+
   return {
-    id: raw.id,
-    event_id: raw.event.id,
+    id: parseNum(raw.id),
+    event_id: parseNum(raw.event.id),
     home_team: raw.event.home_team,
     away_team: raw.event.away_team,
     league_name: raw.event.league?.name || '',
     match_date: raw.event.event_date,
-    prob_home_win: raw.prob_home_win,
-    prob_draw: raw.prob_draw,
-    prob_away_win: raw.prob_away_win,
+    prob_home_win: parseNum(raw.prob_home_win),
+    prob_draw: parseNum(raw.prob_draw),
+    prob_away_win: parseNum(raw.prob_away_win),
     predicted_result: raw.predicted_result,
-    prob_over_15: raw.prob_over_15,
-    prob_over_25: raw.prob_over_25,
-    prob_over_35: raw.prob_over_35,
-    prob_btts_yes: raw.prob_btts_yes,
-    expected_home_goals: raw.expected_home_goals,
-    expected_away_goals: raw.expected_away_goals,
+    prob_over_15: parseNum(raw.prob_over_15),
+    prob_over_25: parseNum(raw.prob_over_25),
+    prob_over_35: parseNum(raw.prob_over_35),
+    prob_btts_yes: parseNum(raw.prob_btts_yes),
+    expected_home_goals: parseNum(raw.expected_home_goals),
+    expected_away_goals: parseNum(raw.expected_away_goals),
     // Normalize confidence to 0-1
-    confidence: Math.min(raw.favorite_prob ?? raw.confidence, 100) / 100,
+    confidence: Math.min(parseNum(raw.favorite_prob ?? raw.confidence, 0), 100) / 100,
     model_version: raw.model_version,
     most_likely_score: raw.most_likely_score || '',
     over_25_recommend: raw.over_25_recommend,
     btts_recommend: raw.btts_recommend,
     winner_recommend: raw.winner_recommend,
-    odds_home: raw.event.odds_home,
-    odds_draw: raw.event.odds_draw,
-    odds_away: raw.event.odds_away,
+    odds_home: parseNum(raw.event.odds_home, 0) || undefined,
+    odds_draw: parseNum(raw.event.odds_draw, 0) || undefined,
+    odds_away: parseNum(raw.event.odds_away, 0) || undefined,
   };
 }
 
@@ -390,6 +396,13 @@ export async function getBzzoiroEnrichedMap(
 
   const resultMap = new Map<string, BzzoiroEnrichedPrediction>();
 
+  // Helper to safely parse odds values (handles string inputs from API)
+  const parseOdds = (val: any): number | null => {
+    if (val == null) return null;
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    return isNaN(num) ? null : num;
+  };
+
   for (const pred of predictions) {
     const predKey = `${normalizeTeamName(pred.home_team)}|${normalizeTeamName(pred.away_team)}`;
     const event =
@@ -402,11 +415,11 @@ export async function getBzzoiroEnrichedMap(
       live_home_score: event?.home_score ?? null,
       live_away_score: event?.away_score ?? null,
       live_status: event?.status ?? null,
-      resolved_odds_home: event?.odds_home ?? pred.odds_home ?? null,
-      resolved_odds_draw: event?.odds_draw ?? pred.odds_draw ?? null,
-      resolved_odds_away: event?.odds_away ?? pred.odds_away ?? null,
-      resolved_odds_over_25: event?.odds_over_25 ?? null,
-      resolved_odds_btts_yes: event?.odds_btts_yes ?? null,
+      resolved_odds_home: parseOdds(event?.odds_home) ?? pred.odds_home ?? null,
+      resolved_odds_draw: parseOdds(event?.odds_draw) ?? pred.odds_draw ?? null,
+      resolved_odds_away: parseOdds(event?.odds_away) ?? pred.odds_away ?? null,
+      resolved_odds_over_25: parseOdds(event?.odds_over_25) ?? null,
+      resolved_odds_btts_yes: parseOdds(event?.odds_btts_yes) ?? null,
     };
 
     resultMap.set(predKey, enriched);
