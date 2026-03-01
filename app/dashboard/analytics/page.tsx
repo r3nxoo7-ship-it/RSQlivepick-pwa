@@ -53,6 +53,17 @@ export default function AnalyticsPage() {
         body: JSON.stringify({ user_id: user.id }),
       }).catch(() => {}); // Fire and forget
 
+      // Clean up duplicate triggered_matches entries (from pre-fix multi-tab bug)
+      fetch('/api/triggered-matches/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      }).then(r => r.json()).then(result => {
+        if (result.deleted > 0) {
+          console.log(`🧹 Cleaned up ${result.deleted} duplicate triggered matches`);
+        }
+      }).catch(() => {}); // Fire and forget
+
       const userFilters = await dbHelpers.getUserFilters(user.id);
       setFilters(userFilters);
     } catch (err) {

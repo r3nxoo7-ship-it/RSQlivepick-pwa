@@ -98,8 +98,8 @@ export async function GET(request: NextRequest) {
       query = query.eq('match_id', matchId);
     }
 
-    // Apply pagination
-    query = query.range(offset, offset + limit - 1);
+    // Apply pagination — fetch enough to deduplicate, then trim
+    query = query.range(offset, offset + limit * 2 - 1);
 
     const { data, error } = await query;
 
@@ -108,10 +108,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Deduplicate: keep only the FIRST (newest) entry per match_id+filter_id combo
+    const seen = new Set<string>();
+    const deduped = (data || []).filter(row => {
+      const key = `${row.match_id}::${row.filter_id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, limit);
+
     return NextResponse.json({
-      triggers: data || [],
-      matches: data || [], // For backward compatibility
-      count: data?.length || 0,
+      triggers: deduped,
+      matches: deduped, // For backward compatibility
+      count: deduped.length,
     });
   } catch (err) {
     console.error('[triggered-matches/list] Server error:', err);
