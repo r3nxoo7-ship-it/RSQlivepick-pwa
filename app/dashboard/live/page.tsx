@@ -349,8 +349,11 @@ export default function LiveMatchesPage() {
     ? matches 
     : matches.filter(m => m.league?.name === selectedLeague);
 
-  if (showOnlyFiltered === true) {
-filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has(m.fixture.id));  }
+  // Only apply "show only filtered" when there are actual filter matches;
+  // otherwise the toggle would hide ALL matches, leaving an empty page.
+  if (showOnlyFiltered === true && filterResults.size > 0) {
+    filteredMatches = filteredMatches.filter(m => m.fixture?.id && filterResults.has(m.fixture.id));
+  }
   
   const leagues = Array.from(new Set(matches.map(m => m.league?.name || 'Unknown')));
   
