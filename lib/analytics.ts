@@ -402,7 +402,8 @@ export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredM
     sections.push(`${csvEscape(label)},${csvEscape(val)}`);
   });
 
-  return BOM + sections.join('\n');
+  // sep=, tells Excel to use comma as delimiter (fixes single-column issue on non-US locales)
+  return BOM + 'sep=,\n' + sections.join('\n');
 }
 
 // ============================================
