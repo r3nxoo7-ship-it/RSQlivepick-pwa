@@ -71,28 +71,6 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // Last resort: return trigger-time score if match exists at all
-      const { data: tmAny } = await supabase
-        .from('triggered_matches')
-        .select('home_team, away_team, score_home, score_away, match_status, league_name')
-        .eq('match_id', matchId)
-        .limit(1);
-
-      if (tmAny && tmAny.length > 0) {
-        const tm = tmAny[0];
-        return NextResponse.json({
-          matchId,
-          homeTeam: tm.home_team,
-          awayTeam: tm.away_team,
-          scoreHome: tm.score_home,
-          scoreAway: tm.score_away,
-          status: tm.match_status,
-          statusLong: tm.match_status === 'finished' ? 'Match Finished' : 'In Progress',
-          league: tm.league_name,
-          source: 'triggered_matches_trigger_time',
-        });
-      }
-
       return NextResponse.json(
         { 
           error: 'Match not found', 
