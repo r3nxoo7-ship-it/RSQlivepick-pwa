@@ -611,17 +611,22 @@ export default function AnalyticsPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-semibold text-white truncate">{g.homeTeam} vs {g.awayTeam}</div>
+                              <div className="mt-0.5 text-[11px] text-text-muted truncate">
+                                <span className="text-text-muted">At trigger:</span>{' '}
+                                <span className="text-white font-semibold">{g.scoreHome ?? 0}-{g.scoreAway ?? 0}</span>{' '}
+                                <span className="text-accent-cyan font-semibold">({g.latestMinute != null ? `${g.latestMinute}'` : '—'})</span>
+                                {g.finalScoreHome != null && (
+                                  <>
+                                    <span className="text-text-muted"> · </span>
+                                    <span className="text-text-muted">FT:</span>{' '}
+                                    <span className="text-accent-green font-bold">{g.finalScoreHome}-{g.finalScoreAway}</span>
+                                  </>
+                                )}
+                              </div>
+
                               <div className="flex items-center gap-2 mt-0.5 text-[10px]">
                                 <span className="text-text-muted truncate">{g.league}</span>
                                 <span className="text-accent-blue">{(() => { const d = Date.now() - new Date(g.latestAt).getTime(); const m = Math.floor(d/60000); if (m < 1) return 'Just now'; if (m < 60) return `${m}m ago`; const h = Math.floor(d/3600000); if (h < 24) return `${h}h ago`; return `${Math.floor(d/86400000)}d ago`; })()}</span>
-                                <span className="text-text-muted">·</span>
-                                <span className="text-accent-cyan font-semibold">
-                                  {g.latestMinute != null ? `${g.latestMinute}'` : '—'}
-                                </span>
-                                <span className="text-text-muted">{g.scoreHome ?? 0}-{g.scoreAway ?? 0}</span>
-                                {g.finalScoreHome != null && (
-                                  <span className="text-accent-green font-bold">→ {g.finalScoreHome}-{g.finalScoreAway} FT</span>
-                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -642,10 +647,15 @@ export default function AnalyticsPage() {
                                     <span className="text-xs text-white">{fname}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-[11px] text-text-muted">
-                                    {raw?.match_time != null && <span className="text-accent-cyan font-semibold">{raw.match_time}&apos;</span>}
-                                    <span className="text-text-muted">{raw?.score_home ?? 0}-{raw?.score_away ?? 0}</span>
+                                    <span className="text-text-muted">At trigger:</span>
+                                    <span className="text-white font-semibold">{raw?.score_home ?? 0}-{raw?.score_away ?? 0}</span>
+                                    <span className="text-accent-cyan font-semibold">({raw?.match_time != null ? `${raw.match_time}'` : '—'})</span>
                                     {raw?.final_score_home != null && (
-                                      <span className="text-accent-green font-bold">→ {raw.final_score_home}-{raw.final_score_away} FT</span>
+                                      <>
+                                        <span className="text-text-muted">·</span>
+                                        <span className="text-text-muted">FT:</span>
+                                        <span className="text-accent-green font-bold">{raw.final_score_home}-{raw.final_score_away}</span>
+                                      </>
                                     )}
 
                                     {raw?.id && (
@@ -745,9 +755,17 @@ export default function AnalyticsPage() {
                                   </div>
                                   <div className="min-w-0">
                                     <div className="text-xs text-white truncate">{m.home_team} vs {m.away_team}</div>
-                                    <div className="text-[10px] text-text-muted truncate">
-                                      {m.match_time != null ? `${m.match_time}'` : '—'} · {m.score_home ?? 0}-{m.score_away ?? 0}
-                                      {m.final_score_home != null ? ` → ${m.final_score_home}-${m.final_score_away} FT` : ''}
+                                    <div className="text-[11px] text-text-muted truncate">
+                                      <span className="text-text-muted">At trigger:</span>{' '}
+                                      <span className="text-white font-semibold">{m.score_home ?? 0}-{m.score_away ?? 0}</span>{' '}
+                                      <span className="text-accent-cyan font-semibold">({m.match_time != null ? `${m.match_time}'` : '—'})</span>
+                                      {m.final_score_home != null && (
+                                        <>
+                                          <span className="text-text-muted"> · </span>
+                                          <span className="text-text-muted">FT:</span>{' '}
+                                          <span className="text-accent-green font-bold">{m.final_score_home}-{m.final_score_away}</span>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
