@@ -66,6 +66,7 @@ export default function AnalyticsPage() {
   const [insightsOpen, setInsightsOpen] = useState<Set<string>>(new Set());
   const [insightsData, setInsightsData] = useState<Map<string, any>>(new Map());
   const [insightsLoading, setInsightsLoading] = useState<Set<string>>(new Set());
+  const [savingInlineFeedback, setSavingInlineFeedback] = useState<Set<string>>(new Set());
 
   const loadInsights = useCallback(async (filterId: string) => {
     if (insightsData.has(filterId) || insightsLoading.has(filterId)) return;
@@ -136,15 +137,32 @@ export default function AnalyticsPage() {
   }, [activeTab, userId, triggeredRange]);
 
   // Group triggered matches by match
+  const latestTriggeredByMatchAndFilter = (() => {
+    const map = new Map<string, any>();
+    for (const m of triggeredMatches) {
+      const key = `${m.match_id}||${m.filter_name}`;
+      const existing = map.get(key);
+      if (!existing || new Date(m.triggered_at) > new Date(existing.triggered_at)) {
+        map.set(key, m);
+      }
+    }
+    return map;
+  })();
+
   const triggeredByMatch = (() => {
-    const map = new Map<string, { matchId: string; homeTeam: string; awayTeam: string; league: string; scoreHome: number | null; scoreAway: number | null; finalScoreHome: number | null; finalScoreAway: number | null; latestAt: string; filters: string[] }>();
+    const map = new Map<string, { matchId: string; homeTeam: string; awayTeam: string; league: string; scoreHome: number | null; scoreAway: number | null; finalScoreHome: number | null; finalScoreAway: number | null; latestAt: string; latestMinute: number | null; filters: string[] }>();
     for (const m of triggeredMatches) {
       if (!map.has(m.match_id)) {
-        map.set(m.match_id, { matchId: m.match_id, homeTeam: m.home_team, awayTeam: m.away_team, league: m.league_name || '', scoreHome: m.score_home, scoreAway: m.score_away, finalScoreHome: m.final_score_home ?? null, finalScoreAway: m.final_score_away ?? null, latestAt: m.triggered_at, filters: [] });
+        map.set(m.match_id, { matchId: m.match_id, homeTeam: m.home_team, awayTeam: m.away_team, league: m.league_name || '', scoreHome: m.score_home, scoreAway: m.score_away, finalScoreHome: m.final_score_home ?? null, finalScoreAway: m.final_score_away ?? null, latestAt: m.triggered_at, latestMinute: m.match_time ?? null, filters: [] });
       }
       const g = map.get(m.match_id)!;
       if (!g.filters.includes(m.filter_name)) g.filters.push(m.filter_name);
-      if (new Date(m.triggered_at) > new Date(g.latestAt)) { g.latestAt = m.triggered_at; if (m.score_home != null) g.scoreHome = m.score_home; if (m.score_away != null) g.scoreAway = m.score_away; }
+      if (new Date(m.triggered_at) > new Date(g.latestAt)) {
+        g.latestAt = m.triggered_at;
+        g.latestMinute = m.match_time ?? null;
+        if (m.score_home != null) g.scoreHome = m.score_home;
+        if (m.score_away != null) g.scoreAway = m.score_away;
+      }
       // Always prefer final score when available
       if (m.final_score_home != null) g.finalScoreHome = m.final_score_home;
       if (m.final_score_away != null) g.finalScoreAway = m.final_score_away;
@@ -152,13 +170,86 @@ export default function AnalyticsPage() {
     return Array.from(map.values()).sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
   })();
 
+  // When feedback updates a filter's success_rate, reload filters to get fresh data
+  const handleSuccessRateUpdated = useCallback(async () => {
+    const user = authHelpers.getCurrentUser();
+    if (!user) return;
+    const userFilters = await dbHelpers.getUserFilters(user.id);
+    setFilters(userFilters);
+  }, []);
+
+  const handleInlineFeedback = useCallback(async (filterId: string, triggeredMatchId: string, isPositive: boolean) => {
+    if (!userId) return;
+
+    let prevFeedback: boolean | null | undefined = undefined;
+    let prevFeedbackAt: string | null | undefined = undefined;
+
+    // Optimistic UI update
+    setTriggeredMatches(prev => prev.map((m: any) => {
+      if (m.id !== triggeredMatchId) return m;
+      prevFeedback = m.user_feedback;
+      prevFeedbackAt = m.feedback_at;
+      return { ...m, user_feedback: isPositive, feedback_at: new Date().toISOString() };
+    }));
+
+    setSavingInlineFeedback(prev => {
+      const next = new Set(prev);
+      next.add(triggeredMatchId);
+      return next;
+    });
+
+    try {
+      const res = await fetch('/api/triggered-matches/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          triggered_match_id: triggeredMatchId,
+          user_id: userId,
+          feedback: isPositive,
+        }),
+      });
+
+      if (res.ok) {
+        await handleSuccessRateUpdated();
+      } else {
+        // Revert
+        setTriggeredMatches(prev => prev.map((m: any) =>
+          m.id === triggeredMatchId
+            ? { ...m, user_feedback: prevFeedback ?? null, feedback_at: prevFeedbackAt ?? null }
+            : m
+        ));
+      }
+    } catch {
+      // Revert
+      setTriggeredMatches(prev => prev.map((m: any) =>
+        m.id === triggeredMatchId
+          ? { ...m, user_feedback: prevFeedback ?? null, feedback_at: prevFeedbackAt ?? null }
+          : m
+      ));
+    } finally {
+      setSavingInlineFeedback(prev => {
+        const next = new Set(prev);
+        next.delete(triggeredMatchId);
+        return next;
+      });
+    }
+  }, [userId, handleSuccessRateUpdated]);
+
   // Group triggered matches by filter
   const triggeredByFilter = (() => {
     const map = new Map<string, { filterId: string; filterName: string; matches: any[]; latestAt: string }>();
     for (const m of triggeredMatches) {
       if (!map.has(m.filter_id)) map.set(m.filter_id, { filterId: m.filter_id, filterName: m.filter_name, matches: [], latestAt: m.triggered_at });
       const g = map.get(m.filter_id)!;
-      if (!g.matches.find((x: any) => x.match_id === m.match_id)) g.matches.push(m);
+      const existingIdx = g.matches.findIndex((x: any) => x.match_id === m.match_id);
+      if (existingIdx === -1) {
+        g.matches.push(m);
+      } else {
+        const existing = g.matches[existingIdx];
+        if (new Date(m.triggered_at) > new Date(existing.triggered_at)) {
+          g.matches[existingIdx] = m;
+        }
+      }
       if (new Date(m.triggered_at) > new Date(g.latestAt)) g.latestAt = m.triggered_at;
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
@@ -234,14 +325,6 @@ export default function AnalyticsPage() {
       })
       .catch(() => {});
   }, [showExportPanel, userId]);
-
-  // When feedback updates a filter's success_rate, reload filters to get fresh data
-  const handleSuccessRateUpdated = useCallback(async () => {
-    const user = authHelpers.getCurrentUser();
-    if (!user) return;
-    const userFilters = await dbHelpers.getUserFilters(user.id);
-    setFilters(userFilters);
-  }, []);
 
   // Loading state
   if (loading) {
@@ -531,6 +614,14 @@ export default function AnalyticsPage() {
                               <div className="flex items-center gap-2 mt-0.5 text-[10px]">
                                 <span className="text-text-muted truncate">{g.league}</span>
                                 <span className="text-accent-blue">{(() => { const d = Date.now() - new Date(g.latestAt).getTime(); const m = Math.floor(d/60000); if (m < 1) return 'Just now'; if (m < 60) return `${m}m ago`; const h = Math.floor(d/3600000); if (h < 24) return `${h}h ago`; return `${Math.floor(d/86400000)}d ago`; })()}</span>
+                                <span className="text-text-muted">·</span>
+                                <span className="text-accent-cyan font-semibold">
+                                  {g.latestMinute != null ? `${g.latestMinute}'` : '—'}
+                                </span>
+                                <span className="text-text-muted">{g.scoreHome ?? 0}-{g.scoreAway ?? 0}</span>
+                                {g.finalScoreHome != null && (
+                                  <span className="text-accent-green font-bold">→ {g.finalScoreHome}-{g.finalScoreAway} FT</span>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -542,7 +633,8 @@ export default function AnalyticsPage() {
                         {triggeredExpanded === g.matchId && (
                           <div className="border-t border-white/8 px-3 py-2 space-y-1">
                             {g.filters.map((fname: string, i: number) => {
-                              const raw = triggeredMatches.find((m: any) => m.match_id === g.matchId && m.filter_name === fname);
+                              const raw = latestTriggeredByMatchAndFilter.get(`${g.matchId}||${fname}`);
+                              const isSaving = raw?.id ? savingInlineFeedback.has(raw.id) : false;
                               return (
                                 <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/3">
                                   <div className="flex items-center gap-2">
@@ -554,6 +646,41 @@ export default function AnalyticsPage() {
                                     <span className="text-text-muted">{raw?.score_home ?? 0}-{raw?.score_away ?? 0}</span>
                                     {raw?.final_score_home != null && (
                                       <span className="text-accent-green font-bold">→ {raw.final_score_home}-{raw.final_score_away} FT</span>
+                                    )}
+
+                                    {raw?.id && (
+                                      <div className="flex gap-1 pl-1">
+                                        <button
+                                          type="button"
+                                          disabled={isSaving}
+                                          onClick={(e) => { e.stopPropagation(); handleInlineFeedback(raw.filter_id, raw.id, true); }}
+                                          className={`p-1.5 rounded-lg transition-all ${
+                                            isSaving ? 'opacity-50 cursor-wait' :
+                                            raw.user_feedback === true
+                                              ? 'bg-accent-green/25 text-accent-green ring-1 ring-accent-green/40'
+                                              : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-green'
+                                          }`}
+                                          title="Good trigger"
+                                          aria-label="Rate good trigger"
+                                        >
+                                          <ThumbsUp size={12} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={isSaving}
+                                          onClick={(e) => { e.stopPropagation(); handleInlineFeedback(raw.filter_id, raw.id, false); }}
+                                          className={`p-1.5 rounded-lg transition-all ${
+                                            isSaving ? 'opacity-50 cursor-wait' :
+                                            raw.user_feedback === false
+                                              ? 'bg-accent-red/25 text-accent-red ring-1 ring-accent-red/40'
+                                              : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-red'
+                                          }`}
+                                          title="Bad trigger"
+                                          aria-label="Rate bad trigger"
+                                        >
+                                          <ThumbsDown size={12} />
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 </div>
@@ -605,20 +732,68 @@ export default function AnalyticsPage() {
                             {g.matches.map((m: any, i: number) => (
                               <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/3">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <span className="text-xs font-bold text-accent-cyan">{m.final_score_home ?? m.score_home ?? 0}</span>
-                                    <span className="text-[10px] text-text-muted">-</span>
-                                    <span className="text-xs font-bold text-accent-blue">{m.final_score_away ?? m.score_away ?? 0}</span>
+                                  <div className="flex flex-col items-center shrink-0">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs font-bold text-accent-cyan">{m.final_score_home ?? m.score_home ?? 0}</span>
+                                      <span className="text-[10px] text-text-muted">-</span>
+                                      <span className="text-xs font-bold text-accent-blue">{m.final_score_away ?? m.score_away ?? 0}</span>
+                                    </div>
+                                    {m.final_score_home != null
+                                      ? <span className="text-[8px] text-accent-green font-bold leading-none">FT</span>
+                                      : m.match_time != null && <span className="text-[8px] text-accent-amber leading-none">{m.match_time}&apos;</span>
+                                    }
                                   </div>
-                                  {m.final_score_home != null
-                                    ? <span className="text-[9px] text-accent-green font-bold">FT</span>
-                                    : m.match_time != null && <span className="text-[9px] text-accent-amber">{m.match_time}&apos;</span>
-                                  }
-                                  <span className="text-xs text-white truncate">{m.home_team} vs {m.away_team}</span>
+                                  <div className="min-w-0">
+                                    <div className="text-xs text-white truncate">{m.home_team} vs {m.away_team}</div>
+                                    <div className="text-[10px] text-text-muted truncate">
+                                      {m.match_time != null ? `${m.match_time}'` : '—'} · {m.score_home ?? 0}-{m.score_away ?? 0}
+                                      {m.final_score_home != null ? ` → ${m.final_score_home}-${m.final_score_away} FT` : ''}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2 text-[11px] text-text-muted shrink-0">
-                                  {m.match_time != null && <span className="text-accent-cyan font-semibold">{m.match_time}&apos;</span>}
-                                  <span>{new Date(m.triggered_at).toLocaleDateString([], { day: '2-digit', month: 'short' })}</span>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[11px] text-text-muted">
+                                    {new Date(m.triggered_at).toLocaleDateString([], { day: '2-digit', month: 'short' })}
+                                  </span>
+
+                                  {m.id && (() => {
+                                    const isSaving = savingInlineFeedback.has(m.id);
+                                    return (
+                                      <div className="flex gap-1">
+                                        <button
+                                          type="button"
+                                          disabled={isSaving}
+                                          onClick={(e) => { e.stopPropagation(); handleInlineFeedback(m.filter_id, m.id, true); }}
+                                          className={`p-1.5 rounded-lg transition-all ${
+                                            isSaving ? 'opacity-50 cursor-wait' :
+                                            m.user_feedback === true
+                                              ? 'bg-accent-green/25 text-accent-green ring-1 ring-accent-green/40'
+                                              : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-green'
+                                          }`}
+                                          title="Good trigger"
+                                          aria-label="Rate good trigger"
+                                        >
+                                          <ThumbsUp size={12} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={isSaving}
+                                          onClick={(e) => { e.stopPropagation(); handleInlineFeedback(m.filter_id, m.id, false); }}
+                                          className={`p-1.5 rounded-lg transition-all ${
+                                            isSaving ? 'opacity-50 cursor-wait' :
+                                            m.user_feedback === false
+                                              ? 'bg-accent-red/25 text-accent-red ring-1 ring-accent-red/40'
+                                              : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-red'
+                                          }`}
+                                          title="Bad trigger"
+                                          aria-label="Rate bad trigger"
+                                        >
+                                          <ThumbsDown size={12} />
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             ))}
