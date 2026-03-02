@@ -137,14 +137,17 @@ export default function AnalyticsPage() {
 
   // Group triggered matches by match
   const triggeredByMatch = (() => {
-    const map = new Map<string, { matchId: string; homeTeam: string; awayTeam: string; league: string; scoreHome: number | null; scoreAway: number | null; latestAt: string; filters: string[] }>();
+    const map = new Map<string, { matchId: string; homeTeam: string; awayTeam: string; league: string; scoreHome: number | null; scoreAway: number | null; finalScoreHome: number | null; finalScoreAway: number | null; latestAt: string; filters: string[] }>();
     for (const m of triggeredMatches) {
       if (!map.has(m.match_id)) {
-        map.set(m.match_id, { matchId: m.match_id, homeTeam: m.home_team, awayTeam: m.away_team, league: m.league_name || '', scoreHome: m.score_home, scoreAway: m.score_away, latestAt: m.triggered_at, filters: [] });
+        map.set(m.match_id, { matchId: m.match_id, homeTeam: m.home_team, awayTeam: m.away_team, league: m.league_name || '', scoreHome: m.score_home, scoreAway: m.score_away, finalScoreHome: m.final_score_home ?? null, finalScoreAway: m.final_score_away ?? null, latestAt: m.triggered_at, filters: [] });
       }
       const g = map.get(m.match_id)!;
       if (!g.filters.includes(m.filter_name)) g.filters.push(m.filter_name);
       if (new Date(m.triggered_at) > new Date(g.latestAt)) { g.latestAt = m.triggered_at; if (m.score_home != null) g.scoreHome = m.score_home; if (m.score_away != null) g.scoreAway = m.score_away; }
+      // Always prefer final score when available
+      if (m.final_score_home != null) g.finalScoreHome = m.final_score_home;
+      if (m.final_score_away != null) g.finalScoreAway = m.final_score_away;
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
   })();
@@ -512,10 +515,16 @@ export default function AnalyticsPage() {
                           className="w-full text-left p-3 hover:bg-white/5 transition"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 shrink-0">
-                              <span className="text-base font-bold text-accent-cyan">{g.scoreHome ?? 0}</span>
-                              <span className="text-xs text-text-muted">-</span>
-                              <span className="text-base font-bold text-accent-blue">{g.scoreAway ?? 0}</span>
+                            <div className="flex flex-col items-center shrink-0">
+                              <div className="flex items-center gap-1">
+                                <span className="text-base font-bold text-accent-cyan">{g.finalScoreHome ?? g.scoreHome ?? 0}</span>
+                                <span className="text-xs text-text-muted">-</span>
+                                <span className="text-base font-bold text-accent-blue">{g.finalScoreAway ?? g.scoreAway ?? 0}</span>
+                              </div>
+                              {g.finalScoreHome != null
+                                ? <span className="text-[9px] text-accent-green font-bold">FT</span>
+                                : <span className="text-[9px] text-accent-amber font-bold">{g.scoreHome ?? 0}-{g.scoreAway ?? 0} ⏱</span>
+                              }
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-semibold text-white truncate">{g.homeTeam} vs {g.awayTeam}</div>
@@ -542,7 +551,10 @@ export default function AnalyticsPage() {
                                   </div>
                                   <div className="flex items-center gap-2 text-[11px] text-text-muted">
                                     {raw?.match_time != null && <span className="text-accent-cyan font-semibold">{raw.match_time}&apos;</span>}
-                                    <span>{raw?.score_home ?? 0}-{raw?.score_away ?? 0}</span>
+                                    <span className="text-text-muted">{raw?.score_home ?? 0}-{raw?.score_away ?? 0}</span>
+                                    {raw?.final_score_home != null && (
+                                      <span className="text-accent-green font-bold">→ {raw.final_score_home}-{raw.final_score_away} FT</span>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -594,10 +606,14 @@ export default function AnalyticsPage() {
                               <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/3">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <span className="text-xs font-bold text-accent-cyan">{m.score_home ?? 0}</span>
+                                    <span className="text-xs font-bold text-accent-cyan">{m.final_score_home ?? m.score_home ?? 0}</span>
                                     <span className="text-[10px] text-text-muted">-</span>
-                                    <span className="text-xs font-bold text-accent-blue">{m.score_away ?? 0}</span>
+                                    <span className="text-xs font-bold text-accent-blue">{m.final_score_away ?? m.score_away ?? 0}</span>
                                   </div>
+                                  {m.final_score_home != null
+                                    ? <span className="text-[9px] text-accent-green font-bold">FT</span>
+                                    : m.match_time != null && <span className="text-[9px] text-accent-amber">{m.match_time}&apos;</span>
+                                  }
                                   <span className="text-xs text-white truncate">{m.home_team} vs {m.away_team}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-[11px] text-text-muted shrink-0">

@@ -543,7 +543,11 @@ function MatchGroupCard({
           <div className="px-3 py-2 space-y-1">
             {group.triggers.map((trigger, i) => {
               const isFilterExpanded = expandedFilter === (trigger.id || String(i));
-              // Display triggered score - should always have a value now
+              const hasFinalScore = trigger.final_score_home != null && trigger.final_score_away != null;
+              const displayScore = hasFinalScore
+                ? `${trigger.final_score_home}-${trigger.final_score_away}`
+                : (trigger.score_home !== null && trigger.score_away !== null ? `${trigger.score_home}-${trigger.score_away}` : '—');
+              // Keep triggerScore for detail rows
               const triggerScore = (trigger.score_home !== null && trigger.score_away !== null)
                 ? `${trigger.score_home}-${trigger.score_away}`
                 : '0-0';
@@ -573,9 +577,13 @@ function MatchGroupCard({
                           {trigger.match_time}&apos;
                         </span>
                       )}
-                      <span className="text-[10px] text-text-muted font-medium">
-                        {triggerScore}
-                      </span>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] font-bold text-white">{displayScore}</span>
+                        {hasFinalScore
+                          ? <span className="text-[8px] text-accent-green font-bold leading-none">FT</span>
+                          : <span className="text-[8px] text-accent-amber leading-none">{trigger.match_time != null ? `${trigger.match_time}'` : ''}</span>
+                        }
+                      </div>
                       <ChevronDown className={`w-3 h-3 text-text-muted transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
@@ -597,9 +605,15 @@ function MatchGroupCard({
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-text-muted">Score when triggered:</span>
+                        <span className="text-text-muted">Score at trigger:</span>
                         <span className="font-bold text-white">{triggerScore}</span>
                       </div>
+                      {hasFinalScore && (
+                        <div className="flex items-center justify-between text-[11px] mt-0.5">
+                          <span className="text-text-muted">Final score:</span>
+                          <span className="font-bold text-accent-green">{trigger.final_score_home}-{trigger.final_score_away} FT</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-[11px] mt-1">
                         <span className="text-text-muted">Time:</span>
                         <span className="text-text-secondary">
@@ -684,6 +698,7 @@ function FilterGroupCard({ group }: { group: FilterGroup }) {
         <div className="border-t border-white/8 px-3 py-2 space-y-1">
           {sortedMatches.map((trigger) => {
             const isMatchExpanded = expandedMatchId === trigger.match_id;
+            const hasFinalBF = trigger.final_score_home != null && trigger.final_score_away != null;
             const triggerScore = (trigger.score_home !== null && trigger.score_away !== null)
               ? `${trigger.score_home}-${trigger.score_away}`
               : '0-0';
@@ -696,11 +711,17 @@ function FilterGroupCard({ group }: { group: FilterGroup }) {
                   className="w-full flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg hover:bg-white/5 transition text-left"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    {/* Score badge */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-xs font-bold text-accent-cyan">{trigger.score_home ?? 0}</span>
-                      <span className="text-[10px] text-text-muted">-</span>
-                      <span className="text-xs font-bold text-accent-blue">{trigger.score_away ?? 0}</span>
+                    {/* Score badge — prefer final score */}
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-accent-cyan">{hasFinalBF ? trigger.final_score_home : (trigger.score_home ?? 0)}</span>
+                        <span className="text-[10px] text-text-muted">-</span>
+                        <span className="text-xs font-bold text-accent-blue">{hasFinalBF ? trigger.final_score_away : (trigger.score_away ?? 0)}</span>
+                      </div>
+                      {hasFinalBF
+                        ? <span className="text-[8px] text-accent-green font-bold leading-none">FT</span>
+                        : trigger.match_time != null && <span className="text-[8px] text-accent-amber leading-none">{trigger.match_time}&apos;</span>
+                      }
                     </div>
                     <div className="min-w-0">
                       <Link
@@ -743,9 +764,15 @@ function FilterGroupCard({ group }: { group: FilterGroup }) {
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-text-muted">Score when triggered:</span>
+                      <span className="text-text-muted">Score at trigger:</span>
                       <span className="font-bold text-white">{triggerScore}</span>
                     </div>
+                    {hasFinalBF && (
+                      <div className="flex items-center justify-between text-[11px] mt-0.5">
+                        <span className="text-text-muted">Final score:</span>
+                        <span className="font-bold text-accent-green">{trigger.final_score_home}-{trigger.final_score_away} FT</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between text-[11px] mt-1">
                       <span className="text-text-muted">Time:</span>
                       <span className="text-text-secondary">
