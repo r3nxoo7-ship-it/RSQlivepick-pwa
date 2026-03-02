@@ -45,12 +45,59 @@ export async function GET(request: NextRequest) {
     }
 
     if (!matches || matches.length === 0) {
-      console.log(`⚠️ [Match Result] Match ${matchId} not found in database`);
+      console.log(`⚠️ [Match Result] Match ${matchId} not found in espn_matches — trying triggered_matches fallback`);
+
+      // Fallback: look up final score from triggered_matches table
+      // (triggered_matches uses API-Football IDs; espn_matches uses ESPN IDs — they differ)
+      const { data: tmRows } = await supabase
+        .from('triggered_matches')
+        .select('home_team, away_team, final_score_home, final_score_away, score_home, score_away, match_status, league_name')
+        .eq('match_id', matchId)
+        .not('final_score_home', 'is', null)
+        .limit(1);
+
+      if (tmRows && tmRows.length > 0) {
+        const tm = tmRows[0];
+        return NextResponse.json({
+          matchId,
+          homeTeam: tm.home_team,
+          awayTeam: tm.away_team,
+          scoreHome: tm.final_score_home,
+          scoreAway: tm.final_score_away,
+          status: tm.match_status === 'finished' ? 'FT' : tm.match_status,
+          statusLong: tm.match_status === 'finished' ? 'Match Finished' : 'In Progress',
+          league: tm.league_name,
+          source: 'triggered_matches_fallback',
+        });
+      }
+
+      // Last resort: return trigger-time score if match exists at all
+      const { data: tmAny } = await supabase
+        .from('triggered_matches')
+        .select('home_team, away_team, score_home, score_away, match_status, league_name')
+        .eq('match_id', matchId)
+        .limit(1);
+
+      if (tmAny && tmAny.length > 0) {
+        const tm = tmAny[0];
+        return NextResponse.json({
+          matchId,
+          homeTeam: tm.home_team,
+          awayTeam: tm.away_team,
+          scoreHome: tm.score_home,
+          scoreAway: tm.score_away,
+          status: tm.match_status,
+          statusLong: tm.match_status === 'finished' ? 'Match Finished' : 'In Progress',
+          league: tm.league_name,
+          source: 'triggered_matches_trigger_time',
+        });
+      }
+
       return NextResponse.json(
         { 
           error: 'Match not found', 
           matchId,
-          note: 'Match data not yet synced from ESPN'
+          note: 'Match data not yet synced from ESPN or triggered_matches'
         },
         { status: 404 }
       );

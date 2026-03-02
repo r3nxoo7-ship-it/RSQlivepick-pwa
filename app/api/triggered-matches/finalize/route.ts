@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         // Get all triggered matches for this filter
         const { data: triggers } = await supabaseAdmin
           .from('triggered_matches')
-          .select('id, match_time, score_home, score_away, match_status')
+          .select('id, match_time, score_home, score_away, final_score_home, final_score_away, match_status')
           .eq('filter_id', filter.id)
           .eq('user_id', user_id);
 
@@ -235,24 +235,27 @@ export async function POST(request: NextRequest) {
         const finishedTriggers = triggers.filter(t => t.match_status === 'finished');
         if (finishedTriggers.length === 0) continue;
 
-        // Calculate success: count how many matches satisfied the filter condition at trigger time
+        // Calculate success: count how many matches had the predicted outcome at full time
         let successCount = 0;
+        let evaluableCount = 0;
         for (const t of finishedTriggers) {
-          const triggerScore = {
-            home: t.score_home ?? 0,
-            away: t.score_away ?? 0,
-            elapsed: t.match_time || 0,
+          // Only evaluate if we have a final score — trigger-time score is always
+          // true (that's why it triggered) so using it inflates success rate to 100%
+          if (t.final_score_home == null || t.final_score_away == null) continue;
+          evaluableCount++;
+          const finalScore = {
+            home: t.final_score_home as number,
+            away: t.final_score_away as number,
+            elapsed: 90,
           };
-
-          // Check if the filter conditions were met at trigger time
-          if (evaluateFilterCondition(filter, triggerScore)) {
+          if (evaluateFilterCondition(filter, finalScore)) {
             successCount++;
           }
         }
 
-        const scoreBasedRate = finishedTriggers.length > 0
-          ? Math.round((successCount / finishedTriggers.length) * 10000) / 100
-          : 0;
+        const scoreBasedRate = evaluableCount > 0
+          ? Math.round((successCount / evaluableCount) * 10000) / 100
+          : null; // null = no data yet, don't overwrite existing rate
 
         // Check if user has given feedback — feedback-based rate takes priority
         const { data: feedbackTriggers } = await supabaseAdmin
@@ -262,20 +265,23 @@ export async function POST(request: NextRequest) {
           .eq('user_id', user_id)
           .not('user_feedback', 'is', null);
 
-        let successRate = scoreBasedRate;
+        let successRate: number | null = scoreBasedRate;
         if (feedbackTriggers && feedbackTriggers.length > 0) {
           const positive = feedbackTriggers.filter((t: any) => t.user_feedback === true).length;
           successRate = Math.round((positive / feedbackTriggers.length) * 10000) / 100;
         }
 
-        // Update filter success_rate
+        // Only update success_rate if we actually have data to compute it from
+        const updatePayload: Record<string, any> = {
+          trigger_count: triggers.length,
+          updated_at: new Date().toISOString(),
+        };
+        if (successRate !== null) updatePayload.success_rate = successRate;
+
+        // Update filter
         await supabaseAdmin
           .from('filters')
-          .update({
-            success_rate: successRate,
-            trigger_count: triggers.length, // Also fix trigger_count to match actual
-            updated_at: new Date().toISOString(),
-          })
+          .update(updatePayload)
           .eq('id', filter.id);
       }
     }
