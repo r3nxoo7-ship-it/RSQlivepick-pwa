@@ -589,6 +589,7 @@ export default function AnalyticsPage() {
 
           {/* ===== OVERVIEW TAB ===== */}
           {activeTab === 'overview' && (
+          <>
           {overallStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard
@@ -727,6 +728,7 @@ export default function AnalyticsPage() {
               onSuccessRateUpdated={handleSuccessRateUpdated}
             />
           </div>
+          </>
           )} {/* end overview tab */}
 
         </div>
