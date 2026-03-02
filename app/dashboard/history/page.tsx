@@ -318,12 +318,6 @@ export default function HistoryTriggeredPage() {
               </span>
             )}
           </div>
-          {/* Last refreshed */}
-          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
-            <Clock className="w-3 h-3" />
-            Updated {getTimeSince(lastRefreshedAt.toISOString())} · auto-refresh every 12h
-          </div>
-
           {/* CONTENT */}
           {loading && triggeredMatches.length === 0 ? (
             <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
