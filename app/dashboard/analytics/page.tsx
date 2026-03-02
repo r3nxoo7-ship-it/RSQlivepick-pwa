@@ -67,6 +67,7 @@ export default function AnalyticsPage() {
   const [insightsData, setInsightsData] = useState<Map<string, any>>(new Map());
   const [insightsLoading, setInsightsLoading] = useState<Set<string>>(new Set());
   const [savingInlineFeedback, setSavingInlineFeedback] = useState<Set<string>>(new Set());
+  const [fetchedFinalScores, setFetchedFinalScores] = useState<Map<string, { home: number; away: number }>>(new Map());
 
   const loadInsights = useCallback(async (filterId: string) => {
     if (insightsData.has(filterId) || insightsLoading.has(filterId)) return;
@@ -136,6 +137,46 @@ export default function AnalyticsPage() {
       .finally(() => setTriggeredLoading(false));
   }, [activeTab, userId, triggeredRange]);
 
+  // Fetch missing final scores for old matches (>2h) where final_score_* is null
+  useEffect(() => {
+    if (triggeredMatches.length === 0) return;
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    const matchesNeedingScores = new Set<string>();
+    
+    for (const m of triggeredMatches) {
+      if (
+        m.final_score_home == null &&
+        new Date(m.triggered_at).getTime() < twoHoursAgo &&
+        !fetchedFinalScores.has(m.match_id)
+      ) {
+        matchesNeedingScores.add(m.match_id);
+      }
+    }
+
+    if (matchesNeedingScores.size === 0) return;
+
+    // Fetch final scores for all matches needing them
+    Promise.all(
+      Array.from(matchesNeedingScores).map(async (matchId) => {
+        try {
+          const res = await fetch(`/api/match-result?match_id=${matchId}`);
+          if (!res.ok) return null;
+          const data = await res.json();
+          if (data.scoreHome != null && data.scoreAway != null) {
+            return { matchId, home: data.scoreHome, away: data.scoreAway };
+          }
+        } catch {}
+        return null;
+      })
+    ).then((results) => {
+      const newScores = new Map(fetchedFinalScores);
+      for (const r of results) {
+        if (r) newScores.set(r.matchId, { home: r.home, away: r.away });
+      }
+      setFetchedFinalScores(newScores);
+    });
+  }, [triggeredMatches, fetchedFinalScores]);
+
   // Group triggered matches by match
   const latestTriggeredByMatchAndFilter = (() => {
     const map = new Map<string, any>();
@@ -144,6 +185,14 @@ export default function AnalyticsPage() {
       const existing = map.get(key);
       if (!existing || new Date(m.triggered_at) > new Date(existing.triggered_at)) {
         map.set(key, m);
+      }
+    }
+    // Apply fetched final scores from match-result API
+    for (const [key, m] of map.entries()) {
+      if (m.final_score_home == null && fetchedFinalScores.has(m.match_id)) {
+        const fetched = fetchedFinalScores.get(m.match_id)!;
+        m.final_score_home = fetched.home;
+        m.final_score_away = fetched.away;
       }
     }
     return map;
@@ -166,6 +215,14 @@ export default function AnalyticsPage() {
       // Always prefer final score when available
       if (m.final_score_home != null) g.finalScoreHome = m.final_score_home;
       if (m.final_score_away != null) g.finalScoreAway = m.final_score_away;
+    }
+    // Apply fetched final scores from match-result API
+    for (const g of map.values()) {
+      if (g.finalScoreHome == null && fetchedFinalScores.has(g.matchId)) {
+        const fetched = fetchedFinalScores.get(g.matchId)!;
+        g.finalScoreHome = fetched.home;
+        g.finalScoreAway = fetched.away;
+      }
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
   })();
@@ -251,6 +308,16 @@ export default function AnalyticsPage() {
         }
       }
       if (new Date(m.triggered_at) > new Date(g.latestAt)) g.latestAt = m.triggered_at;
+    }
+    // Apply fetched final scores from match-result API to each match object
+    for (const g of map.values()) {
+      for (const m of g.matches) {
+        if (m.final_score_home == null && fetchedFinalScores.has(m.match_id)) {
+          const fetched = fetchedFinalScores.get(m.match_id)!;
+          m.final_score_home = fetched.home;
+          m.final_score_away = fetched.away;
+        }
+      }
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
   })();
