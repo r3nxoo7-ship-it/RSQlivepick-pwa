@@ -422,7 +422,13 @@ export interface TriggeredMatch {
   match_time: number | null; // Elapsed minutes when triggered
   score_home: number | null;
   score_away: number | null;
+  // Final score (filled by finalize endpoint once match is finished)
+  final_score_home: number | null;
+  final_score_away: number | null;
   match_status: string; // 'ongoing', 'finished', 'scheduled'
+  // Optional user feedback
+  user_feedback?: boolean | null;
+  feedback_at?: string | null;
   created_at: string; // When this record was created
 }
 
