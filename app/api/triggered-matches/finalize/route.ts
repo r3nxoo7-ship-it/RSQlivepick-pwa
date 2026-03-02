@@ -13,6 +13,71 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
+type FinalScore = { home: number; away: number };
+
+function normalizeTeamName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function teamNamesRoughlyMatch(a: string, b: string): boolean {
+  const na = normalizeTeamName(a);
+  const nb = normalizeTeamName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  return na.includes(nb) || nb.includes(na);
+}
+
+async function fetchFinalScoreFromApiFootball(matchId: string): Promise<FinalScore | null> {
+  const apiKey = process.env.NEXT_PUBLIC_API_FOOTBALL_KEY;
+  const apiHost = process.env.NEXT_PUBLIC_API_FOOTBALL_HOST || 'v3.football.api-sports.io';
+  const fixtureId = Number(matchId);
+
+  if (!apiKey) return null;
+  if (!Number.isFinite(fixtureId)) return null;
+
+  const url = `https://${apiHost}/fixtures?id=${fixtureId}`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': apiHost,
+      },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return null;
+
+    const data: any = await res.json();
+    const fixture = data?.response?.[0];
+    const statusShort: string | undefined = fixture?.fixture?.status?.short;
+
+    // Only trust completed matches
+    if (!statusShort || !['FT', 'AET', 'PEN'].includes(statusShort)) return null;
+
+    const homeGoals = fixture?.goals?.home;
+    const awayGoals = fixture?.goals?.away;
+    if (typeof homeGoals === 'number' && typeof awayGoals === 'number') {
+      return { home: homeGoals, away: awayGoals };
+    }
+
+    const ftHome = fixture?.score?.fulltime?.home;
+    const ftAway = fixture?.score?.fulltime?.away;
+    if (typeof ftHome === 'number' && typeof ftAway === 'number') {
+      return { home: ftHome, away: ftAway };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Evaluates if a filter would match the final score
  * Returns true if the filter condition was satisfied at final score
@@ -89,13 +154,98 @@ function evaluateFilterCondition(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { user_id, completed_matches } = body;
+    const { user_id, completed_matches, repair } = body;
 
     if (!user_id) {
       return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
     }
 
     let updatedCount = 0;
+
+    // Optional repair mode: re-fetch FT scores for recent finished matches and correct wrong stored finals.
+    // Opt-in to avoid unexpected writes and API usage.
+    if (repair === true) {
+      const { data: recentFinished } = await supabaseAdmin
+        .from('triggered_matches')
+        .select('match_id, home_team, away_team, final_score_home, final_score_away')
+        .eq('user_id', user_id)
+        .eq('match_status', 'finished')
+        .order('triggered_at', { ascending: false })
+        .limit(200);
+
+      const unique = new Map<string, { homeTeam: string; awayTeam: string }>();
+      for (const t of recentFinished || []) {
+        if (!unique.has(t.match_id)) {
+          unique.set(t.match_id, { homeTeam: t.home_team, awayTeam: t.away_team });
+        }
+        if (unique.size >= 25) break; // cap per call
+      }
+
+      let repairedMatches = 0;
+      for (const [matchId, teams] of unique) {
+        let score: FinalScore | null = null;
+
+        // 1) ESPN by id only if teams match (prevents ID collision)
+        try {
+          const { data: espnMatch } = await supabaseAdmin
+            .from('espn_matches')
+            .select('home_team_name, away_team_name, home_score, away_score, status')
+            .eq('id', matchId)
+            .single();
+
+          if (
+            espnMatch &&
+            espnMatch.status === 'completed' &&
+            teamNamesRoughlyMatch(teams.homeTeam, espnMatch.home_team_name) &&
+            teamNamesRoughlyMatch(teams.awayTeam, espnMatch.away_team_name) &&
+            typeof espnMatch.home_score === 'number' &&
+            typeof espnMatch.away_score === 'number'
+          ) {
+            score = { home: espnMatch.home_score, away: espnMatch.away_score };
+          }
+        } catch {
+          // ignore
+        }
+
+        // 2) API-Football fallback (numeric fixture ids)
+        if (!score) {
+          score = await fetchFinalScoreFromApiFootball(matchId);
+        }
+
+        if (!score) continue;
+
+        const { data: currentRows } = await supabaseAdmin
+          .from('triggered_matches')
+          .select('final_score_home, final_score_away')
+          .eq('user_id', user_id)
+          .eq('match_id', matchId)
+          .eq('match_status', 'finished');
+
+        const needsUpdate = (currentRows || []).some((r: any) =>
+          r.final_score_home == null ||
+          r.final_score_away == null ||
+          r.final_score_home !== score!.home ||
+          r.final_score_away !== score!.away
+        );
+
+        if (!needsUpdate) continue;
+
+        const { error } = await supabaseAdmin
+          .from('triggered_matches')
+          .update({ final_score_home: score.home, final_score_away: score.away })
+          .eq('user_id', user_id)
+          .eq('match_id', matchId)
+          .eq('match_status', 'finished');
+
+        if (!error) repairedMatches++;
+      }
+
+      return NextResponse.json({
+        success: true,
+        repaired: repairedMatches,
+        message: 'Repair complete',
+      });
+    }
 
     if (completed_matches && completed_matches.length > 0) {
       // Mark triggered matches as finished with final scores
@@ -119,7 +269,7 @@ export async function POST(request: NextRequest) {
       const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const { data: ongoingMatches } = await supabaseAdmin
         .from('triggered_matches')
-        .select('id, match_id')
+        .select('id, match_id, home_team, away_team')
         .eq('user_id', user_id)
         .eq('match_status', 'ongoing')
         .lt('triggered_at', cutoff);
@@ -128,24 +278,44 @@ export async function POST(request: NextRequest) {
         // Get unique match IDs to look up final scores
         const uniqueMatchIds = [...new Set(ongoingMatches.map(m => m.match_id))];
 
-        // Look up final scores from espn_matches table
+        const teamsByMatchId = new Map<string, { homeTeam: string; awayTeam: string }>();
+        for (const m of ongoingMatches as any[]) {
+          if (!teamsByMatchId.has(m.match_id)) {
+            teamsByMatchId.set(m.match_id, { homeTeam: m.home_team, awayTeam: m.away_team });
+          }
+        }
+
+        // Look up final scores from ESPN when (and only when) the teams match.
+        // match_id may come from other providers; querying ESPN by raw id can collide and produce wrong scores.
         const scoreMap = new Map<string, { home: number | null; away: number | null }>();
         for (const matchId of uniqueMatchIds) {
           try {
             const { data: espnMatch } = await supabaseAdmin
               .from('espn_matches')
-              .select('home_score, away_score, status')
+              .select('home_team_name, away_team_name, home_score, away_score, status')
               .eq('id', matchId)
               .single();
 
-            if (espnMatch) {
-              scoreMap.set(matchId, {
-                home: espnMatch.home_score,
-                away: espnMatch.away_score,
-              });
+            const teams = teamsByMatchId.get(matchId);
+            if (
+              espnMatch &&
+              teams &&
+              espnMatch.status === 'completed' &&
+              teamNamesRoughlyMatch(teams.homeTeam, espnMatch.home_team_name) &&
+              teamNamesRoughlyMatch(teams.awayTeam, espnMatch.away_team_name)
+            ) {
+              scoreMap.set(matchId, { home: espnMatch.home_score ?? null, away: espnMatch.away_score ?? null });
             }
           } catch {
             // Match not found in ESPN data, will finalize without score
+          }
+
+          // Fallback: API-Football FT score for numeric fixture IDs
+          if (!scoreMap.has(matchId)) {
+            const afScore = await fetchFinalScoreFromApiFootball(matchId);
+            if (afScore) {
+              scoreMap.set(matchId, { home: afScore.home, away: afScore.away });
+            }
           }
         }
 
@@ -171,7 +341,7 @@ export async function POST(request: NextRequest) {
     // Backfill: patch any previously-finalized matches missing final scores
     const { data: missingScores } = await supabaseAdmin
       .from('triggered_matches')
-      .select('id, match_id')
+      .select('id, match_id, home_team, away_team')
       .eq('user_id', user_id)
       .eq('match_status', 'finished')
       .is('final_score_home', null)
@@ -182,21 +352,31 @@ export async function POST(request: NextRequest) {
       const backfillScoreMap = new Map<string, { home: number | null; away: number | null }>();
 
       for (const matchId of backfillMatchIds) {
+        const tm = (missingScores as any[]).find((m) => m.match_id === matchId);
         try {
           const { data: espnMatch } = await supabaseAdmin
             .from('espn_matches')
-            .select('home_score, away_score')
+            .select('home_team_name, away_team_name, home_score, away_score, status')
             .eq('id', matchId)
             .single();
 
-          if (espnMatch && espnMatch.home_score !== null) {
-            backfillScoreMap.set(matchId, {
-              home: espnMatch.home_score,
-              away: espnMatch.away_score,
-            });
+          if (
+            tm &&
+            espnMatch &&
+            espnMatch.status === 'completed' &&
+            teamNamesRoughlyMatch(tm.home_team, espnMatch.home_team_name) &&
+            teamNamesRoughlyMatch(tm.away_team, espnMatch.away_team_name) &&
+            espnMatch.home_score !== null
+          ) {
+            backfillScoreMap.set(matchId, { home: espnMatch.home_score, away: espnMatch.away_score });
           }
         } catch {
           // Not found, skip
+        }
+
+        if (!backfillScoreMap.has(matchId)) {
+          const afScore = await fetchFinalScoreFromApiFootball(matchId);
+          if (afScore) backfillScoreMap.set(matchId, { home: afScore.home, away: afScore.away });
         }
       }
 

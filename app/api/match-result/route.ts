@@ -29,6 +29,20 @@ export async function GET(request: NextRequest) {
     const supabaseKeyAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKeyAdmin);
 
+    const normalizeTeamName = (name: string) => name
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+    const roughlyMatches = (a: string, b: string) => {
+      const na = normalizeTeamName(a);
+      const nb = normalizeTeamName(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      return na.includes(nb) || nb.includes(na);
+    };
+
     // Query the espn_matches table for the current match data
     const { data: matches, error } = await supabase
       .from('espn_matches')
@@ -44,20 +58,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch triggered_matches context for collision detection and fallback
+    const { data: tmAnyRows } = await supabase
+      .from('triggered_matches')
+      .select('home_team, away_team, final_score_home, final_score_away, score_home, score_away, match_status, league_name')
+      .eq('match_id', matchId)
+      .limit(1);
+
+    const tmAny = tmAnyRows && tmAnyRows.length > 0 ? tmAnyRows[0] : null;
+
     if (!matches || matches.length === 0) {
       console.log(`⚠️ [Match Result] Match ${matchId} not found in espn_matches — trying triggered_matches fallback`);
 
       // Fallback: look up final score from triggered_matches table
       // (triggered_matches uses API-Football IDs; espn_matches uses ESPN IDs — they differ)
-      const { data: tmRows } = await supabase
-        .from('triggered_matches')
-        .select('home_team, away_team, final_score_home, final_score_away, score_home, score_away, match_status, league_name')
-        .eq('match_id', matchId)
-        .not('final_score_home', 'is', null)
-        .limit(1);
-
-      if (tmRows && tmRows.length > 0) {
-        const tm = tmRows[0];
+      if (tmAny && tmAny.final_score_home != null && tmAny.final_score_away != null) {
+        const tm = tmAny;
         return NextResponse.json({
           matchId,
           homeTeam: tm.home_team,
@@ -83,6 +99,41 @@ export async function GET(request: NextRequest) {
 
     // Match found in database
     const match = matches[0];
+
+    // Collision guard:
+    // If this matchId is actually a non-ESPN provider ID (API-Football / SofaScore), it can collide with an ESPN event id.
+    // If we have a triggered_matches row for the same match_id and the teams don't match, prefer triggered_matches.
+    if (
+      tmAny &&
+      (!roughlyMatches(tmAny.home_team, match.home_team_name) || !roughlyMatches(tmAny.away_team, match.away_team_name))
+    ) {
+      console.warn(
+        `⚠️ [Match Result] ESPN id collision detected for ${matchId} — preferring triggered_matches (${tmAny.home_team} vs ${tmAny.away_team}) over ESPN (${match.home_team_name} vs ${match.away_team_name})`
+      );
+
+      if (tmAny.final_score_home != null && tmAny.final_score_away != null) {
+        return NextResponse.json({
+          matchId,
+          homeTeam: tmAny.home_team,
+          awayTeam: tmAny.away_team,
+          scoreHome: tmAny.final_score_home,
+          scoreAway: tmAny.final_score_away,
+          status: tmAny.match_status === 'finished' ? 'FT' : tmAny.match_status,
+          statusLong: tmAny.match_status === 'finished' ? 'Match Finished' : 'In Progress',
+          league: tmAny.league_name,
+          source: 'triggered_matches_preferred_over_espn',
+        });
+      }
+
+      return NextResponse.json(
+        {
+          error: 'Match found in ESPN but does not match triggered match context',
+          matchId,
+          note: 'Possible provider ID collision; final score not yet available for triggered match',
+        },
+        { status: 404 }
+      );
+    }
     
     console.log(`✅ [Match Result] Found match: ${match.home_team_name} ${match.home_score} - ${match.away_score} ${match.away_team_name}`);
     
