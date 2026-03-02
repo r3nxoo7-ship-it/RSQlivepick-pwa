@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Note: Optional columns will be added via database migration separately
     const { data, error } = await supabaseAdmin
       .from('filters')
-      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at')
+      .select('id, user_id, name, description, conditions, is_active, is_shared, is_public, notification_enabled, telegram_enabled, last_triggered, trigger_count, success_rate, created_at, updated_at, combined_filter_ids')
       .eq('id', filterId)
       .single();
 

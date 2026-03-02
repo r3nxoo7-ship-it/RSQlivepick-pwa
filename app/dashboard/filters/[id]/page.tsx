@@ -17,6 +17,8 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
+  GitMerge,
+  ExternalLink,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -43,6 +45,7 @@ export default function FilterEditPage() {
   const [filter, setFilter] = useState<Filter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [sourceFilters, setSourceFilters] = useState<{ id: string; name: string }[]>([]);
 
   // Time window state for yellow cards, red cards, substitutions
   const [yellowCardsTimeEnabled, setYellowCardsTimeEnabled] = useState(false);
@@ -107,6 +110,19 @@ export default function FilterEditPage() {
         telegram_enabled: filterData.telegram_enabled || false,
         conditions: filterData.conditions,
       });
+
+      // Load source filter names if this is a combined filter
+      const ids: string[] = (filterData as any).combined_filter_ids || [];
+      if (ids.length > 0) {
+        Promise.all(
+          ids.map(id =>
+            fetch(`/api/filters/get-by-id?filterId=${encodeURIComponent(id)}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(res => res?.data ? { id, name: res.data.name as string } : { id, name: '(deleted filter)' })
+              .catch(() => ({ id, name: '(deleted filter)' }))
+          )
+        ).then(setSourceFilters);
+      }
 
       // Extract time_window state from loaded conditions
       const conds = filterData.conditions as any;
@@ -452,6 +468,42 @@ export default function FilterEditPage() {
             </motion.div>
           )}
           
+          {/* ========== MERGED FROM (only for combined filters) ========== */}
+          {sourceFilters.length > 0 && (
+            <div className="glass-card p-6 border-l-4 border-accent-purple">
+              <h2 className="text-xl font-display font-semibold mb-1 flex items-center gap-2">
+                <GitMerge className="w-5 h-5 text-accent-purple" />
+                Merged from {sourceFilters.length} filter{sourceFilters.length !== 1 ? 's' : ''}
+              </h2>
+              <p className="text-xs text-text-muted mb-4">
+                This filter was created by combining the conditions of the filters below.
+              </p>
+              <div className="space-y-2">
+                {sourceFilters.map((sf, i) => (
+                  <div
+                    key={sf.id}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-glass-light border border-accent-purple/20"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-bold text-accent-purple/60 w-5 text-center shrink-0">{i + 1}</span>
+                      <span className="text-sm font-medium text-white truncate">{sf.name}</span>
+                    </div>
+                    {sf.name !== '(deleted filter)' && (
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/dashboard/filters/${sf.id}`)}
+                        className="shrink-0 p-1.5 rounded-md hover:bg-accent-purple/10 text-accent-purple/60 hover:text-accent-purple transition"
+                        title="Open this filter"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ========== BASIC INFO ========== */}
           <div className="glass-card p-6">
             <h2 className="text-xl font-display font-semibold mb-4">

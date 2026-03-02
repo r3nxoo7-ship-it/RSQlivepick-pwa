@@ -20,6 +20,8 @@ import {
   X,
   Calendar,
   Layers,
+  Trophy,
+  Clock,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { FilterFeedbackCard } from '@/components/FilterFeedbackCard';
@@ -48,6 +50,16 @@ export default function AnalyticsPage() {
   const [exportFilterId, setExportFilterId] = useState<string>('all');
   const [exporting, setExporting] = useState(false);
   const [availableLeagues, setAvailableLeagues] = useState<string[]>([]);
+
+  // Triggered Matches tab state
+  type AnalyticsTab = 'overview' | 'triggered';
+  type TriggeredViewMode = 'matches' | 'filters';
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
+  const [triggeredMatches, setTriggeredMatches] = useState<any[]>([]);
+  const [triggeredLoading, setTriggeredLoading] = useState(false);
+  const [triggeredRange, setTriggeredRange] = useState<'7d' | '30d' | 'all'>('7d');
+  const [triggeredViewMode, setTriggeredViewMode] = useState<TriggeredViewMode>('matches');
+  const [triggeredExpanded, setTriggeredExpanded] = useState<string | null>(null);
 
   // Load filters and finalize old triggered matches
   const loadFilters = useCallback(async () => {
@@ -84,6 +96,43 @@ export default function AnalyticsPage() {
   }, [router]);
 
   useEffect(() => { loadFilters(); }, [loadFilters]);
+
+  // Load triggered matches when Triggered tab is active or range changes
+  useEffect(() => {
+    if (activeTab !== 'triggered' || !userId) return;
+    setTriggeredLoading(true);
+    fetch(`/api/triggered-matches/list?user_id=${userId}&range=${triggeredRange}&limit=500`)
+      .then(r => r.ok ? r.json() : { matches: [] })
+      .then(data => setTriggeredMatches(data.matches || []))
+      .catch(() => setTriggeredMatches([]))
+      .finally(() => setTriggeredLoading(false));
+  }, [activeTab, userId, triggeredRange]);
+
+  // Group triggered matches by match
+  const triggeredByMatch = (() => {
+    const map = new Map<string, { matchId: string; homeTeam: string; awayTeam: string; league: string; scoreHome: number | null; scoreAway: number | null; latestAt: string; filters: string[] }>();
+    for (const m of triggeredMatches) {
+      if (!map.has(m.match_id)) {
+        map.set(m.match_id, { matchId: m.match_id, homeTeam: m.home_team, awayTeam: m.away_team, league: m.league_name || '', scoreHome: m.score_home, scoreAway: m.score_away, latestAt: m.triggered_at, filters: [] });
+      }
+      const g = map.get(m.match_id)!;
+      if (!g.filters.includes(m.filter_name)) g.filters.push(m.filter_name);
+      if (new Date(m.triggered_at) > new Date(g.latestAt)) { g.latestAt = m.triggered_at; if (m.score_home != null) g.scoreHome = m.score_home; if (m.score_away != null) g.scoreAway = m.score_away; }
+    }
+    return Array.from(map.values()).sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
+  })();
+
+  // Group triggered matches by filter
+  const triggeredByFilter = (() => {
+    const map = new Map<string, { filterId: string; filterName: string; matches: any[]; latestAt: string }>();
+    for (const m of triggeredMatches) {
+      if (!map.has(m.filter_id)) map.set(m.filter_id, { filterId: m.filter_id, filterName: m.filter_name, matches: [], latestAt: m.triggered_at });
+      const g = map.get(m.filter_id)!;
+      if (!g.matches.find((x: any) => x.match_id === m.match_id)) g.matches.push(m);
+      if (new Date(m.triggered_at) > new Date(g.latestAt)) g.latestAt = m.triggered_at;
+    }
+    return Array.from(map.values()).sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
+  })();
 
   // Recalculate stats when filters change
   useEffect(() => {
@@ -217,7 +266,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-display font-bold gradient-text">Analytics</h1>
-              <p className="text-xs text-text-muted mt-0.5">Filter performance & feedback</p>
+              <p className="text-xs text-text-muted mt-0.5">Filter performance & triggered history</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -330,7 +379,216 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* ===== COMPACT STATS ROW ===== */}
+          {/* ===== TAB BAR ===== */}
+          <div className="flex gap-1 bg-glass-light/50 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold transition ${
+                activeTab === 'overview'
+                  ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30'
+                  : 'text-text-muted hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('triggered')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold transition ${
+                activeTab === 'triggered'
+                  ? 'bg-accent-purple/15 text-accent-purple border border-accent-purple/30'
+                  : 'text-text-muted hover:text-white'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Triggered Matches
+              {triggeredMatches.length > 0 && (
+                <span className="bg-accent-purple/20 text-accent-purple text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {triggeredByMatch.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* ===== TRIGGERED MATCHES TAB ===== */}
+          {activeTab === 'triggered' && (
+            <div className="space-y-3">
+              {/* Range + View toggles */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {(['7d', '30d', 'all'] as const).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => { setTriggeredRange(r); setTriggeredExpanded(null); }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                      triggeredRange === r ? 'bg-accent-purple text-white' : 'bg-glass-light text-text-muted hover:text-white'
+                    }`}
+                  >
+                    {r === 'all' ? 'All time' : r === '7d' ? 'Last 7 days' : 'Last 30 days'}
+                  </button>
+                ))}
+                <div className="flex gap-1 ml-auto bg-glass-light/50 rounded-lg p-0.5">
+                  <button
+                    onClick={() => { setTriggeredViewMode('matches'); setTriggeredExpanded(null); }}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition ${
+                      triggeredViewMode === 'matches' ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30' : 'text-text-muted hover:text-white'
+                    }`}
+                  >
+                    <Trophy className="w-3 h-3" /> By Match
+                  </button>
+                  <button
+                    onClick={() => { setTriggeredViewMode('filters'); setTriggeredExpanded(null); }}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition ${
+                      triggeredViewMode === 'filters' ? 'bg-accent-purple/15 text-accent-purple border border-accent-purple/30' : 'text-text-muted hover:text-white'
+                    }`}
+                  >
+                    <FilterIcon className="w-3 h-3" /> By Filter
+                  </button>
+                </div>
+              </div>
+
+              {/* Count row */}
+              {!triggeredLoading && (
+                <div className="flex items-center gap-2 text-[11px] text-text-muted">
+                  <span>
+                    {triggeredViewMode === 'matches'
+                      ? `${triggeredByMatch.length} match${triggeredByMatch.length !== 1 ? 'es' : ''} · ${triggeredMatches.length} total triggers`
+                      : `${triggeredByFilter.length} filter${triggeredByFilter.length !== 1 ? 's' : ''} · ${triggeredByMatch.length} matches`}
+                  </span>
+                  <span className="ml-auto text-accent-purple text-[10px]">persists 7d+ · export above ↑</span>
+                </div>
+              )}
+
+              {/* Loading */}
+              {triggeredLoading && (
+                <div className="p-8 text-center border border-white/10 rounded-xl bg-[rgba(15,23,42,0.85)]">
+                  <Zap className="w-6 h-6 text-accent-purple mx-auto mb-2 animate-pulse" />
+                  <p className="text-sm text-text-muted">Loading triggered matches...</p>
+                </div>
+              )}
+
+              {/* BY MATCH */}
+              {!triggeredLoading && triggeredViewMode === 'matches' && (
+                triggeredByMatch.length === 0 ? (
+                  <div className="p-8 text-center border border-white/10 rounded-xl bg-[rgba(15,23,42,0.85)]">
+                    <Trophy className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
+                    <p className="text-sm text-text-secondary">No triggered matches in this period</p>
+                    <p className="text-[11px] text-text-muted mt-1">Try selecting a wider range above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {triggeredByMatch.map(g => (
+                      <div key={g.matchId} className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+                        <button
+                          onClick={() => setTriggeredExpanded(triggeredExpanded === g.matchId ? null : g.matchId)}
+                          className="w-full text-left p-3 hover:bg-white/5 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-base font-bold text-accent-cyan">{g.scoreHome ?? 0}</span>
+                              <span className="text-xs text-text-muted">-</span>
+                              <span className="text-base font-bold text-accent-blue">{g.scoreAway ?? 0}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-white truncate">{g.homeTeam} vs {g.awayTeam}</div>
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+                                <span className="text-text-muted truncate">{g.league}</span>
+                                <span className="text-accent-blue">{(() => { const d = Date.now() - new Date(g.latestAt).getTime(); const m = Math.floor(d/60000); if (m < 1) return 'Just now'; if (m < 60) return `${m}m ago`; const h = Math.floor(d/3600000); if (h < 24) return `${h}h ago`; return `${Math.floor(d/86400000)}d ago`; })()}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="bg-accent-purple/20 text-accent-purple text-[10px] font-bold px-2 py-0.5 rounded-full">{g.filters.length}</span>
+                              <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${triggeredExpanded === g.matchId ? 'rotate-180' : ''}`} />
+                            </div>
+                          </div>
+                        </button>
+                        {triggeredExpanded === g.matchId && (
+                          <div className="border-t border-white/8 px-3 py-2 space-y-1">
+                            {g.filters.map((fname: string, i: number) => {
+                              const raw = triggeredMatches.find((m: any) => m.match_id === g.matchId && m.filter_name === fname);
+                              return (
+                                <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/3">
+                                  <div className="flex items-center gap-2">
+                                    <FilterIcon className="w-3 h-3 text-accent-purple shrink-0" />
+                                    <span className="text-xs text-white">{fname}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[11px] text-text-muted">
+                                    {raw?.match_time != null && <span className="text-accent-cyan font-semibold">{raw.match_time}&apos;</span>}
+                                    <span>{raw?.score_home ?? 0}-{raw?.score_away ?? 0}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* BY FILTER */}
+              {!triggeredLoading && triggeredViewMode === 'filters' && (
+                triggeredByFilter.length === 0 ? (
+                  <div className="p-8 text-center border border-white/10 rounded-xl bg-[rgba(15,23,42,0.85)]">
+                    <FilterIcon className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
+                    <p className="text-sm text-text-secondary">No filter triggers in this period</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {triggeredByFilter.map(g => (
+                      <div key={g.filterId} className="rounded-xl border border-white/10 bg-[rgba(15,23,42,0.85)] overflow-hidden">
+                        <button
+                          onClick={() => setTriggeredExpanded(triggeredExpanded === g.filterId ? null : g.filterId)}
+                          className="w-full text-left p-3 hover:bg-white/5 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-accent-purple/15 border border-accent-purple/30 flex items-center justify-center shrink-0">
+                              <FilterIcon className="w-4 h-4 text-accent-purple" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-white truncate">{g.filterName}</div>
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+                                <span className="text-accent-purple font-medium">{g.matches.length} match{g.matches.length !== 1 ? 'es' : ''}</span>
+                                <span className="text-text-muted">·</span>
+                                <span className="text-accent-blue">{(() => { const d = Date.now() - new Date(g.latestAt).getTime(); const h = Math.floor(d/3600000); if (h < 1) return 'Just now'; if (h < 24) return `${h}h ago`; return `${Math.floor(d/86400000)}d ago`; })()}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="bg-accent-purple/20 text-accent-purple text-[10px] font-bold px-2 py-0.5 rounded-full">{g.matches.length}</span>
+                              <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${triggeredExpanded === g.filterId ? 'rotate-180' : ''}`} />
+                            </div>
+                          </div>
+                        </button>
+                        {triggeredExpanded === g.filterId && (
+                          <div className="border-t border-white/8 px-3 py-2 space-y-1">
+                            {g.matches.map((m: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/3">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="text-xs font-bold text-accent-cyan">{m.score_home ?? 0}</span>
+                                    <span className="text-[10px] text-text-muted">-</span>
+                                    <span className="text-xs font-bold text-accent-blue">{m.score_away ?? 0}</span>
+                                  </div>
+                                  <span className="text-xs text-white truncate">{m.home_team} vs {m.away_team}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-text-muted shrink-0">
+                                  {m.match_time != null && <span className="text-accent-cyan font-semibold">{m.match_time}&apos;</span>}
+                                  <span>{new Date(m.triggered_at).toLocaleDateString([], { day: '2-digit', month: 'short' })}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {/* ===== OVERVIEW TAB ===== */}
+          {activeTab === 'overview' && (
           {overallStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard
@@ -469,6 +727,7 @@ export default function AnalyticsPage() {
               onSuccessRateUpdated={handleSuccessRateUpdated}
             />
           </div>
+          )} {/* end overview tab */}
 
         </div>
       </div>

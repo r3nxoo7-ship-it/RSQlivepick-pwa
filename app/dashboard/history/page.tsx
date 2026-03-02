@@ -125,9 +125,9 @@ function groupByMatch(matches: TriggeredMatch[]): MatchGroup[] {
 }
 
 function groupByFilter(matches: TriggeredMatch[]): FilterGroup[] {
-  // Only show matches from last 12 hours
-  const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
-  const recent = matches.filter(m => new Date(m.triggered_at).getTime() > twelveHoursAgo);
+  // Only show matches from last 6 hours (soft/recent view)
+  const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+  const recent = matches.filter(m => new Date(m.triggered_at).getTime() > sixHoursAgo);
 
   const map = new Map<string, FilterGroup>();
 
@@ -259,7 +259,7 @@ export default function HistoryTriggeredPage() {
             <button
               onClick={() => { setPage(0); setExpandedMatch(null); loadTriggeredMatches(true); }}
               disabled={refreshing || loading}
-              className="p-2 rounded-lg hover:bg-glass-light transition disabled:opacity-50 shrink-0"
+              className="p-2 rounded-lg hover:bg-glass-light transition disabled:opacity-50"
               title="Refresh"
             >
               <RefreshCw className={`w-5 h-5 text-text-secondary ${refreshing ? 'animate-spin' : ''}`} />
@@ -292,44 +292,37 @@ export default function HistoryTriggeredPage() {
             </button>
           </div>
 
-          {/* TIME PILLS + STATS inline — only for Matches view */}
-          {viewMode === 'matches' && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {(['30m', '2h', '24h', 'all'] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => handleTimeRangeChange(range)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                    timeRange === range
-                      ? 'bg-accent-cyan text-black'
-                      : 'bg-glass-light text-text-muted hover:text-white'
-                  }`}
-                >
-                  {range === 'all' ? 'All' : range}
-                </button>
-              ))}
-              {matchGroups.length > 0 && (
-                <span className="text-[10px] text-text-muted ml-auto">
-                  {matchGroups.length} matches {'\u00B7'} {uniqueFilters} filters
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* By Filter view info */}
-          {viewMode === 'filters' && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-text-muted flex items-center gap-1.5">
-                <Clock className="w-3 h-3" />
-                Last 12 hours
+          {/* TIME PILLS + STATS — shown for BOTH views */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(['30m', '2h', '24h', 'all'] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => handleTimeRangeChange(range)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                  timeRange === range
+                    ? 'bg-accent-cyan text-black'
+                    : 'bg-glass-light text-text-muted hover:text-white'
+                }`}
+              >
+                {range === 'all' ? 'All' : range}
+              </button>
+            ))}
+            {viewMode === 'matches' && matchGroups.length > 0 && (
+              <span className="text-[10px] text-text-muted ml-auto">
+                {matchGroups.length} matches {'\u00B7'} {uniqueFilters} filters
               </span>
-              {filterGroups.length > 0 && (
-                <span className="text-[10px] text-text-muted">
-                  {filterGroups.length} filter{filterGroups.length !== 1 ? 's' : ''} {'\u00B7'} {filterGroups.reduce((sum, g) => sum + g.matchCount, 0)} matches
-                </span>
-              )}
-            </div>
-          )}
+            )}
+            {viewMode === 'filters' && filterGroups.length > 0 && (
+              <span className="text-[10px] text-text-muted ml-auto">
+                {filterGroups.length} filter{filterGroups.length !== 1 ? 's' : ''} {'\u00B7'} {filterGroups.reduce((sum, g) => sum + g.matchCount, 0)} matches
+              </span>
+            )}
+          </div>
+          {/* Last refreshed */}
+          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+            <Clock className="w-3 h-3" />
+            Updated {getTimeSince(lastRefreshedAt.toISOString())} · auto-refresh every 12h
+          </div>
 
           {/* CONTENT */}
           {loading && triggeredMatches.length === 0 ? (
@@ -376,7 +369,7 @@ export default function HistoryTriggeredPage() {
             filterGroups.length === 0 ? (
               <div className="rounded-lg p-8 border border-white/10 bg-[rgba(15,23,42,0.85)] text-center">
                 <FilterIcon className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
-                <p className="text-sm text-text-secondary">No filter triggers in the last 12 hours</p>
+                <p className="text-sm text-text-secondary">No filter triggers in the last 6 hours</p>
                 <p className="text-[11px] text-text-muted mt-1.5 max-w-xs mx-auto">
                   Switch to &quot;By Match&quot; to see all history, or keep the app open during match times.
                 </p>
