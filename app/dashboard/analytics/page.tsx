@@ -22,6 +22,9 @@ import {
   Layers,
   Trophy,
   Clock,
+  Sparkles,
+  Globe,
+  Activity,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { FilterFeedbackCard } from '@/components/FilterFeedbackCard';
@@ -60,6 +63,30 @@ export default function AnalyticsPage() {
   const [triggeredRange, setTriggeredRange] = useState<'7d' | '30d' | 'all'>('7d');
   const [triggeredViewMode, setTriggeredViewMode] = useState<TriggeredViewMode>('matches');
   const [triggeredExpanded, setTriggeredExpanded] = useState<string | null>(null);
+  const [insightsOpen, setInsightsOpen] = useState<Set<string>>(new Set());
+  const [insightsData, setInsightsData] = useState<Map<string, any>>(new Map());
+  const [insightsLoading, setInsightsLoading] = useState<Set<string>>(new Set());
+
+  const loadInsights = useCallback(async (filterId: string) => {
+    if (insightsData.has(filterId) || insightsLoading.has(filterId)) return;
+    setInsightsLoading(prev => new Set(prev).add(filterId));
+    try {
+      const res = await fetch(`/api/analytics/pattern-insights?filter_id=${filterId}&user_id=${userId}`);
+      const data = res.ok ? await res.json() : null;
+      if (data) setInsightsData(prev => new Map(prev).set(filterId, data));
+    } catch { /* ignore */ } finally {
+      setInsightsLoading(prev => { const s = new Set(prev); s.delete(filterId); return s; });
+    }
+  }, [insightsData, insightsLoading, userId]);
+
+  const toggleInsights = (filterId: string) => {
+    setInsightsOpen(prev => {
+      const s = new Set(prev);
+      if (s.has(filterId)) { s.delete(filterId); }
+      else { s.add(filterId); loadInsights(filterId); }
+      return s;
+    });
+  };
 
   // Load filters and finalize old triggered matches
   const loadFilters = useCallback(async () => {
@@ -291,7 +318,7 @@ export default function AnalyticsPage() {
                   <div className="absolute right-0 top-full mt-2 w-72 glass-card p-4 rounded-xl shadow-2xl border border-glass-lighter z-50 space-y-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-semibold text-white">Export Options</span>
-                      <button onClick={() => setShowExportPanel(false)} className="text-text-muted hover:text-white">
+                      <button onClick={() => setShowExportPanel(false)} title="Close export panel" className="text-text-muted hover:text-white">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -331,6 +358,7 @@ export default function AnalyticsPage() {
                         Filter
                       </label>
                       <select
+                        aria-label="Select filter"
                         value={exportFilterId}
                         onChange={e => setExportFilterId(e.target.value)}
                         className="w-full px-2.5 py-1.5 rounded-lg bg-glass-light border border-glass-lighter text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-accent-cyan/50"
@@ -349,6 +377,7 @@ export default function AnalyticsPage() {
                         League
                       </label>
                       <select
+                        aria-label="Select league"
                         value={exportLeague}
                         onChange={e => setExportLeague(e.target.value)}
                         className="w-full px-2.5 py-1.5 rounded-lg bg-glass-light border border-glass-lighter text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-accent-cyan/50"
@@ -577,6 +606,150 @@ export default function AnalyticsPage() {
                                 </div>
                               </div>
                             ))}
+
+                            {/* ── PATTERN INSIGHTS TOGGLE ── */}
+                            <div className="pt-1.5">
+                              <button
+                                onClick={() => toggleInsights(g.filterId)}
+                                className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold transition ${
+                                  insightsOpen.has(g.filterId)
+                                    ? 'bg-accent-amber/15 text-accent-amber border border-accent-amber/30'
+                                    : 'bg-white/5 text-text-muted hover:text-accent-amber hover:bg-accent-amber/10'
+                                }`}
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                {insightsOpen.has(g.filterId) ? 'Hide Pattern Insights' : 'Show Pattern Insights'}
+                              </button>
+
+                              {/* ── INSIGHTS PANEL ── */}
+                              {insightsOpen.has(g.filterId) && (() => {
+                                const ins = insightsData.get(g.filterId);
+                                const loading = insightsLoading.has(g.filterId);
+                                if (loading) return (
+                                  <div className="mt-2 p-4 text-center text-[11px] text-text-muted">
+                                    <Sparkles className="w-4 h-4 mx-auto mb-1 animate-pulse text-accent-amber" />
+                                    Analysing patterns...
+                                  </div>
+                                );
+                                if (!ins || ins.total < 2) return (
+                                  <div className="mt-2 p-3 text-center text-[11px] text-text-muted">
+                                    Not enough data yet — needs at least 2 triggers.
+                                  </div>
+                                );
+                                const maxCount = Math.max(...(ins.leagues as any[]).map((l: any) => l.count), 1);
+                                const maxMin   = Math.max(...(ins.minuteBreakdown as any[]).map((b: any) => b.count), 1);
+                                return (
+                                  <div className="mt-2 space-y-3 rounded-xl bg-white/3 p-3 border border-accent-amber/15">
+
+                                    {/* summary row */}
+                                    <div className="flex items-center gap-3 flex-wrap text-[10px]">
+                                      <span className="text-text-muted">{ins.total} triggers</span>
+                                      {ins.overallSuccessRate !== null && (
+                                        <span className={`font-bold ${
+                                          ins.overallSuccessRate >= 65 ? 'text-accent-green' :
+                                          ins.overallSuccessRate >= 45 ? 'text-accent-amber' : 'text-red-400'
+                                        }`}>{ins.overallSuccessRate}% success (rated)</span>
+                                      )}
+                                      {ins.avgGoalsAdded !== null && (
+                                        <span className="text-accent-cyan">avg +{ins.avgGoalsAdded} goals after trigger</span>
+                                      )}
+                                    </div>
+
+                                    {/* League breakdown */}
+                                    {(ins.leagues as any[]).length > 0 && (
+                                      <div>
+                                        <div className="flex items-center gap-1 text-[10px] text-text-muted mb-1.5">
+                                          <Globe className="w-3 h-3" /> League breakdown
+                                        </div>
+                                        <div className="space-y-1">
+                                          {(ins.leagues as any[]).map((l: any) => {
+                                              const pct = Math.round((l.count / maxCount) * 100);
+                                              return (
+                                            <div key={l.name} className="flex items-center gap-2">
+                                              <span className="text-[10px] text-white truncate w-28 shrink-0">{l.name}</span>
+                                              <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full bg-accent-purple w-[${pct}%]`} />
+                                              </div>
+                                              <span className="text-[10px] text-text-muted w-5 text-right shrink-0">{l.count}</span>
+                                              {l.successRate !== null && (
+                                                <span className={`text-[10px] font-bold w-9 text-right shrink-0 ${
+                                                  l.successRate >= 65 ? 'text-accent-green' :
+                                                  l.successRate >= 45 ? 'text-accent-amber' : 'text-red-400'
+                                                }`}>{l.successRate}%</span>
+                                              )}
+                                            </div>
+                                              );
+                                            })}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Minute breakdown */}
+                                    {(ins.minuteBreakdown as any[]).length > 1 && (
+                                      <div>
+                                        <div className="flex items-center gap-1 text-[10px] text-text-muted mb-1.5">
+                                          <Activity className="w-3 h-3" /> Trigger minute
+                                        </div>
+                                        <div className="flex items-end gap-1.5 h-9">
+                                          {(ins.minuteBreakdown as any[]).map((b: any) => {
+                                            const barH = Math.round((b.count / maxMin) * 36);
+                                            return (
+                                            <div key={b.range} className="flex-1 flex flex-col items-center gap-0.5">
+                                              <div className="w-full flex items-end justify-center h-9">
+                                                <div
+                                                  className={`w-full rounded-t h-[${barH}px] ${
+                                                    b.successRate !== null && b.successRate >= 65 ? 'bg-accent-green/60' :
+                                                    b.successRate !== null && b.successRate < 45  ? 'bg-red-400/50' : 'bg-accent-cyan/50'
+                                                  }`}
+                                                />
+                                              </div>
+                                              <span className="text-[9px] text-text-muted">{b.range}&apos;</span>
+                                              {b.successRate !== null && (
+                                                <span className={`text-[9px] font-bold ${
+                                                  b.successRate >= 65 ? 'text-accent-green' :
+                                                  b.successRate < 45  ? 'text-red-400' : 'text-accent-amber'
+                                                }`}>{b.successRate}%</span>
+                                              )}
+                                            </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Score state */}
+                                    {(ins.scoreBreakdown as any[]).length > 0 && ins.avgGoalsAdded !== null && (
+                                      <div>
+                                        <div className="flex items-center gap-1 text-[10px] text-text-muted mb-1.5">
+                                          <Trophy className="w-3 h-3" /> Goals added after trigger
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-1">
+                                          {(ins.scoreBreakdown as any[]).map((s: any) => (
+                                            <div key={s.state} className="text-center bg-white/5 rounded-lg py-1.5 px-1">
+                                              <div className="text-[9px] text-text-muted">{s.state}</div>
+                                              {s.avgGoalsAfter !== null
+                                                ? <div className={`text-sm font-bold ${
+                                                    s.avgGoalsAfter >= 1.5 ? 'text-accent-green' :
+                                                    s.avgGoalsAfter >= 0.8 ? 'text-accent-amber' : 'text-red-400'
+                                                  }`}>+{s.avgGoalsAfter}</div>
+                                                : <div className="text-xs text-text-muted">—</div>
+                                              }
+                                              <div className="text-[9px] text-text-muted">{s.count}×</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {ins.withFeedback < 3 && (
+                                      <p className="text-[10px] text-text-muted italic">
+                                        Rate triggers with 👍/👎 in History to unlock success rate patterns.
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
                         )}
                       </div>
