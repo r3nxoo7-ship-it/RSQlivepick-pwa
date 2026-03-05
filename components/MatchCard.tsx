@@ -24,7 +24,7 @@ interface MatchCardProps {
   awayForm?: TeamFormData;
 }
 
-const LIVE_SHORT_STATUSES = new Set(['LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT']);
+const LIVE_SHORT_STATUSES = new Set(['LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT', 'PAUSED']);
 const FINISHED_SHORT_STATUSES = new Set(['FT', 'AET', 'PEN']);
 
 /**

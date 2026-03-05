@@ -347,24 +347,32 @@ export async function getActiveTodayLeagues(): Promise<LeagueConfig[]> {
     return _activeTodayCache.leagues;
   }
 
-  // ESPN date format: YYYYMMDD
-  const espnDate = today.replace(/-/g, '');
+  // ESPN date format: YYYYMMDD. Probe adjacent days too to avoid UTC boundary misses.
+  const dateCandidates = [
+    new Date(now - 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    today,
+    new Date(now + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  ].map(d => d.replace(/-/g, ''));
+
   const active: LeagueConfig[] = [];
 
   // Check all leagues in parallel — quick scoreboard HEAD-style call
   const results = await Promise.allSettled(
     ALL_EUROPEAN_SOCCER_LEAGUES.map(async (cfg) => {
       try {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.league}/scoreboard?dates=${espnDate}&limit=1`;
-        const res = await fetch(url, {
-          headers: { 'User-Agent': 'LivePick-PWA/1.0' },
-          cache: 'no-store',
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!res.ok) return null;
-        const json = await res.json();
-        const count = json?.events?.length || 0;
-        return count > 0 ? cfg : null;
+        for (const espnDate of dateCandidates) {
+          const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.league}/scoreboard?dates=${espnDate}&limit=1`;
+          const res = await fetch(url, {
+            headers: { 'User-Agent': 'LivePick-PWA/1.0' },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000),
+          });
+          if (!res.ok) continue;
+          const json = await res.json();
+          const count = json?.events?.length || 0;
+          if (count > 0) return cfg;
+        }
+        return null;
       } catch {
         return null;
       }
@@ -378,7 +386,7 @@ export async function getActiveTodayLeagues(): Promise<LeagueConfig[]> {
   }
 
   // Always include top 5 + continental as fallback (they always have something)
-  const alwaysInclude = ['eng.1', 'ger.1', 'ita.1', 'esp.1', 'fra.1', 'uefa.champions', 'uefa.europa'];
+  const alwaysInclude = ['eng.1', 'ger.1', 'ita.1', 'esp.1', 'fra.1', 'uefa.champions', 'uefa.europa', 'tur.cup'];
   for (const cfg of ALL_EUROPEAN_SOCCER_LEAGUES) {
     if (alwaysInclude.includes(cfg.league) && !active.find(a => a.league === cfg.league)) {
       active.push(cfg);
