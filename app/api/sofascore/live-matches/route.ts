@@ -9,12 +9,36 @@
 
 import { NextResponse } from 'next/server';
 import { getLiveMatchesFromSofascore } from '@/lib/sofascore-api';
+import * as espnSync from '@/lib/espn-sync';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const matches = await getLiveMatchesFromSofascore();
+    let matches = await getLiveMatchesFromSofascore();
+
+    // Production-safe fallback: if SofaScore is blocked/unavailable on the host,
+    // serve live+upcoming matches from synced ESPN data instead of returning empty.
+    if (!matches || matches.length === 0) {
+      try {
+        const [liveRaw, upcomingRaw] = await Promise.all([
+          espnSync.getLiveMatchesOnly(),
+          espnSync.getUpcomingMatches(),
+        ]);
+
+        const fallbackMatches = [
+          ...liveRaw.map((row: any) => espnSync.convertESPNMatchToLiveMatch(row)),
+          ...upcomingRaw.map((row: any) => espnSync.convertESPNMatchToLiveMatch(row)),
+        ];
+
+        if (fallbackMatches.length > 0) {
+          matches = fallbackMatches;
+        }
+      } catch (fallbackErr) {
+        console.warn('[/api/sofascore/live-matches] ESPN fallback failed:', fallbackErr);
+      }
+    }
+
     return NextResponse.json(
       { matches: matches ?? [], count: matches?.length ?? 0 },
       {
