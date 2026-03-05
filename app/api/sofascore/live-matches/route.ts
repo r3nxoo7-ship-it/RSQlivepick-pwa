@@ -78,30 +78,22 @@ function espnMatchToLiveMatch(m: ESPNAPI.ESPNMatch, leagueName: string): any {
 
 /** Top leagues to check directly — covers 95%+ of user interest and stays within Vercel 10s timeout */
 const TOP_LEAGUES: Array<{ sport: string; league: string; name: string }> = [
+  // Top 5
   { sport: 'soccer', league: 'eng.1', name: 'Premier League' },
   { sport: 'soccer', league: 'ger.1', name: 'Bundesliga' },
   { sport: 'soccer', league: 'ita.1', name: 'Serie A' },
   { sport: 'soccer', league: 'esp.1', name: 'La Liga' },
   { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
+  // UEFA
   { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
   { sport: 'soccer', league: 'uefa.europa', name: 'Europa League' },
   { sport: 'soccer', league: 'uefa.europa.conf', name: 'Conference League' },
+  // Other top leagues
   { sport: 'soccer', league: 'ned.1', name: 'Eredivisie' },
   { sport: 'soccer', league: 'por.1', name: 'Primeira Liga' },
   { sport: 'soccer', league: 'bel.1', name: 'Belgian Pro League' },
   { sport: 'soccer', league: 'tur.1', name: 'Turkish Super Lig' },
   { sport: 'soccer', league: 'sco.1', name: 'Scottish Premiership' },
-  { sport: 'soccer', league: 'eng.2', name: 'Championship' },
-  { sport: 'soccer', league: 'ger.2', name: '2. Bundesliga' },
-  { sport: 'soccer', league: 'ita.2', name: 'Serie B' },
-  { sport: 'soccer', league: 'esp.2', name: 'La Liga 2' },
-  { sport: 'soccer', league: 'fra.2', name: 'Ligue 2' },
-  { sport: 'soccer', league: 'eng.fa', name: 'FA Cup' },
-  { sport: 'soccer', league: 'eng.league_cup', name: 'EFL Cup' },
-  { sport: 'soccer', league: 'ger.dfb_pokal', name: 'DFB-Pokal' },
-  { sport: 'soccer', league: 'ita.coppa_italia', name: 'Coppa Italia' },
-  { sport: 'soccer', league: 'esp.copa_del_rey', name: 'Copa del Rey' },
-  { sport: 'soccer', league: 'fra.coupe_de_france', name: 'Coupe de France' },
   { sport: 'soccer', league: 'gre.1', name: 'Greek Super League' },
   { sport: 'soccer', league: 'aut.1', name: 'Austrian Bundesliga' },
   { sport: 'soccer', league: 'den.1', name: 'Danish Superliga' },
@@ -111,8 +103,40 @@ const TOP_LEAGUES: Array<{ sport: string; league: string; name: string }> = [
   { sport: 'soccer', league: 'rou.1', name: 'Romanian Liga 1' },
   { sport: 'soccer', league: 'pol.1', name: 'Polish Ekstraklasa' },
   { sport: 'soccer', league: 'sui.1', name: 'Swiss Super League' },
+  { sport: 'soccer', league: 'hrv.1', name: 'Croatian First League' },
+  { sport: 'soccer', league: 'svn.1', name: 'Slovenian PrvaLiga' },
+  // Second divisions
+  { sport: 'soccer', league: 'eng.2', name: 'Championship' },
+  { sport: 'soccer', league: 'ger.2', name: '2. Bundesliga' },
+  { sport: 'soccer', league: 'ita.2', name: 'Serie B' },
+  { sport: 'soccer', league: 'esp.2', name: 'La Liga 2' },
+  { sport: 'soccer', league: 'fra.2', name: 'Ligue 2' },
+  { sport: 'soccer', league: 'pol.2', name: 'Polish I Liga' },
+  { sport: 'soccer', league: 'tur.2', name: 'TFF 1. Lig' },
+  // Domestic cups
+  { sport: 'soccer', league: 'eng.fa', name: 'FA Cup' },
+  { sport: 'soccer', league: 'eng.league_cup', name: 'EFL Cup' },
+  { sport: 'soccer', league: 'ger.dfb_pokal', name: 'DFB-Pokal' },
+  { sport: 'soccer', league: 'ita.coppa_italia', name: 'Coppa Italia' },
+  { sport: 'soccer', league: 'esp.copa_del_rey', name: 'Copa del Rey' },
+  { sport: 'soccer', league: 'fra.coupe_de_france', name: 'Coupe de France' },
   { sport: 'soccer', league: 'tur.cup', name: 'Turkish Cup' },
+  { sport: 'soccer', league: 'pol.cup', name: 'Polish Cup' },
+  { sport: 'soccer', league: 'ned.cup', name: 'KNVB Beker' },
+  { sport: 'soccer', league: 'por.cup', name: 'Taça de Portugal' },
+  { sport: 'soccer', league: 'bel.cup', name: 'Belgian Cup' },
+  { sport: 'soccer', league: 'sco.fa', name: 'Scottish Cup' },
+  { sport: 'soccer', league: 'sco.league_cup', name: 'Scottish League Cup' },
   { sport: 'soccer', league: 'nor.cup', name: 'Norwegian Cup' },
+  // South America
+  { sport: 'soccer', league: 'bra.1', name: 'Brasileirao Serie A' },
+  { sport: 'soccer', league: 'arg.1', name: 'Argentine Primera' },
+  { sport: 'soccer', league: 'conmebol.libertadores', name: 'Copa Libertadores' },
+  { sport: 'soccer', league: 'conmebol.sudamericana', name: 'Copa Sudamericana' },
+  // North America
+  { sport: 'soccer', league: 'usa.1', name: 'MLS' },
+  { sport: 'soccer', league: 'mex.1', name: 'Liga MX' },
+  { sport: 'soccer', league: 'concacaf.champions', name: 'CONCACAF Champions Cup' },
 ];
 
 /**

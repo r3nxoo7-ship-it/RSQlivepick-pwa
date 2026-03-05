@@ -69,49 +69,96 @@ export default function TriggeredMatchDetailsPage() {
           console.error('Error fetching match data:', matchError);
         }
 
-        // Fetch stats from ESPN summary endpoint
+        // Fetch stats — SofaScore for ss_ matches, ESPN with SofaScore fallback for others
         try {
-          const leagueMap: Record<string, string> = {
-            'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
-            'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
-            'Champions League': 'uefa.champions', 'Europa League': 'uefa.europa',
-            'Turkish Super Lig': 'tur.1', 'Super Lig': 'tur.1',
-            'Eredivisie': 'ned.1', 'Primeira Liga': 'por.1', 'Scottish Premiership': 'sco.1',
-            'Polish Ekstraklasa': 'pol.1', 'Ekstraklasa': 'pol.1',
-            'Romanian Liga 1': 'rou.1', 'Liga 1': 'rou.1',
-            'Slovenian PrvaLiga': 'svn.1', 'PrvaLiga': 'svn.1',
-            'Croatian HNL': 'hrv.1', 'HNL': 'hrv.1', 'Croatian First League': 'hrv.1',
-            'Bulgarian First League': 'bul.1', 'Bulgarian League': 'bul.1',
-            'Czech First League': 'cze.1', 'Czech League': 'cze.1',
-            'Finnish Veikkausliiga': 'fin.1', 'Veikkausliiga': 'fin.1',
-            'Icelandic Besta deild': 'isl.1', 'Besta deild': 'isl.1',
-            'Bosnian Premier League': 'bih.1',
-            'Macedonian First League': 'mkd.1',
-            'Albanian Superliga': 'alb.1', 'Superliga': 'alb.1',
-            'Turkish Cup': 'tur.cup',
-            'Polish Cup': 'pol.cup',
-            'FA Cup': 'eng.fa',
-            'EFL Cup': 'eng.league_cup', 'Carabao Cup': 'eng.league_cup',
-            'Scottish Cup': 'sco.fa',
-            'Scottish League Cup': 'sco.league_cup',
-            'KNVB Beker': 'ned.cup', 'KNVB Cup': 'ned.cup',
-            'Belgian Cup': 'bel.cup',
-            'Taça de Portugal': 'por.cup', 'Portuguese Cup': 'por.cup',
-          };
-          const leagueCode = leagueMap[foundTriggered.league_name || ''] || '';
-          const leagueParam = leagueCode ? `&league=${leagueCode}` : '';
-          const statsRes = await fetch(`/api/espn/match-stats?eventId=${foundTriggered.match_id}${leagueParam}`);
-          if (statsRes.ok) {
-            const statsData = await statsRes.json();
-            if (statsData.stats) setStats(statsData.stats);
+          const rawMatchId = foundTriggered.match_id || '';
+          const isSofascoreMatch = rawMatchId.startsWith('ss_');
+          const sofascoreEventId = isSofascoreMatch ? rawMatchId.replace('ss_', '') : null;
+
+          let fetchedStats: any = null;
+
+          // 1. For SofaScore matches, go directly to SofaScore stats
+          if (sofascoreEventId) {
+            try {
+              const ssRes = await fetch(`/api/sofascore/match-stats?eventId=${sofascoreEventId}`);
+              if (ssRes.ok) {
+                const ssData = await ssRes.json();
+                if (ssData.found && ssData.stats) fetchedStats = ssData.stats;
+              }
+            } catch { /* fall through */ }
           }
+
+          // 2. Try ESPN for non-SofaScore matches (or as fallback)
+          if (!fetchedStats && !isSofascoreMatch) {
+            const leagueMap: Record<string, string> = {
+              'Premier League': 'eng.1', 'La Liga': 'esp.1', 'Serie A': 'ita.1',
+              'Bundesliga': 'ger.1', 'Ligue 1': 'fra.1', 'MLS': 'usa.1',
+              'Champions League': 'uefa.champions', 'Europa League': 'uefa.europa',
+              'Conference League': 'uefa.europa.conf',
+              'Turkish Super Lig': 'tur.1', 'Super Lig': 'tur.1',
+              'Eredivisie': 'ned.1', 'Primeira Liga': 'por.1', 'Scottish Premiership': 'sco.1',
+              'Polish Ekstraklasa': 'pol.1', 'Ekstraklasa': 'pol.1',
+              'Romanian Liga 1': 'rou.1', 'Liga 1': 'rou.1',
+              'Slovenian PrvaLiga': 'svn.1', 'PrvaLiga': 'svn.1',
+              'Croatian HNL': 'hrv.1', 'HNL': 'hrv.1', 'Croatian First League': 'hrv.1',
+              'Bulgarian First League': 'bul.1', 'Bulgarian League': 'bul.1',
+              'Czech First League': 'cze.1', 'Czech League': 'cze.1',
+              'Finnish Veikkausliiga': 'fin.1', 'Veikkausliiga': 'fin.1',
+              'Icelandic Besta deild': 'isl.1', 'Besta deild': 'isl.1',
+              'Bosnian Premier League': 'bih.1',
+              'Macedonian First League': 'mkd.1',
+              'Albanian Superliga': 'alb.1', 'Superliga': 'alb.1',
+              'Turkish Cup': 'tur.cup',
+              'Polish Cup': 'pol.cup', 'Puchar Polski': 'pol.cup',
+              'Coupe de France': 'fra.coupe_de_france',
+              'FA Cup': 'eng.fa',
+              'EFL Cup': 'eng.league_cup', 'Carabao Cup': 'eng.league_cup',
+              'Coppa Italia': 'ita.coppa_italia',
+              'Copa del Rey': 'esp.copa_del_rey',
+              'DFB Pokal': 'ger.dfb_pokal', 'DFB-Pokal': 'ger.dfb_pokal',
+              'Scottish Cup': 'sco.fa',
+              'Scottish League Cup': 'sco.league_cup',
+              'KNVB Beker': 'ned.cup', 'KNVB Cup': 'ned.cup',
+              'Belgian Cup': 'bel.cup',
+              'Taça de Portugal': 'por.cup', 'Portuguese Cup': 'por.cup',
+            };
+            const leagueCode = leagueMap[foundTriggered.league_name || ''] || '';
+            const leagueParam = leagueCode ? `&league=${leagueCode}` : '';
+            const statsRes = await fetch(`/api/espn/match-stats?eventId=${rawMatchId}${leagueParam}`);
+            if (statsRes.ok) {
+              const statsData = await statsRes.json();
+              if (statsData.stats) fetchedStats = statsData.stats;
+            }
+          }
+
+          // 3. If still no halftime data, try SofaScore find-event for half scores
+          if (fetchedStats && fetchedStats.homeHalfScore == null && foundTriggered.home_team && foundTriggered.away_team) {
+            try {
+              const matchDate = (foundTriggered.matched_at || foundTriggered.created_at || '').split('T')[0];
+              if (matchDate) {
+                const findRes = await fetch(
+                  `/api/sofascore/find-event?home=${encodeURIComponent(foundTriggered.home_team)}&away=${encodeURIComponent(foundTriggered.away_team)}&date=${matchDate}`
+                );
+                if (findRes.ok) {
+                  const findData = await findRes.json();
+                  if (findData.found && findData.period1Home != null) {
+                    fetchedStats.homeHalfScore = findData.period1Home;
+                    fetchedStats.awayHalfScore = findData.period1Away ?? 0;
+                  }
+                }
+              }
+            } catch { /* non-fatal */ }
+          }
+
+          if (fetchedStats) setStats(fetchedStats);
         } catch (statsError) {
           console.error('Error fetching match stats:', statsError);
         }
 
         // Fetch match incidents timeline from SofaScore
         try {
-          const incidentsRes = await fetch(`/api/sofascore/match-incidents?eventId=${foundTriggered.match_id}`);
+          const incidentEventId = (foundTriggered.match_id || '').replace(/^ss_/, '');
+          const incidentsRes = await fetch(`/api/sofascore/match-incidents?eventId=${incidentEventId}`);
           if (incidentsRes.ok) {
             const incidentsData = await incidentsRes.json();
             if (incidentsData.incidents && incidentsData.incidents.length > 0) {

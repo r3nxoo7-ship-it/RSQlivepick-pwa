@@ -586,10 +586,14 @@ export async function getLiveMatchesFromSofascore(): Promise<any[]> {
     console.log(`[SofaScore] ${activeEvents.length} active matches found`);
 
     // Enrich each event with full statistics in parallel
+    // Always try to fetch match-level stats for live matches — the SofaScore
+    // /event/{id}/statistics endpoint returns possession, shots, corners etc.
+    // even when hasEventPlayerStatistics is false (that flag controls player-level stats).
     const enrichedMatches = await Promise.all(
       activeEvents.map(async (event) => {
-        const stats = event.hasEventPlayerStatistics 
-          ? await getMatchStatistics(event.id) 
+        const isLive = event.status?.type === 'inprogress';
+        const stats = isLive
+          ? await getMatchStatistics(event.id)
           : null;
 
         // Normalize stats into flat shape + team-based format for frontend
