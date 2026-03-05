@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
       match_time,
       score_home,
       score_away,
+      ht_score_home,
+      ht_score_away,
       match_status,
     } = body;
 
@@ -75,6 +77,8 @@ export async function POST(request: NextRequest) {
         match_time: match_time || null,
         score_home: score_home ?? null,
         score_away: score_away ?? null,
+        ht_score_home: ht_score_home ?? null,
+        ht_score_away: ht_score_away ?? null,
         match_status: match_status || 'ongoing',
         created_at: new Date().toISOString(),
       }])

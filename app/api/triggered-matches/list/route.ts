@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     if (triggeredId) {
       const { data, error } = await supabaseAdmin
         .from('triggered_matches')
-        .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, match_status, user_feedback, feedback_at, final_score_home, final_score_away, created_at')
+        .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, ht_score_home, ht_score_away, match_status, user_feedback, feedback_at, final_score_home, final_score_away, created_at')
         .eq('user_id', userId)
         .eq('id', triggeredId)
         .single();
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabaseAdmin
       .from('triggered_matches')
-      .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, match_status, user_feedback, feedback_at, final_score_home, final_score_away, created_at')
+      .select('id, user_id, match_id, filter_id, filter_name, home_team, away_team, league_name, triggered_at, match_time, score_home, score_away, ht_score_home, ht_score_away, match_status, user_feedback, feedback_at, final_score_home, final_score_away, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 

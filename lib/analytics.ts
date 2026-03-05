@@ -301,7 +301,11 @@ export function exportToCSV(filters: Filter[]): string {
  * Export full report with analytics + triggered matches history.
  * Multi-section CSV with UTF-8 BOM for Excel compatibility.
  */
-export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredMatch[]): string {
+export function exportFullReport(
+  filters: Filter[], 
+  triggeredMatches: TriggeredMatch[], 
+  patternInsights?: any[]
+): string {
   const BOM = '\uFEFF';
   const sections: string[] = [];
 
@@ -340,7 +344,7 @@ export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredM
 
   const matchHeaders = [
     'Date', 'Time', 'Filter Name', 'Home Team', 'Away Team',
-    'League', 'Score', 'Match Minute', 'Match Status',
+    'League', 'Score at Trigger', 'HT Score', 'Match Minute', 'Match Status',
     'User Feedback', 'Final Score',
   ].map(csvEscape).join(',');
 
@@ -353,6 +357,9 @@ export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredM
     const dt = new Date(m.triggered_at);
     const score = (m.score_home !== null && m.score_away !== null)
       ? `${m.score_home}-${m.score_away}` : '';
+    const htScore = ((m as any).ht_score_home !== null && (m as any).ht_score_home !== undefined
+      && (m as any).ht_score_away !== null && (m as any).ht_score_away !== undefined)
+      ? `${(m as any).ht_score_home}-${(m as any).ht_score_away}` : '';
     // Use final_score if available, otherwise fall back to trigger-time score for finished matches
     const hasFinal = (m as any).final_score_home !== null && (m as any).final_score_home !== undefined
       && (m as any).final_score_away !== null && (m as any).final_score_away !== undefined;
@@ -369,6 +376,7 @@ export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredM
       csvEscape(m.away_team),
       csvEscape(m.league_name || ''),
       score,
+      htScore,
       m.match_time !== null ? `${m.match_time}'` : '',
       m.match_status || '',
       (m as any).user_feedback || '',
@@ -407,6 +415,71 @@ export function exportFullReport(filters: Filter[], triggeredMatches: TriggeredM
   summaryData.forEach(([label, val]) => {
     sections.push(`${csvEscape(label)},${csvEscape(val)}`);
   });
+
+  // ── SECTION 4: PATTERN INSIGHTS ──
+  if (patternInsights && patternInsights.length > 0) {
+    sections.push('');
+    sections.push('=== PATTERN INSIGHTS BY FILTER ===');
+
+    patternInsights.forEach(insight => {
+      sections.push('');
+      sections.push(`Filter: ${csvEscape(insight.filterName || '')}`);
+      sections.push(`Total Matches: ${insight.total || 0}`);
+      sections.push(`Overall Success Rate: ${insight.overallSuccessRate != null ? insight.overallSuccessRate + '%' : 'N/A'}`);
+      sections.push(`Average Goals Added After Trigger: ${insight.avgGoalsAdded ?? 'N/A'}`);
+      
+      if (insight.bestLeague) {
+        sections.push(`Best League: ${csvEscape(insight.bestLeague.name)} (${insight.bestLeague.successRate}% success, ${insight.bestLeague.count} matches)`);
+      }
+      if (insight.worstLeague) {
+        sections.push(`Worst League: ${csvEscape(insight.worstLeague.name)} (${insight.worstLeague.successRate}% success, ${insight.worstLeague.count} matches)`);
+      }
+
+      // League breakdown table
+      if (insight.leagues && insight.leagues.length > 0) {
+        sections.push('');
+        sections.push('League Breakdown:');
+        sections.push(['League', 'Matches', 'Rated', 'Success Rate'].map(csvEscape).join(','));
+        insight.leagues.forEach((l: any) => {
+          sections.push([
+            csvEscape(l.name),
+            l.count,
+            l.rated,
+            l.successRate != null ? l.successRate + '%' : 'N/A'
+          ].join(','));
+        });
+      }
+
+      // Minute breakdown table
+      if (insight.minuteBreakdown && insight.minuteBreakdown.length > 0) {
+        sections.push('');
+        sections.push('Minute Breakdown:');
+        sections.push(['Time Range', 'Matches', 'Rated', 'Success Rate'].map(csvEscape).join(','));
+        insight.minuteBreakdown.forEach((mb: any) => {
+          sections.push([
+            mb.range,
+            mb.count,
+            mb.rated,
+            mb.successRate != null ? mb.successRate + '%' : 'N/A'
+          ].join(','));
+        });
+      }
+
+      // Score state breakdown table
+      if (insight.scoreBreakdown && insight.scoreBreakdown.length > 0) {
+        sections.push('');
+        sections.push('Score State at Trigger:');
+        sections.push(['Score State', 'Matches', 'Avg Goals After'].map(csvEscape).join(','));
+        insight.scoreBreakdown.forEach((sb: any) => {
+          sections.push([
+            sb.state,
+            sb.count,
+            sb.avgGoalsAfter ?? 'N/A'
+          ].join(','));
+        });
+      }
+    });
+  }
 
   // sep=, tells Excel to use comma as delimiter (fixes single-column issue on non-US locales)
   return BOM + 'sep=,\n' + sections.join('\n');

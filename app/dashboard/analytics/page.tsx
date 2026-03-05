@@ -352,12 +352,34 @@ export default function AnalyticsPage() {
         );
       }
 
-      // Filter the filters list too if a specific filter was chosen
+      // ✨ Apply fetched final scores from state to export data
+      triggeredMatches = triggeredMatches.map((m: any) => {
+        if (m.final_score_home == null && fetchedFinalScores.has(m.match_id)) {
+          const fetched = fetchedFinalScores.get(m.match_id)!;
+          return { ...m, final_score_home: fetched.home, final_score_away: fetched.away };
+        }
+        return m;
+      });
+
+      // Fetch pattern insights for included filters
       const filtersForExport = exportFilterId !== 'all'
         ? filters.filter(f => f.id === exportFilterId)
         : filters;
 
-      const csv = exportFullReport(filtersForExport, triggeredMatches);
+      const patternInsights: any[] = [];
+      for (const filter of filtersForExport) {
+        try {
+          const insightsRes = await fetch(`/api/analytics/pattern-insights?filter_id=${filter.id}&user_id=${userId}`);
+          if (insightsRes.ok) {
+            const insights = await insightsRes.json();
+            patternInsights.push({ filterId: filter.id, filterName: filter.name, ...insights });
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch insights for filter ${filter.id}:`, err);
+        }
+      }
+
+      const csv = exportFullReport(filtersForExport, triggeredMatches, patternInsights);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
