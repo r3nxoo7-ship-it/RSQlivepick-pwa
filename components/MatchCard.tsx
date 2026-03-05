@@ -24,6 +24,9 @@ interface MatchCardProps {
   awayForm?: TeamFormData;
 }
 
+const LIVE_SHORT_STATUSES = new Set(['LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT']);
+const FINISHED_SHORT_STATUSES = new Set(['FT', 'AET', 'PEN']);
+
 /**
  * Extract stat value from match.statistics array
  */
@@ -48,17 +51,26 @@ function MatchCard({
   homeForm,
   awayForm,
 }: MatchCardProps) {
-  const isLive =
-    match.fixture.status.short === 'LIVE' ||
-    match.fixture.status.short === '1H' ||
-    match.fixture.status.short === '2H' ||
-    match.fixture.status.short === 'HT' ||
-    match.fixture.status.short === 'ET' ||
-    match.fixture.status.short === 'P';
+  const status: any = match.fixture?.status;
+  const statusShort = String(status?.short ?? status ?? '').toUpperCase();
+  const statusLong = String(status?.long ?? '').toLowerCase();
+  const statusElapsed = typeof status?.elapsed === 'number' ? status.elapsed : null;
+  const statusRaw = `${statusShort} ${statusLong}`.toLowerCase();
 
-  const isFinished = match.fixture.status.short === 'FT' || match.fixture.status.short === 'AET' || match.fixture.status.short === 'PEN';
+  const isLive =
+    LIVE_SHORT_STATUSES.has(statusShort) ||
+    statusRaw.includes('inprogress') ||
+    statusRaw.includes('in progress') ||
+    statusLong.includes('first half') ||
+    statusLong.includes('second half') ||
+    statusLong.includes('halftime') ||
+    statusLong.includes('extra time') ||
+    statusLong.includes('penalties') ||
+    (statusElapsed !== null && statusElapsed > 0 && !FINISHED_SHORT_STATUSES.has(statusShort) && statusShort !== 'NS' && statusShort !== 'TBD');
+
+  const isFinished = FINISHED_SHORT_STATUSES.has(statusShort);
   const isUpcoming = !isLive && !isFinished;
-  const minute = match.fixture.status.elapsed || 0;
+  const minute = statusElapsed || 0;
 
   const homeName = match.teams?.home?.name || 'Home';
   const awayName = match.teams?.away?.name || 'Away';

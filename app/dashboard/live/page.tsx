@@ -90,6 +90,32 @@ function groupTriggeredByMatch(matches: TriggeredMatch[]): TriggeredMatchGroup[]
 export default function LiveMatchesPage() {
   const router = useRouter();
 
+  const LIVE_SHORT_STATUSES = new Set(['LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT']);
+  const FINISHED_SHORT_STATUSES = new Set(['FT', 'AET', 'PEN']);
+
+  const isLiveMatch = (match: LiveMatch) => {
+    const status: any = match.fixture?.status;
+    if (!status) return false;
+
+    const short = String(status?.short ?? status ?? '').toUpperCase();
+    const long = String(status?.long ?? '').toLowerCase();
+    const elapsed = typeof status?.elapsed === 'number' ? status.elapsed : null;
+    const raw = `${short} ${long}`.toLowerCase();
+
+    if (LIVE_SHORT_STATUSES.has(short)) return true;
+    if (raw.includes('inprogress') || raw.includes('in progress')) return true;
+    if (long.includes('first half') || long.includes('second half') || long.includes('halftime')) return true;
+    if (long.includes('extra time') || long.includes('penalties')) return true;
+    if (elapsed !== null && elapsed > 0 && !FINISHED_SHORT_STATUSES.has(short) && short !== 'NS' && short !== 'TBD') return true;
+    return false;
+  };
+
+  const isFinishedMatch = (match: LiveMatch) => {
+    const status: any = match.fixture?.status;
+    const short = String(status?.short ?? status ?? '').toUpperCase();
+    return FINISHED_SHORT_STATUSES.has(short);
+  };
+
   // ============================================
   // STATE
   // ============================================
@@ -421,7 +447,7 @@ export default function LiveMatchesPage() {
                 </h1>
                 <p className="text-xs sm:text-sm md:text-base text-text-secondary line-clamp-2">
                   {(() => {
-                    const live = matches.filter(m => { const s = m.fixture?.status?.short; return s === 'LIVE' || s === '1H' || s === '2H' || s === 'HT'; });
+                    const live = matches.filter(isLiveMatch);
                     const upcoming = matches.length - live.length;
                     return <>
                       {live.length > 0 ? <><span className="text-accent-green font-semibold">{live.length} live</span>{upcoming > 0 && <> + <span className="text-text-muted">{upcoming} upcoming</span></>}</> : <span className="text-text-muted">{matches.length} upcoming</span>}
@@ -666,20 +692,15 @@ export default function LiveMatchesPage() {
   // Group matches: live/finished vs upcoming-today vs scheduled-future
   const now = new Date();
   const todayStr = now.toDateString();
-  const liveFinished = filteredMatches.filter(m => {
-    const s = m.fixture?.status?.short;
-    return s === 'LIVE' || s === '1H' || s === '2H' || s === 'HT' || s === 'ET' || s === 'P' || s === 'FT' || s === 'AET' || s === 'PEN';
-  });
+  const liveFinished = filteredMatches.filter(m => isLiveMatch(m) || isFinishedMatch(m));
   const upcomingToday = filteredMatches.filter(m => {
-    const s = m.fixture?.status?.short;
-    const isUpcomingSt = s !== 'LIVE' && s !== '1H' && s !== '2H' && s !== 'HT' && s !== 'ET' && s !== 'P' && s !== 'FT' && s !== 'AET' && s !== 'PEN';
+    const isUpcomingSt = !isLiveMatch(m) && !isFinishedMatch(m);
     if (!isUpcomingSt) return false;
     const d = new Date(m.fixture?.date || '');
     return d.toDateString() === todayStr;
   });
   const scheduledFuture = filteredMatches.filter(m => {
-    const s = m.fixture?.status?.short;
-    const isUpcomingSt = s !== 'LIVE' && s !== '1H' && s !== '2H' && s !== 'HT' && s !== 'ET' && s !== 'P' && s !== 'FT' && s !== 'AET' && s !== 'PEN';
+    const isUpcomingSt = !isLiveMatch(m) && !isFinishedMatch(m);
     if (!isUpcomingSt) return false;
     const d = new Date(m.fixture?.date || '');
     return d.toDateString() !== todayStr;

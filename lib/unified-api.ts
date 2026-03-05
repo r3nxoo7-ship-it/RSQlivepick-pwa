@@ -21,6 +21,49 @@ export type { LiveMatch, MatchStatistics } from '@/lib/types';
 
 const ENABLE_FALLBACK = true;
 
+const LIVE_SHORT_STATUSES = new Set(['LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT']);
+const FINISHED_SHORT_STATUSES = new Set(['FT', 'AET', 'PEN']);
+
+function getStatusParts(status: any) {
+  if (!status) {
+    return { short: '', long: '', elapsed: null as number | null, raw: '' };
+  }
+
+  if (typeof status === 'string') {
+    return {
+      short: status.toUpperCase(),
+      long: status.toLowerCase(),
+      elapsed: null as number | null,
+      raw: status.toLowerCase(),
+    };
+  }
+
+  const short = String(status.short ?? '').toUpperCase();
+  const long = String(status.long ?? '').toLowerCase();
+  const elapsed = typeof status.elapsed === 'number' ? status.elapsed : null;
+  return { short, long, elapsed, raw: `${short} ${long}`.toLowerCase() };
+}
+
+function isLiveStatus(status: any): boolean {
+  const { short, long, elapsed, raw } = getStatusParts(status);
+  if (!short && !long) return false;
+  if (LIVE_SHORT_STATUSES.has(short)) return true;
+  if (raw.includes('inprogress') || raw.includes('in progress')) return true;
+  if (long.includes('first half') || long.includes('second half') || long.includes('halftime')) return true;
+  if (long.includes('extra time') || long.includes('penalties')) return true;
+  if (elapsed !== null && elapsed > 0 && !FINISHED_SHORT_STATUSES.has(short) && short !== 'NS' && short !== 'TBD') return true;
+  return false;
+}
+
+function isUpcomingStatus(status: any): boolean {
+  const { short, raw } = getStatusParts(status);
+  if (isLiveStatus(status)) return false;
+  if (FINISHED_SHORT_STATUSES.has(short)) return false;
+  if (short === 'NS' || short === 'TBD') return true;
+  if (raw.includes('notstarted') || raw.includes('not started') || raw.includes('scheduled')) return true;
+  return !short;
+}
+
 // ============================================
 // UNIFIED API FUNCTIONS
 // ============================================
@@ -109,21 +152,8 @@ export async function getLiveAndUpcomingMatches() {
     const res = await fetch('/api/sofascore/live-matches', { signal: AbortSignal.timeout(8000) });
     const allMatches = res.ok ? (await res.json()).matches as any[] : null;
     if (allMatches && allMatches.length > 0) {
-      const live = allMatches.filter((m: any) => {
-        const s = m.fixture?.status;
-        if (!s) return false;
-        // status can be an object {short, long, elapsed} or a string
-        const short = typeof s === 'object' ? s.short : s;
-        return ['1H', '2H', 'HT', 'ET', 'BT', 'P'].includes(short) ||
-          (typeof s === 'string' && s === 'inprogress');
-      });
-      const upcoming = allMatches.filter((m: any) => {
-        const s = m.fixture?.status;
-        if (!s) return false;
-        const short = typeof s === 'object' ? s.short : s;
-        return short === 'NS' || short === 'TBD' ||
-          (typeof s === 'string' && s === 'notstarted');
-      });
+      const live = allMatches.filter((m: any) => isLiveStatus(m.fixture?.status));
+      const upcoming = allMatches.filter((m: any) => isUpcomingStatus(m.fixture?.status));
       console.log(`✅ SofaScore: ${live.length} live, ${upcoming.length} upcoming`);
       return {
         live,
