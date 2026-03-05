@@ -387,6 +387,21 @@ export async function getScheduledEvents(date: string): Promise<SofascoreEvent[]
   }
 }
 
+/** Fetch all currently LIVE football events (any date/league) */
+export async function getLiveEvents(): Promise<SofascoreEvent[]> {
+  try {
+    const res = await fetch(`${BASE}/sport/football/events/live`, {
+      headers: FETCH_HEADERS,
+      next: { revalidate: 30 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.events as SofascoreEvent[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** Fetch a team's recent events — page 0 is most recent ~20 matches */
 export async function getTeamLastEvents(
   teamId: number,
@@ -531,14 +546,28 @@ export function extractH2HFromEvents(
 export async function getLiveMatchesFromSofascore(): Promise<any[]> {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const events = await getScheduledEvents(today);
-    
-    if (!events || events.length === 0) {
+
+    // Fetch scheduled events AND dedicated live endpoint in parallel.
+    // The live endpoint catches matches the scheduled-events/{date} call
+    // might miss due to UTC date boundaries (e.g. Turkish Cup evening games).
+    const [scheduledEvents, liveEvents] = await Promise.all([
+      getScheduledEvents(today),
+      getLiveEvents(),
+    ]);
+
+    // Merge & deduplicate by event ID — live endpoint is authoritative for
+    // currently-running matches; scheduled adds upcoming ones.
+    const eventMap = new Map<number, SofascoreEvent>();
+    for (const e of (scheduledEvents ?? [])) eventMap.set(e.id, e);
+    for (const e of (liveEvents ?? [])) eventMap.set(e.id, e); // live overwrites
+    const events = Array.from(eventMap.values());
+
+    if (events.length === 0) {
       console.log('[SofaScore] No events found for today');
       return [];
     }
 
-    console.log(`[SofaScore] Found ${events.length} events for ${today}`);
+    console.log(`[SofaScore] Found ${events.length} events (${scheduledEvents?.length ?? 0} scheduled + ${liveEvents?.length ?? 0} live, after dedup)`);
 
     // Filter to LIVE (inprogress) and upcoming (notstarted) - exclude finished
     const activeEvents = events.filter(e => 
