@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getLiveMatches } from '@/lib/api-football';
 import { matchesFilter } from '@/lib/filter-engine';
+import * as espnSync from '@/lib/espn-sync';
 import type { Filter } from '@/lib/supabase';
 
 // ─── Supabase service-role client (bypasses RLS) ─────────────────────────────
@@ -123,6 +124,11 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now();
 
   try {
+    // 0. Refresh ESPN data in Supabase (fire-and-forget; non-critical) ─────────
+    espnSync.syncAllMatches().catch(err =>
+      console.warn('[CronScan] ESPN sync failed (non-critical):', err instanceof Error ? err.message : err)
+    );
+
     // 1. Fetch live matches ────────────────────────────────────────────────────
     const matches = await getLiveMatches();
 
