@@ -211,6 +211,12 @@ async function fetchFromSofascore(path: string, revalidate: number): Promise<Res
   return null;
 }
 
+async function fetchJsonFromSofascore<T>(path: string, revalidate: number): Promise<T | null> {
+  const res = await fetchFromSofascore(path, revalidate);
+  if (!res) return null;
+  return (await res.json()) as T;
+}
+
 // ─── Conversions ─────────────────────────────────────────────────────────────
 
 /** Convert SofaScore stats response into the normalized shape */
@@ -420,12 +426,8 @@ export async function getTeamLastEvents(
   page = 0,
 ): Promise<{ events: SofascoreEvent[]; hasNextPage: boolean }> {
   try {
-    const res = await fetch(`${BASE}/team/${teamId}/events/last/${page}`, {
-      headers: FETCH_HEADERS,
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return { events: [], hasNextPage: false };
-    const data = await res.json();
+    const data = await fetchJsonFromSofascore<any>(`/team/${teamId}/events/last/${page}`, 300);
+    if (!data) return { events: [], hasNextPage: false };
     return {
       events: (data.events as SofascoreEvent[]) ?? [],
       hasNextPage: data.hasNextPage ?? false,
@@ -438,12 +440,7 @@ export async function getTeamLastEvents(
 /** Fetch detailed match statistics — returns null if not available (404) */
 export async function getMatchStatistics(eventId: number): Promise<SofascoreStatsResponse | null> {
   try {
-    const res = await fetch(`${BASE}/event/${eventId}/statistics`, {
-      headers: FETCH_HEADERS,
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    return res.json() as Promise<SofascoreStatsResponse>;
+    return await fetchJsonFromSofascore<SofascoreStatsResponse>(`/event/${eventId}/statistics`, 300);
   } catch {
     return null;
   }
@@ -457,20 +454,15 @@ export async function getH2HForEvent(eventId: number): Promise<{
   events?: SofascoreEvent[];
 } | null> {
   try {
-    const [summaryRes, eventsRes] = await Promise.allSettled([
-      fetch(`${BASE}/event/${eventId}/h2h`, { headers: FETCH_HEADERS, next: { revalidate: 3600 } }),
-      fetch(`${BASE}/event/${eventId}/h2h/events`, { headers: FETCH_HEADERS, next: { revalidate: 3600 } }),
-    ]);
-
-    if (summaryRes.status !== 'fulfilled' || !summaryRes.value.ok) return null;
-    const summary = await summaryRes.value.json();
+    const summary = await fetchJsonFromSofascore<any>(`/event/${eventId}/h2h`, 3600);
+    if (!summary) return null;
     const homeWins: number = summary.teamDuel?.homeWins ?? 0;
     const awayWins: number = summary.teamDuel?.awayWins ?? 0;
     const draws: number = summary.teamDuel?.draws ?? 0;
 
     let events: SofascoreEvent[] | undefined;
-    if (eventsRes.status === 'fulfilled' && eventsRes.value.ok) {
-      const evData = await eventsRes.value.json();
+    const evData = await fetchJsonFromSofascore<any>(`/event/${eventId}/h2h/events`, 3600);
+    if (evData) {
       events = evData.events ?? undefined;
     }
 
