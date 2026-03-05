@@ -123,6 +123,13 @@ export const ALL_SOCCER_LEAGUES: Array<{ code: string; name: string }> = [
   { code: 'irl.1', name: 'Irish Premier Division' },
   { code: 'nir.1', name: 'Northern Irish Premiership' },
   { code: 'wal.1', name: 'Welsh Premier League' },
+  { code: 'pol.1', name: 'Polish Ekstraklasa' },
+  { code: 'svn.1', name: 'Slovenian PrvaLiga' },
+  { code: 'hrv.1', name: 'Croatian First League' },
+  { code: 'isl.1', name: 'Icelandic Besta deild' },
+  { code: 'bih.1', name: 'Bosnian Premier League' },
+  { code: 'mkd.1', name: 'Macedonian First League' },
+  { code: 'alb.1', name: 'Albanian Superliga' },
   // Second divisions
   { code: 'eng.2', name: 'Championship' },
   { code: 'eng.3', name: 'League One' },
@@ -137,6 +144,7 @@ export const ALL_SOCCER_LEAGUES: Array<{ code: string; name: string }> = [
   { code: 'sco.3', name: 'Scottish League One' },
   { code: 'sco.4', name: 'Scottish League Two' },
   { code: 'tur.2', name: 'TFF 1. Lig' },
+  { code: 'pol.2', name: 'Polish I Liga' },
   // Domestic cups
   { code: 'eng.fa', name: 'FA Cup' },
   { code: 'eng.league_cup', name: 'Carabao Cup' },
@@ -151,6 +159,12 @@ export const ALL_SOCCER_LEAGUES: Array<{ code: string; name: string }> = [
   { code: 'fra.coupe_de_france', name: 'Coupe de France' },
   { code: 'fra.coupe_de_la_ligue', name: 'Coupe de la Ligue' },
   { code: 'ned.cup', name: 'KNVB Beker' },
+  { code: 'por.cup', name: 'Taça de Portugal' },
+  { code: 'bel.cup', name: 'Belgian Cup' },
+  { code: 'tur.cup', name: 'Turkish Cup' },
+  { code: 'pol.cup', name: 'Polish Cup' },
+  { code: 'sco.fa', name: 'Scottish Cup' },
+  { code: 'sco.league_cup', name: 'Scottish League Cup' },
   // South America
   { code: 'bra.1', name: 'Brasileirao Serie A' },
   { code: 'bra.2', name: 'Brasileirao Serie B' },
@@ -271,6 +285,14 @@ export const ALL_EUROPEAN_SOCCER_LEAGUES = [
   { sport: 'soccer', league: 'slv.1', name: 'Slovak Fortuna Liga' },
   { sport: 'soccer', league: 'hun.1', name: 'Hungarian NB I' },
   { sport: 'soccer', league: 'bul.1', name: 'Bulgarian First League' },
+  { sport: 'soccer', league: 'pol.1', name: 'Polish Ekstraklasa' },
+  { sport: 'soccer', league: 'svn.1', name: 'Slovenian PrvaLiga' },
+  { sport: 'soccer', league: 'hrv.1', name: 'Croatian First League' },
+  { sport: 'soccer', league: 'fin.1', name: 'Finnish Veikkausliiga' },
+  { sport: 'soccer', league: 'isl.1', name: 'Icelandic Besta deild' },
+  { sport: 'soccer', league: 'bih.1', name: 'Bosnian Premier League' },
+  { sport: 'soccer', league: 'mkd.1', name: 'Macedonian First League' },
+  { sport: 'soccer', league: 'alb.1', name: 'Albanian Superliga' },
   // ── Second divisions (popular) ──
   { sport: 'soccer', league: 'eng.2', name: 'Championship' },
   { sport: 'soccer', league: 'ger.2', name: '2. Bundesliga' },
@@ -279,10 +301,18 @@ export const ALL_EUROPEAN_SOCCER_LEAGUES = [
   { sport: 'soccer', league: 'fra.2', name: 'Ligue 2' },
   // ── Domestic cups ──
   { sport: 'soccer', league: 'eng.fa', name: 'FA Cup' },
+  { sport: 'soccer', league: 'eng.league_cup', name: 'EFL Cup' },
   { sport: 'soccer', league: 'ger.dfb_pokal', name: 'DFB-Pokal' },
   { sport: 'soccer', league: 'ita.coppa_italia', name: 'Coppa Italia' },
   { sport: 'soccer', league: 'esp.copa_del_rey', name: 'Copa del Rey' },
   { sport: 'soccer', league: 'fra.coupe_de_france', name: 'Coupe de France' },
+  { sport: 'soccer', league: 'por.cup', name: 'Taça de Portugal' },
+  { sport: 'soccer', league: 'ned.cup', name: 'KNVB Beker' },
+  { sport: 'soccer', league: 'bel.cup', name: 'Belgian Cup' },
+  { sport: 'soccer', league: 'tur.cup', name: 'Turkish Cup' },
+  { sport: 'soccer', league: 'pol.cup', name: 'Polish Cup' },
+  { sport: 'soccer', league: 'sco.fa', name: 'Scottish Cup' },
+  { sport: 'soccer', league: 'sco.league_cup', name: 'Scottish League Cup' },
 ];
 
 export type LeagueConfig = { sport: string; league: string; name: string };
@@ -484,6 +514,15 @@ export async function getTeamSchedule(
     'nor.1',                                       // Norwegian Eliteserien
     'srb.1',                                       // Serbian SuperLiga (Red Star Belgrade)
     'hrv.1',                                       // Croatian First League (Dinamo Zagreb)
+    'pol.1',                                       // Polish Ekstraklasa (Legia Warsaw, Lech Poznań)
+    'rou.1',                                       // Romanian Liga 1 (FCSB, CFR Cluj)
+    'svn.1',                                       // Slovenian PrvaLiga (Maribor, Olimpija)
+    'bul.1',                                       // Bulgarian First League (Ludogorets, CSKA Sofia)
+    'fin.1',                                       // Finnish Veikkausliiga (HJK Helsinki)
+    'isl.1',                                       // Icelandic Besta deild
+    'bih.1',                                       // Bosnian Premier League
+    'mkd.1',                                       // Macedonian First League
+    'alb.1',                                       // Albanian Superliga
   ];
 
   let leaguesToTry: string[];
