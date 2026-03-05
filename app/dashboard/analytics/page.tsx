@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   BarChart3,
   TrendingUp,
@@ -25,6 +26,7 @@ import {
   Sparkles,
   Globe,
   Activity,
+  ExternalLink,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { FilterFeedbackCard } from '@/components/FilterFeedbackCard';
@@ -728,6 +730,21 @@ export default function AnalyticsPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
+                              {(() => {
+                                const firstFilterName = g.filters[0];
+                                const firstTrigger = latestTriggeredByMatchAndFilter.get(`${g.matchId}||${firstFilterName}`);
+                                return firstTrigger?.id ? (
+                                  <Link
+                                    href={`/dashboard/triggered/${firstTrigger.id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-1.5 rounded-lg bg-accent-cyan/10 hover:bg-accent-cyan/20 text-accent-cyan transition-colors"
+                                    title="View match details"
+                                    aria-label="View match details"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </Link>
+                                ) : null;
+                              })()}
                               <span className="bg-accent-purple/20 text-accent-purple text-[10px] font-bold px-2 py-0.5 rounded-full">{g.filters.length}</span>
                               <ChevronDown className={`w-4 h-4 text-text-muted transition-transform ${triggeredExpanded === g.matchId ? 'rotate-180' : ''}`} />
                             </div>
@@ -887,43 +904,56 @@ export default function AnalyticsPage() {
                                     {new Date(m.triggered_at).toLocaleDateString([], { day: '2-digit', month: 'short' })}
                                   </span>
 
-                                  {m.id && (() => {
-                                    const isSaving = savingInlineFeedback.has(m.id);
-                                    return (
-                                      <div className="flex gap-1">
-                                        <button
-                                          type="button"
-                                          disabled={isSaving}
-                                          onClick={(e) => { e.stopPropagation(); handleInlineFeedback(m.filter_id, m.id, true); }}
-                                          className={`p-1.5 rounded-lg transition-all ${
-                                            isSaving ? 'opacity-50 cursor-wait' :
-                                            m.user_feedback === true
-                                              ? 'bg-accent-green/25 text-accent-green ring-1 ring-accent-green/40'
-                                              : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-green'
-                                          }`}
-                                          title="Good trigger"
-                                          aria-label="Rate good trigger"
-                                        >
-                                          <ThumbsUp size={12} />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={isSaving}
-                                          onClick={(e) => { e.stopPropagation(); handleInlineFeedback(m.filter_id, m.id, false); }}
-                                          className={`p-1.5 rounded-lg transition-all ${
-                                            isSaving ? 'opacity-50 cursor-wait' :
-                                            m.user_feedback === false
-                                              ? 'bg-accent-red/25 text-accent-red ring-1 ring-accent-red/40'
-                                              : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-red'
-                                          }`}
-                                          title="Bad trigger"
-                                          aria-label="Rate bad trigger"
-                                        >
-                                          <ThumbsDown size={12} />
-                                        </button>
-                                      </div>
-                                    );
-                                  })()}
+                                  {m.id && (
+                                    <>
+                                      <Link
+                                        href={`/dashboard/triggered/${m.id}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="p-1.5 rounded-lg bg-accent-cyan/10 hover:bg-accent-cyan/20 text-accent-cyan transition-colors"
+                                        title="View match details"
+                                        aria-label="View match details"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                      </Link>
+                                      {(() => {
+                                        const isSaving = savingInlineFeedback.has(m.id);
+                                        return (
+                                          <div className="flex gap-1">
+                                            <button
+                                              type="button"
+                                              disabled={isSaving}
+                                              onClick={(e) => { e.stopPropagation(); handleInlineFeedback(m.filter_id, m.id, true); }}
+                                              className={`p-1.5 rounded-lg transition-all ${
+                                                isSaving ? 'opacity-50 cursor-wait' :
+                                                m.user_feedback === true
+                                                  ? 'bg-accent-green/25 text-accent-green ring-1 ring-accent-green/40'
+                                                  : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-green'
+                                              }`}
+                                              title="Good trigger"
+                                              aria-label="Rate good trigger"
+                                            >
+                                              <ThumbsUp size={12} />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={isSaving}
+                                              onClick={(e) => { e.stopPropagation(); handleInlineFeedback(m.filter_id, m.id, false); }}
+                                              className={`p-1.5 rounded-lg transition-all ${
+                                                isSaving ? 'opacity-50 cursor-wait' :
+                                                m.user_feedback === false
+                                                  ? 'bg-accent-red/25 text-accent-red ring-1 ring-accent-red/40'
+                                                  : 'bg-glass-light text-text-muted hover:bg-glass-medium hover:text-accent-red'
+                                              }`}
+                                              title="Bad trigger"
+                                              aria-label="Rate bad trigger"
+                                            >
+                                              <ThumbsDown size={12} />
+                                            </button>
+                                          </div>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             ))}

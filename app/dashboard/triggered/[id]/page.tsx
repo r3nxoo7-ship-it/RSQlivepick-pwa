@@ -16,6 +16,8 @@ import {
   BarChart3,
   Zap,
   AlertCircle,
+  ArrowRightLeft,
+  Goal,
 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -33,6 +35,8 @@ export default function TriggeredMatchDetailsPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeStatsTab, setActiveStatsTab] = useState<'full' | '1st' | '2nd'>('full');
+  const [incidents, setIncidents] = useState<any[]>([]);
 
   // Load triggered match data from database
   useEffect(() => {
@@ -83,6 +87,19 @@ export default function TriggeredMatchDetailsPage() {
           }
         } catch (statsError) {
           console.error('Error fetching match stats:', statsError);
+        }
+
+        // Fetch match incidents timeline from SofaScore
+        try {
+          const incidentsRes = await fetch(`/api/sofascore/match-incidents?eventId=${foundTriggered.match_id}`);
+          if (incidentsRes.ok) {
+            const incidentsData = await incidentsRes.json();
+            if (incidentsData.incidents && incidentsData.incidents.length > 0) {
+              setIncidents(incidentsData.incidents);
+            }
+          }
+        } catch (incidentsError) {
+          console.error('Error fetching match incidents:', incidentsError);
         }
 
         setError(null);
@@ -344,41 +361,125 @@ export default function TriggeredMatchDetailsPage() {
               Match Statistics
             </h2>
 
+            {/* Stats Tab Selector */}
+            <div className="flex gap-1 bg-glass-light/50 rounded-lg p-1">
+              <button
+                onClick={() => setActiveStatsTab('full')}
+                className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition ${
+                  activeStatsTab === 'full'
+                    ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30'
+                    : 'text-text-muted hover:text-white'
+                }`}
+              >
+                Full Match
+              </button>
+              <button
+                onClick={() => setActiveStatsTab('1st')}
+                className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition ${
+                  activeStatsTab === '1st'
+                    ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30'
+                    : 'text-text-muted hover:text-white'
+                }`}
+              >
+                1st Half
+              </button>
+              <button
+                onClick={() => setActiveStatsTab('2nd')}
+                className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition ${
+                  activeStatsTab === '2nd'
+                    ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30'
+                    : 'text-text-muted hover:text-white'
+                }`}
+              >
+                2nd Half
+              </button>
+            </div>
+
             {stats ? (
               <div className="space-y-3 p-4 rounded-lg bg-glass-dark border border-glass-light">
-                <TriggeredStatRow label="Goals" home={homeScore} away={awayScore} />
-                {stats.homePoss > 0 && (
-                  <TriggeredStatRow label="Possession" home={stats.homePoss} away={stats.awayPoss} unit="%" />
+                {activeStatsTab === 'full' && (
+                  <>
+                    <TriggeredStatRow label="Goals" home={homeScore} away={awayScore} />
+                    {stats.homePoss > 0 && (
+                      <TriggeredStatRow label="Possession" home={stats.homePoss} away={stats.awayPoss} unit="%" />
+                    )}
+                    {(stats.homeShots > 0 || stats.awayShots > 0) && (
+                      <TriggeredStatRow label="Total Shots" home={stats.homeShots} away={stats.awayShots} />
+                    )}
+                    {(stats.homeSoT > 0 || stats.awaySoT > 0) && (
+                      <TriggeredStatRow label="Shots on Target" home={stats.homeSoT} away={stats.awaySoT} />
+                    )}
+                    {(stats.homeShots > 0 || stats.awayShots > 0) && (stats.homeShots - stats.homeSoT > 0 || stats.awayShots - stats.awaySoT > 0) && (
+                      <TriggeredStatRow label="Shots off Target" home={Math.max(0, stats.homeShots - stats.homeSoT)} away={Math.max(0, stats.awayShots - stats.awaySoT)} />
+                    )}
+                    {(stats.homeCorners > 0 || stats.awayCorners > 0) && (
+                      <TriggeredStatRow label="Corners" home={stats.homeCorners} away={stats.awayCorners} />
+                    )}
+                    {(stats.homeOffsides > 0 || stats.awayOffsides > 0) && (
+                      <TriggeredStatRow label="Offsides" home={stats.homeOffsides} away={stats.awayOffsides} />
+                    )}
+                    {(stats.homeFouls > 0 || stats.awayFouls > 0) && (
+                      <TriggeredStatRow label="Fouls" home={stats.homeFouls} away={stats.awayFouls} />
+                    )}
+                    {(stats.homeYellow > 0 || stats.awayYellow > 0) && (
+                      <TriggeredStatRow label="Yellow Cards" home={stats.homeYellow} away={stats.awayYellow} />
+                    )}
+                    {(stats.homeRed > 0 || stats.awayRed > 0) && (
+                      <TriggeredStatRow label="Red Cards" home={stats.homeRed} away={stats.awayRed} />
+                    )}
+                    {(stats.homeAttacks > 0 || stats.awayAttacks > 0) && (
+                      <TriggeredStatRow label="Attacks" home={stats.homeAttacks} away={stats.awayAttacks} />
+                    )}
+                    {(stats.homeDangerousAttacks > 0 || stats.awayDangerousAttacks > 0) && (
+                      <TriggeredStatRow label="Dangerous Attacks" home={stats.homeDangerousAttacks} away={stats.awayDangerousAttacks} />
+                    )}
+                  </>
                 )}
-                {(stats.homeShots > 0 || stats.awayShots > 0) && (
-                  <TriggeredStatRow label="Total Shots" home={stats.homeShots} away={stats.awayShots} />
+
+                {activeStatsTab === '1st' && hasHalfTime && (
+                  <div className="text-center py-8">
+                    <div className="mb-4">
+                      <TriggeredStatRow label="1st Half Goals" home={htHome} away={htAway} />
+                    </div>
+                    <p className="text-sm text-text-muted">
+                      Detailed 1st half statistics are not available.
+                    </p>
+                    <p className="text-xs text-text-muted mt-2">
+                      Full match statistics shown in &quot;Full Match&quot; tab.
+                    </p>
+                  </div>
                 )}
-                {(stats.homeSoT > 0 || stats.awaySoT > 0) && (
-                  <TriggeredStatRow label="Shots on Target" home={stats.homeSoT} away={stats.awaySoT} />
+
+                {activeStatsTab === '1st' && !hasHalfTime && (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
+                    <p className="text-sm text-text-muted">
+                      1st half data not available for this match.
+                    </p>
+                  </div>
                 )}
-                {(stats.homeShots > 0 || stats.awayShots > 0) && (stats.homeShots - stats.homeSoT > 0 || stats.awayShots - stats.awaySoT > 0) && (
-                  <TriggeredStatRow label="Shots off Target" home={Math.max(0, stats.homeShots - stats.homeSoT)} away={Math.max(0, stats.awayShots - stats.awaySoT)} />
+
+                {activeStatsTab === '2nd' && hasHalfTime && shHome != null && shAway != null && shHome >= 0 && shAway >= 0 && (
+                  <div className="text-center py-8">
+                    <div className="mb-4">
+                      <TriggeredStatRow label="2nd Half Goals" home={shHome} away={shAway} />
+                    </div>
+                    <p className="text-sm text-text-muted">
+                      Detailed 2nd half statistics are not available.
+                    </p>
+                    <p className="text-xs text-text-muted mt-2">
+                      Full match statistics shown in &quot;Full Match&quot; tab.
+                    </p>
+                  </div>
                 )}
-                {(stats.homeCorners > 0 || stats.awayCorners > 0) && (
-                  <TriggeredStatRow label="Corners" home={stats.homeCorners} away={stats.awayCorners} />
-                )}
-                {(stats.homeOffsides > 0 || stats.awayOffsides > 0) && (
-                  <TriggeredStatRow label="Offsides" home={stats.homeOffsides} away={stats.awayOffsides} />
-                )}
-                {(stats.homeFouls > 0 || stats.awayFouls > 0) && (
-                  <TriggeredStatRow label="Fouls" home={stats.homeFouls} away={stats.awayFouls} />
-                )}
-                {(stats.homeYellow > 0 || stats.awayYellow > 0) && (
-                  <TriggeredStatRow label="Yellow Cards" home={stats.homeYellow} away={stats.awayYellow} />
-                )}
-                {(stats.homeRed > 0 || stats.awayRed > 0) && (
-                  <TriggeredStatRow label="Red Cards" home={stats.homeRed} away={stats.awayRed} />
-                )}
-                {(stats.homeAttacks > 0 || stats.awayAttacks > 0) && (
-                  <TriggeredStatRow label="Attacks" home={stats.homeAttacks} away={stats.awayAttacks} />
-                )}
-                {(stats.homeDangerousAttacks > 0 || stats.awayDangerousAttacks > 0) && (
-                  <TriggeredStatRow label="Dangerous Attacks" home={stats.homeDangerousAttacks} away={stats.awayDangerousAttacks} />
+
+                {activeStatsTab === '2nd' && (!hasHalfTime || shHome == null || shAway == null || shHome < 0 || shAway < 0) && (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
+                    <p className="text-sm text-text-muted">
+                      2nd half data not available for this match.
+                    </p>
+                  </div>
                 )}
               </div>
             ) : (
@@ -387,6 +488,105 @@ export default function TriggeredMatchDetailsPage() {
               </div>
             )}
           </motion.div>
+
+          {/* ========== MATCH TIMELINE / INCIDENTS ========== */}
+          {incidents.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="space-y-4"
+            >
+              <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                <Clock className="w-5 h-5 text-accent-purple" />
+                Match Timeline
+              </h2>
+
+              <div className="p-4 rounded-lg bg-glass-dark border border-glass-light">
+                <div className="space-y-2">
+                  {incidents
+                    .filter((inc: any) => {
+                      // Only show relevant event types
+                      const type = inc.incidentType || '';
+                      return ['goal', 'yellowCard', 'card', 'redCard', 'yellowRedCard', 'substitution', 'penalty', 'penaltyMiss', 'ownGoal'].includes(type);
+                    })
+                    .sort((a: any, b: any) => (a.time || 0) - (b.time || 0))
+                    .map((inc: any, idx: number) => {
+                      const minute = inc.time || 0;
+                      const type = inc.incidentType || '';
+                      const isHome = inc.isHome;
+                      const playerName = inc.player?.name || inc.playerIn?.name || 'Unknown';
+                      const playerOut = inc.playerOut?.name;
+
+                      // Determine icon and color based on event type
+                      let icon = '•';
+                      let colorClass = 'text-text-muted';
+                      let bgClass = 'bg-glass-light';
+
+                      if (type === 'goal' || type === 'penalty') {
+                        icon = '⚽';
+                        colorClass = 'text-accent-green';
+                        bgClass = 'bg-accent-green/10';
+                      } else if (type === 'ownGoal') {
+                        icon = '⚽';
+                        colorClass = 'text-accent-red';
+                        bgClass = 'bg-accent-red/10';
+                      } else if (type === 'yellowCard' || type === 'card') {
+                        icon = '🟨';
+                        colorClass = 'text-accent-amber';
+                        bgClass = 'bg-accent-amber/10';
+                      } else if (type === 'redCard' || type === 'yellowRedCard') {
+                        icon = '🟥';
+                        colorClass = 'text-accent-red';
+                        bgClass = 'bg-accent-red/10';
+                      } else if (type === 'substitution') {
+                        icon = '🔄';
+                        colorClass = 'text-accent-blue';
+                        bgClass = 'bg-accent-blue/10';
+                      } else if (type === 'penaltyMiss') {
+                        icon = '❌';
+                        colorClass = 'text-accent-red';
+                        bgClass = 'bg-accent-red/10';
+                      }
+
+                      // Format event description
+                      let description = playerName;
+                      if (type === 'substitution' && playerOut) {
+                        description = `${playerName} → ${playerOut}`;
+                      } else if (type === 'ownGoal') {
+                        description = `${playerName} (OG)`;
+                      } else if (type === 'penaltyMiss') {
+                        description = `${playerName} (Penalty miss)`;
+                      }
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg ${bgClass} transition-all hover:scale-[1.01]`}
+                        >
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="text-xs font-bold text-accent-cyan w-8 shrink-0 text-center">
+                              {minute}&apos;
+                            </span>
+                            <span className="text-lg">{icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium ${colorClass} truncate`}>
+                                {description}
+                              </p>
+                              {isHome !== undefined && (
+                                <p className="text-xs text-text-muted">
+                                  {isHome ? homeTeam : awayTeam}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* ========== MATCH INFO ========== */}
           <motion.div
