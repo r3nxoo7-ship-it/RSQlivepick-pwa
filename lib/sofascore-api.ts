@@ -13,7 +13,10 @@
  *   /event/{eventId}/h2h/events                     — full H2H event list (may return 404)
  */
 
-const BASE = 'https://www.sofascore.com/api/v1';
+const SOFASCORE_BASES = [
+  'https://api.sofascore.com/api/v1',
+  'https://www.sofascore.com/api/v1',
+];
 
 const FETCH_HEADERS: Record<string, string> = {
   Accept: '*/*',
@@ -191,6 +194,21 @@ function nameMatches(a: string, b: string): boolean {
   const na = norm(a);
   const nb = norm(b);
   return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+async function fetchFromSofascore(path: string, revalidate: number): Promise<Response | null> {
+  for (const base of SOFASCORE_BASES) {
+    try {
+      const res = await fetch(`${base}${path}`, {
+        headers: FETCH_HEADERS,
+        next: { revalidate },
+      });
+      if (res.ok) return res;
+    } catch {
+      // Try next base URL
+    }
+  }
+  return null;
 }
 
 // ─── Conversions ─────────────────────────────────────────────────────────────
@@ -375,11 +393,8 @@ export function computeFormSummary(matches: SofascoreRecentMatch[], teamId: numb
 /** Fetch all scheduled football events for a given date (YYYY-MM-DD) */
 export async function getScheduledEvents(date: string): Promise<SofascoreEvent[]> {
   try {
-    const res = await fetch(`${BASE}/sport/football/scheduled-events/${date}`, {
-      headers: FETCH_HEADERS,
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return [];
+    const res = await fetchFromSofascore(`/sport/football/scheduled-events/${date}`, 300);
+    if (!res) return [];
     const data = await res.json();
     return (data.events as SofascoreEvent[]) ?? [];
   } catch {
@@ -390,11 +405,8 @@ export async function getScheduledEvents(date: string): Promise<SofascoreEvent[]
 /** Fetch all currently LIVE football events (any date/league) */
 export async function getLiveEvents(): Promise<SofascoreEvent[]> {
   try {
-    const res = await fetch(`${BASE}/sport/football/events/live`, {
-      headers: FETCH_HEADERS,
-      next: { revalidate: 30 },
-    });
-    if (!res.ok) return [];
+    const res = await fetchFromSofascore('/sport/football/events/live', 30);
+    if (!res) return [];
     const data = await res.json();
     return (data.events as SofascoreEvent[]) ?? [];
   } catch {
