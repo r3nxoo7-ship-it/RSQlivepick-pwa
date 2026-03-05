@@ -173,9 +173,25 @@ export async function getLiveAndUpcomingMatches() {
     if (res.ok) {
       const body = await res.json();
       if (body?.live && body?.upcoming) {
+        let liveMatches = body.live.matches || [];
+
+        // Emergency fallback: if both SofaScore and ESPN report zero live,
+        // ask API-Football directly for live fixtures so Live tab is not empty.
+        if (liveMatches.length === 0) {
+          try {
+            const apiLive = await APIFootball.getLiveMatches();
+            if (apiLive.length > 0) {
+              console.log(`✅ API-Football emergency live fallback: ${apiLive.length} matches`);
+              liveMatches = apiLive;
+            }
+          } catch (apiErr) {
+            console.warn('⚠️ API-Football emergency live fallback failed:', apiErr);
+          }
+        }
+
         console.log(`✅ ESPN FALLBACK: ${body.live.count} live, ${body.upcoming.count} upcoming, ${body.scheduled?.count || 0} scheduled`);
         return {
-          live: body.live.matches || [],
+          live: liveMatches,
           upcoming: body.upcoming.matches || [],
           scheduled: body.scheduled?.matches || [],
           teamForm: body.teamForm || {},
@@ -184,6 +200,17 @@ export async function getLiveAndUpcomingMatches() {
     }
   } catch (err) {
     console.error('Error fetching separated matches:', err);
+  }
+
+  // Final fallback: at least return live fixtures from API-Football.
+  try {
+    const live = await APIFootball.getLiveMatches();
+    if (live.length > 0) {
+      console.log(`✅ Final live fallback (API-Football): ${live.length} matches`);
+      return { live, upcoming: [], scheduled: [], teamForm: {} };
+    }
+  } catch (apiErr) {
+    console.warn('⚠️ Final API-Football live fallback failed:', apiErr);
   }
 
   return { live: [], upcoming: [], scheduled: [], teamForm: {} };
