@@ -76,10 +76,33 @@ export async function GET(request: NextRequest) {
       row.away_team_name !== 'Unknown' &&
       row.id;
 
-    // Derive allowed leagues from the canonical sync list so they always stay in sync
-    const allowedLeagues = new Set(ALL_EUROPEAN_SOCCER_LEAGUES.map(l => l.name));
+    const normalizeLeagueName = (name: string) =>
+      name
+        .toLowerCase()
+        .replace(/\(.*?\)/g, '')
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    const filterByAllowed = (row: any) => validFilter(row) && (!row.league || allowedLeagues.has(row.league));
+    // Derive allowed leagues from canonical list and add a few robust aliases
+    const allowedLeagues = new Set(
+      ALL_EUROPEAN_SOCCER_LEAGUES.map(l => normalizeLeagueName(l.name))
+    );
+    const allowedAliases = [
+      'swiss super league',
+      'super league switzerland',
+      'norwegian cup',
+      'nm cup',
+      'norway cup',
+    ];
+    for (const alias of allowedAliases) allowedLeagues.add(alias);
+
+    const filterByAllowed = (row: any) => {
+      if (!validFilter(row)) return false;
+      if (!row.league) return true;
+      const normalized = normalizeLeagueName(String(row.league));
+      return allowedLeagues.has(normalized);
+    };
 
     const liveMatches = liveRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));
     const todayMatches = todayRaw.filter(filterByAllowed).map(row => espnSync.convertESPNMatchToLiveMatch(row));

@@ -310,6 +310,7 @@ export const ALL_EUROPEAN_SOCCER_LEAGUES = [
   { sport: 'soccer', league: 'ned.cup', name: 'KNVB Beker' },
   { sport: 'soccer', league: 'bel.cup', name: 'Belgian Cup' },
   { sport: 'soccer', league: 'tur.cup', name: 'Turkish Cup' },
+  { sport: 'soccer', league: 'nor.cup', name: 'Norwegian Cup' },
   { sport: 'soccer', league: 'pol.cup', name: 'Polish Cup' },
   { sport: 'soccer', league: 'sco.fa', name: 'Scottish Cup' },
   { sport: 'soccer', league: 'sco.league_cup', name: 'Scottish League Cup' },
@@ -386,7 +387,7 @@ export async function getActiveTodayLeagues(): Promise<LeagueConfig[]> {
   }
 
   // Always include top 5 + continental as fallback (they always have something)
-  const alwaysInclude = ['eng.1', 'ger.1', 'ita.1', 'esp.1', 'fra.1', 'uefa.champions', 'uefa.europa', 'tur.cup'];
+  const alwaysInclude = ['eng.1', 'ger.1', 'ita.1', 'esp.1', 'fra.1', 'uefa.champions', 'uefa.europa', 'tur.cup', 'nor.cup'];
   for (const cfg of ALL_EUROPEAN_SOCCER_LEAGUES) {
     if (alwaysInclude.includes(cfg.league) && !active.find(a => a.league === cfg.league)) {
       active.push(cfg);
