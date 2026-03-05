@@ -39,6 +39,8 @@ interface TriggeredMatchGroup {
   leagueName: string;
   scoreHome: number | null;
   scoreAway: number | null;
+  htScoreHome: number | null;
+  htScoreAway: number | null;
   matchStatus: string;
   latestTriggerAt: string;
   triggers: TriggeredMatch[];
@@ -56,6 +58,8 @@ function groupTriggeredByMatch(matches: TriggeredMatch[]): TriggeredMatchGroup[]
         leagueName: m.league_name || '',
         scoreHome: m.score_home,
         scoreAway: m.score_away,
+        htScoreHome: (m as any).ht_score_home ?? null,
+        htScoreAway: (m as any).ht_score_away ?? null,
         matchStatus: m.match_status || '',
         latestTriggerAt: m.triggered_at,
         triggers: [],
@@ -69,6 +73,8 @@ function groupTriggeredByMatch(matches: TriggeredMatch[]): TriggeredMatchGroup[]
       group.latestTriggerAt = m.triggered_at;
       if (m.score_home != null) group.scoreHome = m.score_home;
       if (m.score_away != null) group.scoreAway = m.score_away;
+      if ((m as any).ht_score_home != null) group.htScoreHome = (m as any).ht_score_home;
+      if ((m as any).ht_score_away != null) group.htScoreAway = (m as any).ht_score_away;
       if (m.match_status) group.matchStatus = m.match_status;
     }
   }
@@ -588,6 +594,9 @@ export default function LiveMatchesPage() {
                             <p className="text-xs text-text-muted">
                               {group.triggers.length} filter{group.triggers.length > 1 ? 's' : ''} triggered
                               {group.leagueName && <span className="ml-1">• {group.leagueName}</span>}
+                              {group.htScoreHome != null && (
+                                <span className="ml-1">• HT: <span className="text-accent-blue font-semibold">{group.htScoreHome}-{group.htScoreAway}</span></span>
+                              )}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0 ml-2">

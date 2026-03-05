@@ -199,10 +199,10 @@ export default function AnalyticsPage() {
   })();
 
   const triggeredByMatch = (() => {
-    const map = new Map<string, { matchId: string; homeTeam: string; awayTeam: string; league: string; scoreHome: number | null; scoreAway: number | null; finalScoreHome: number | null; finalScoreAway: number | null; latestAt: string; latestMinute: number | null; filters: string[] }>();
+    const map = new Map<string, { matchId: string; homeTeam: string; awayTeam: string; league: string; scoreHome: number | null; scoreAway: number | null; htScoreHome: number | null; htScoreAway: number | null; finalScoreHome: number | null; finalScoreAway: number | null; latestAt: string; latestMinute: number | null; filters: string[] }>();
     for (const m of triggeredMatches) {
       if (!map.has(m.match_id)) {
-        map.set(m.match_id, { matchId: m.match_id, homeTeam: m.home_team, awayTeam: m.away_team, league: m.league_name || '', scoreHome: m.score_home, scoreAway: m.score_away, finalScoreHome: m.final_score_home ?? null, finalScoreAway: m.final_score_away ?? null, latestAt: m.triggered_at, latestMinute: m.match_time ?? null, filters: [] });
+        map.set(m.match_id, { matchId: m.match_id, homeTeam: m.home_team, awayTeam: m.away_team, league: m.league_name || '', scoreHome: m.score_home, scoreAway: m.score_away, htScoreHome: (m as any).ht_score_home ?? null, htScoreAway: (m as any).ht_score_away ?? null, finalScoreHome: m.final_score_home ?? null, finalScoreAway: m.final_score_away ?? null, latestAt: m.triggered_at, latestMinute: m.match_time ?? null, filters: [] });
       }
       const g = map.get(m.match_id)!;
       if (!g.filters.includes(m.filter_name)) g.filters.push(m.filter_name);
@@ -211,6 +211,8 @@ export default function AnalyticsPage() {
         g.latestMinute = m.match_time ?? null;
         if (m.score_home != null) g.scoreHome = m.score_home;
         if (m.score_away != null) g.scoreAway = m.score_away;
+        if ((m as any).ht_score_home != null) g.htScoreHome = (m as any).ht_score_home;
+        if ((m as any).ht_score_away != null) g.htScoreAway = (m as any).ht_score_away;
       }
       // Always prefer final score when available
       if (m.final_score_home != null) g.finalScoreHome = m.final_score_home;
@@ -704,6 +706,13 @@ export default function AnalyticsPage() {
                                 <span className="text-text-muted">At trigger:</span>{' '}
                                 <span className="text-white font-semibold">{g.scoreHome ?? 0}-{g.scoreAway ?? 0}</span>{' '}
                                 <span className="text-accent-cyan font-semibold">({g.latestMinute != null ? `${g.latestMinute}'` : '—'})</span>
+                                {g.htScoreHome != null && (
+                                  <>
+                                    <span className="text-text-muted"> · </span>
+                                    <span className="text-text-muted">HT:</span>{' '}
+                                    <span className="text-accent-blue font-semibold">{g.htScoreHome}-{g.htScoreAway}</span>
+                                  </>
+                                )}
                                 {g.finalScoreHome != null && (
                                   <>
                                     <span className="text-text-muted"> · </span>
@@ -739,6 +748,13 @@ export default function AnalyticsPage() {
                                     <span className="text-text-muted">At trigger:</span>
                                     <span className="text-white font-semibold">{raw?.score_home ?? 0}-{raw?.score_away ?? 0}</span>
                                     <span className="text-accent-cyan font-semibold">({raw?.match_time != null ? `${raw.match_time}'` : '—'})</span>
+                                    {raw?.ht_score_home != null && (
+                                      <>
+                                        <span className="text-text-muted">·</span>
+                                        <span className="text-text-muted">HT:</span>
+                                        <span className="text-accent-blue font-semibold">{raw.ht_score_home}-{raw.ht_score_away ?? 0}</span>
+                                      </>
+                                    )}
                                     {raw?.final_score_home != null && (
                                       <>
                                         <span className="text-text-muted">·</span>
@@ -848,6 +864,13 @@ export default function AnalyticsPage() {
                                       <span className="text-text-muted">At trigger:</span>{' '}
                                       <span className="text-white font-semibold">{m.score_home ?? 0}-{m.score_away ?? 0}</span>{' '}
                                       <span className="text-accent-cyan font-semibold">({m.match_time != null ? `${m.match_time}'` : '—'})</span>
+                                      {(m as any).ht_score_home != null && (
+                                        <>
+                                          <span className="text-text-muted"> · </span>
+                                          <span className="text-text-muted">HT:</span>{' '}
+                                          <span className="text-accent-blue font-semibold">{(m as any).ht_score_home}-{(m as any).ht_score_away ?? 0}</span>
+                                        </>
+                                      )}
                                       {m.final_score_home != null && (
                                         <>
                                           <span className="text-text-muted"> · </span>
