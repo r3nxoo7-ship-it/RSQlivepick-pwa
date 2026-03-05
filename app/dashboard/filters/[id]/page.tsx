@@ -19,11 +19,104 @@ import {
   CheckCircle,
   GitMerge,
   ExternalLink,
+  Activity,
+  Target,
+  Users,
+  Shield,
+  TrendingUp,
+  Clock,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
 import type { Filter, FilterConditions } from '@/lib/supabase';
 import type { ExtendedFilterConditions } from '@/lib/extended-filters';
+
+// ============================================
+// TYPES
+// ============================================
+
+interface TeamCondition {
+  home_min?: number;
+  home_max?: number;
+  away_min?: number;
+  away_max?: number;
+  total_min?: number;
+  total_max?: number;
+}
+
+function OddsMarketRow({
+  marketKey,
+  label,
+  markets,
+  setMarkets,
+}: {
+  marketKey: string;
+  label: string;
+  markets: Record<string, { min?: number; max?: number }>;
+  setMarkets: (val: Record<string, { min?: number; max?: number }>) => void;
+}) {
+  const isEnabled = marketKey in markets;
+  const current = markets[marketKey] || {};
+
+  const toggleMarket = (checked: boolean) => {
+    if (checked) {
+      setMarkets({ ...markets, [marketKey]: {} });
+    } else {
+      const updated = { ...markets };
+      delete updated[marketKey];
+      setMarkets(updated);
+    }
+  };
+
+  const updateRange = (field: 'min' | 'max', value: string) => {
+    setMarkets({
+      ...markets,
+      [marketKey]: {
+        ...current,
+        [field]: value ? parseFloat(value) : undefined,
+      },
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={isEnabled}
+        onChange={(e) => toggleMarket(e.target.checked)}
+        className="w-4 h-4 rounded shrink-0"
+        title={`Toggle ${label}`}
+      />
+      <span className={`text-xs w-[140px] shrink-0 ${isEnabled ? 'text-white' : 'text-text-muted'}`}>
+        {label}
+      </span>
+      {isEnabled && (
+        <>
+          <input
+            type="number"
+            step="0.01"
+            min={1}
+            placeholder="Min"
+            value={current.min ?? ''}
+            onChange={(e) => updateRange('min', e.target.value)}
+            className="input-field text-xs py-1 px-2 w-20"
+            title="Minimum odds"
+          />
+          <input
+            type="number"
+            step="0.01"
+            min={1}
+            placeholder="Max"
+            value={current.max ?? ''}
+            onChange={(e) => updateRange('max', e.target.value)}
+            className="input-field text-xs py-1 px-2 w-20"
+            title="Maximum odds"
+          />
+        </>
+      )}
+    </div>
+  );
+}
 
 // ============================================
 // MAIN COMPONENT
@@ -47,37 +140,103 @@ export default function FilterEditPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [sourceFilters, setSourceFilters] = useState<{ id: string; name: string }[]>([]);
 
-  // Time window state for yellow cards, red cards, substitutions
+  // Basic info
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
+  const [telegramEnabled, setTelegramEnabled] = useState(false);
+
+  // Time conditions
+  const [timeEnabled, setTimeEnabled] = useState(false);
+  const [timeMode, setTimeMode] = useState<'after' | 'before' | 'between'>('between');
+  const [timeValue, setTimeValue] = useState({ min: 1, max: 90 });
+
+  // Score conditions
+  const [scoreEnabled, setScoreEnabled] = useState(false);
+  const [scoreMode, setScoreMode] = useState<'exact' | 'range'>('range');
+  const [exactScore, setExactScore] = useState({ home: 0, away: 0 });
+  const [scoreRange, setScoreRange] = useState({
+    home_min: undefined as number | undefined,
+    home_max: undefined as number | undefined,
+    away_min: undefined as number | undefined,
+    away_max: undefined as number | undefined,
+    total_min: undefined as number | undefined,
+    total_max: undefined as number | undefined,
+  });
+
+  // Corners
+  const [cornersEnabled, setCornersEnabled] = useState(false);
+  const [corners, setCorners] = useState<TeamCondition>({});
+
+  // Shots
+  const [shotsEnabled, setShotsEnabled] = useState(false);
+  const [shots, setShots] = useState<TeamCondition>({});
+
+  // Shots on target
+  const [shotsOnTargetEnabled, setShotsOnTargetEnabled] = useState(false);
+  const [shotsOnTarget, setShotsOnTarget] = useState<TeamCondition>({});
+
+  // Yellow cards
+  const [yellowCardsEnabled, setYellowCardsEnabled] = useState(false);
+  const [yellowCards, setYellowCards] = useState<TeamCondition>({});
   const [yellowCardsTimeEnabled, setYellowCardsTimeEnabled] = useState(false);
   const [yellowCardsTimeWindow, setYellowCardsTimeWindow] = useState<{ from?: number; to?: number }>({});
+
+  // Red cards
+  const [redCardsEnabled, setRedCardsEnabled] = useState(false);
+  const [redCards, setRedCards] = useState<TeamCondition>({});
   const [redCardsTimeEnabled, setRedCardsTimeEnabled] = useState(false);
   const [redCardsTimeWindow, setRedCardsTimeWindow] = useState<{ from?: number; to?: number }>({});
+
+  // Dangerous attacks
+  const [attacksEnabled, setAttacksEnabled] = useState(false);
+  const [attacks, setAttacks] = useState<TeamCondition>({});
+
+  // Possession
+  const [possessionEnabled, setPossessionEnabled] = useState(false);
+  const [possession, setPossession] = useState({
+    home_min: undefined as number | undefined,
+    home_max: undefined as number | undefined,
+    away_min: undefined as number | undefined,
+    away_max: undefined as number | undefined,
+  });
+
+  // Goals
+  const [goalsEnabled, setGoalsEnabled] = useState(false);
+  const [goals, setGoals] = useState<TeamCondition>({});
+
+  // Substitutions
+  const [substitutionsEnabled, setSubstitutionsEnabled] = useState(false);
+  const [substitutions, setSubstitutions] = useState<TeamCondition>({});
   const [substitutionsTimeEnabled, setSubstitutionsTimeEnabled] = useState(false);
   const [substitutionsTimeWindow, setSubstitutionsTimeWindow] = useState<{ from?: number; to?: number }>({});
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    is_active: true,
-    notification_enabled: false,
-    telegram_enabled: false,
-    conditions: {
-      corners: { min: undefined, max: undefined },
-      shots_on_target: { min: undefined, max: undefined },
-      total_shots: { min: undefined, max: undefined },
-      yellow_cards: { min: undefined, max: undefined },
-      red_cards: { min: undefined, max: undefined },
-      goals: { min: undefined, max: undefined },
-      possession: { min: undefined, max: undefined },
-      score: { home: undefined, away: undefined, type: 'exact' as const },
-      match_time: { min: 1, max: 90 },
-    } as FilterConditions,
-  });
+
+  // SofaScore live stats
+  const [xgEnabled, setXgEnabled] = useState(false);
+  const [xg, setXg] = useState<TeamCondition>({});
+  const [bigChancesEnabled, setBigChancesEnabled] = useState(false);
+  const [bigChances, setBigChances] = useState<TeamCondition>({});
+  const [shotsInBoxEnabled, setShotsInBoxEnabled] = useState(false);
+  const [shotsInBox, setShotsInBox] = useState<TeamCondition>({});
+  const [passAccuracyEnabled, setPassAccuracyEnabled] = useState(false);
+  const [passAccuracy, setPassAccuracy] = useState<TeamCondition>({});
+  const [interceptionsEnabled, setInterceptionsEnabled] = useState(false);
+  const [interceptions, setInterceptions] = useState<TeamCondition>({});
+  const [clearancesEnabled, setClearancesEnabled] = useState(false);
+  const [clearances, setClearances] = useState<TeamCondition>({});
+
+  // Pre-match odds
+  const [preMatchOddsEnabled, setPreMatchOddsEnabled] = useState(false);
+  const [preMatchMarkets, setPreMatchMarkets] = useState<Record<string, { min?: number; max?: number }>>({});
+
+  // UI accordion
+  const [openSection, setOpenSection] = useState<string | null>(null);
   
   // ============================================
   // LOAD FILTER
   // ============================================
-  
+
   const loadFilter = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -102,14 +261,13 @@ export default function FilterEditPage() {
       }
 
       setFilter(filterData);
-      setFormData({
-        name: filterData.name,
-        description: filterData.description || '',
-        is_active: filterData.is_active,
-        notification_enabled: filterData.notification_enabled,
-        telegram_enabled: filterData.telegram_enabled || false,
-        conditions: filterData.conditions,
-      });
+
+      // Basic info
+      setName(filterData.name);
+      setDescription(filterData.description || '');
+      setIsActive(filterData.is_active);
+      setNotificationEnabled(filterData.notification_enabled);
+      setTelegramEnabled(filterData.telegram_enabled || false);
 
       // Load source filter names if this is a combined filter
       const ids: string[] = (filterData as any).combined_filter_ids || [];
@@ -124,19 +282,168 @@ export default function FilterEditPage() {
         ).then(setSourceFilters);
       }
 
-      // Extract time_window state from loaded conditions
-      const conds = filterData.conditions as any;
-      if (conds?.yellow_cards?.time_window) {
+      // ── Extract all conditions from saved data ──
+      const c = filterData.conditions as any;
+      if (!c) return;
+
+      // Helper: extract TeamCondition from nested {home:{min,max},away:{min,max},total:{min,max}} OR flat {min,max}
+      const extractTeam = (cond: any): { enabled: boolean; tc: TeamCondition } => {
+        if (!cond) return { enabled: false, tc: {} };
+        const tc: TeamCondition = {};
+        let hasAny = false;
+        if (cond.home && typeof cond.home === 'object') {
+          if (cond.home.min !== undefined) { tc.home_min = cond.home.min; hasAny = true; }
+          if (cond.home.max !== undefined) { tc.home_max = cond.home.max; hasAny = true; }
+        }
+        if (cond.away && typeof cond.away === 'object') {
+          if (cond.away.min !== undefined) { tc.away_min = cond.away.min; hasAny = true; }
+          if (cond.away.max !== undefined) { tc.away_max = cond.away.max; hasAny = true; }
+        }
+        if (cond.total && typeof cond.total === 'object') {
+          if (cond.total.min !== undefined) { tc.total_min = cond.total.min; hasAny = true; }
+          if (cond.total.max !== undefined) { tc.total_max = cond.total.max; hasAny = true; }
+        }
+        // Flat format: { min, max } → total
+        if (!hasAny && (cond.min !== undefined || cond.max !== undefined)) {
+          if (cond.min !== undefined) { tc.total_min = cond.min; hasAny = true; }
+          if (cond.max !== undefined) { tc.total_max = cond.max; hasAny = true; }
+        }
+        return { enabled: hasAny, tc };
+      };
+
+      // Corners
+      const cornersData = extractTeam(c.corners);
+      if (cornersData.enabled) { setCornersEnabled(true); setCorners(cornersData.tc); }
+
+      // Shots (total_shots)
+      const shotsData = extractTeam(c.shots || c.total_shots);
+      if (shotsData.enabled) { setShotsEnabled(true); setShots(shotsData.tc); }
+
+      // Shots on target
+      const sotData = extractTeam(c.shots_on_target);
+      if (sotData.enabled) { setShotsOnTargetEnabled(true); setShotsOnTarget(sotData.tc); }
+
+      // Yellow cards
+      const ycData = extractTeam(c.yellow_cards);
+      if (ycData.enabled) { setYellowCardsEnabled(true); setYellowCards(ycData.tc); }
+      if (c.yellow_cards?.time_window) {
         setYellowCardsTimeEnabled(true);
-        setYellowCardsTimeWindow(conds.yellow_cards.time_window);
+        setYellowCardsTimeWindow(c.yellow_cards.time_window);
       }
-      if (conds?.red_cards?.time_window) {
+
+      // Red cards
+      const rcData = extractTeam(c.red_cards);
+      if (rcData.enabled) { setRedCardsEnabled(true); setRedCards(rcData.tc); }
+      if (c.red_cards?.time_window) {
         setRedCardsTimeEnabled(true);
-        setRedCardsTimeWindow(conds.red_cards.time_window);
+        setRedCardsTimeWindow(c.red_cards.time_window);
       }
-      if (conds?.substitutions?.time_window) {
+
+      // Dangerous attacks
+      const atkData = extractTeam(c.dangerous_attacks || c.attacks);
+      if (atkData.enabled) { setAttacksEnabled(true); setAttacks(atkData.tc); }
+
+      // Goals
+      const goalsData = extractTeam(c.goals);
+      if (goalsData.enabled) { setGoalsEnabled(true); setGoals(goalsData.tc); }
+
+      // Substitutions
+      const subData = extractTeam(c.substitutions);
+      if (subData.enabled) { setSubstitutionsEnabled(true); setSubstitutions(subData.tc); }
+      if (c.substitutions?.time_window) {
         setSubstitutionsTimeEnabled(true);
-        setSubstitutionsTimeWindow(conds.substitutions.time_window);
+        setSubstitutionsTimeWindow(c.substitutions.time_window);
+      }
+
+      // Possession
+      if (c.possession) {
+        const p = c.possession;
+        let hasPoss = false;
+        const poss = { home_min: undefined as number | undefined, home_max: undefined as number | undefined, away_min: undefined as number | undefined, away_max: undefined as number | undefined };
+        if (p.home && typeof p.home === 'object') {
+          if (p.home.min !== undefined) { poss.home_min = p.home.min; hasPoss = true; }
+          if (p.home.max !== undefined) { poss.home_max = p.home.max; hasPoss = true; }
+        }
+        if (p.away && typeof p.away === 'object') {
+          if (p.away.min !== undefined) { poss.away_min = p.away.min; hasPoss = true; }
+          if (p.away.max !== undefined) { poss.away_max = p.away.max; hasPoss = true; }
+        }
+        // Flat format
+        if (!hasPoss && (p.min !== undefined || p.max !== undefined)) {
+          if (p.min !== undefined) { poss.home_min = p.min; hasPoss = true; }
+          if (p.max !== undefined) { poss.home_max = p.max; hasPoss = true; }
+        }
+        if (hasPoss) { setPossessionEnabled(true); setPossession(poss); }
+      }
+
+      // Match time
+      if (c.match_time) {
+        setTimeEnabled(true);
+        const mt = c.match_time;
+        if (mt.after !== undefined) {
+          setTimeMode('after');
+          setTimeValue({ min: mt.after, max: 90 });
+        } else if (mt.before !== undefined) {
+          setTimeMode('before');
+          setTimeValue({ min: 1, max: mt.before });
+        } else if (mt.between) {
+          setTimeMode('between');
+          setTimeValue({ min: mt.between[0], max: mt.between[1] });
+        } else if (mt.min !== undefined || mt.max !== undefined) {
+          // Legacy flat min/max
+          setTimeMode('between');
+          setTimeValue({ min: mt.min ?? 1, max: mt.max ?? 90 });
+        }
+      }
+
+      // Score
+      if (c.score) {
+        setScoreEnabled(true);
+        const s = c.score;
+        if (s.exact) {
+          setScoreMode('exact');
+          setExactScore({ home: s.exact.home ?? 0, away: s.exact.away ?? 0 });
+        } else if (s.home !== undefined && s.away !== undefined && typeof s.home === 'number' && typeof s.away === 'number') {
+          // Legacy flat exact score
+          setScoreMode('exact');
+          setExactScore({ home: s.home, away: s.away });
+        } else {
+          setScoreMode('range');
+          const sr = { home_min: undefined as number | undefined, home_max: undefined as number | undefined, away_min: undefined as number | undefined, away_max: undefined as number | undefined, total_min: undefined as number | undefined, total_max: undefined as number | undefined };
+          if (s.home && typeof s.home === 'object') { sr.home_min = s.home.min; sr.home_max = s.home.max; }
+          if (s.away && typeof s.away === 'object') { sr.away_min = s.away.min; sr.away_max = s.away.max; }
+          if (s.total_goals) { sr.total_min = s.total_goals.min; sr.total_max = s.total_goals.max; }
+          if (s.difference) { sr.total_min = s.difference.min; sr.total_max = s.difference.max; }
+          setScoreRange(sr);
+        }
+      }
+
+      // SofaScore live stats
+      const xgData = extractTeam(c.xg);
+      if (xgData.enabled) { setXgEnabled(true); setXg(xgData.tc); }
+      const bcData = extractTeam(c.big_chances);
+      if (bcData.enabled) { setBigChancesEnabled(true); setBigChances(bcData.tc); }
+      const sibData = extractTeam(c.shots_in_box);
+      if (sibData.enabled) { setShotsInBoxEnabled(true); setShotsInBox(sibData.tc); }
+      const paData = extractTeam(c.pass_accuracy);
+      if (paData.enabled) { setPassAccuracyEnabled(true); setPassAccuracy(paData.tc); }
+      const intData = extractTeam(c.interceptions);
+      if (intData.enabled) { setInterceptionsEnabled(true); setInterceptions(intData.tc); }
+      const clrData = extractTeam(c.clearances);
+      if (clrData.enabled) { setClearancesEnabled(true); setClearances(clrData.tc); }
+
+      // Pre-match odds
+      if (c.pre_match_odds && typeof c.pre_match_odds === 'object') {
+        const markets: Record<string, { min?: number; max?: number }> = {};
+        for (const [key, val] of Object.entries(c.pre_match_odds)) {
+          if (val && typeof val === 'object') {
+            markets[key] = { min: (val as any).min, max: (val as any).max };
+          }
+        }
+        if (Object.keys(markets).length > 0) {
+          setPreMatchOddsEnabled(true);
+          setPreMatchMarkets(markets);
+        }
       }
 
     } catch (err) {
@@ -154,17 +461,17 @@ export default function FilterEditPage() {
   // ============================================
   // HANDLERS
   // ============================================
-  
+
   const handleSave = async () => {
-    if (!formData.name.trim()) {
+    if (!name.trim()) {
       setError('Please enter a name for the filter');
       return;
     }
-    
+
     setSaving(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
       const user = authHelpers.getCurrentUser();
       if (!user) {
@@ -172,38 +479,129 @@ export default function FilterEditPage() {
         return;
       }
 
-      // Merge time_window into conditions before saving
-      const conditionsToSave = { ...formData.conditions } as any;
-      // Yellow cards time_window
-      if (yellowCardsTimeEnabled && yellowCardsTimeWindow.from != null && yellowCardsTimeWindow.to != null) {
-        conditionsToSave.yellow_cards = { ...(conditionsToSave.yellow_cards || {}), time_window: { from: yellowCardsTimeWindow.from, to: yellowCardsTimeWindow.to } };
-      } else if (conditionsToSave.yellow_cards?.time_window) {
-        const { time_window, ...rest } = conditionsToSave.yellow_cards;
-        conditionsToSave.yellow_cards = Object.keys(rest).length > 0 ? rest : conditionsToSave.yellow_cards;
-        delete conditionsToSave.yellow_cards.time_window;
-      }
-      // Red cards time_window
-      if (redCardsTimeEnabled && redCardsTimeWindow.from != null && redCardsTimeWindow.to != null) {
-        conditionsToSave.red_cards = { ...(conditionsToSave.red_cards || {}), time_window: { from: redCardsTimeWindow.from, to: redCardsTimeWindow.to } };
-      } else if (conditionsToSave.red_cards?.time_window) {
-        delete conditionsToSave.red_cards.time_window;
-      }
-      // Substitutions time_window
-      if (substitutionsTimeEnabled && substitutionsTimeWindow.from != null && substitutionsTimeWindow.to != null) {
-        conditionsToSave.substitutions = { ...(conditionsToSave.substitutions || {}), time_window: { from: substitutionsTimeWindow.from, to: substitutionsTimeWindow.to } };
-      } else if (conditionsToSave.substitutions?.time_window) {
-        delete conditionsToSave.substitutions.time_window;
-      }
-      
-      const { data, error } = await dbHelpers.updateFilter(filterId, {
-        name: formData.name,
-        description: formData.description || null,
-        conditions: conditionsToSave,
-        is_active: formData.is_active,
-        notification_enabled: formData.notification_enabled,
-        telegram_enabled: formData.telegram_enabled,
+      // Build conditions object from state
+      const conditions: any = {};
+
+      // Helper: check if a value is set (including zero)
+      const hasValue = (v: number | undefined) => v !== undefined;
+      const buildTeamCond = (tc: TeamCondition) => ({
+        home: hasValue(tc.home_min) || hasValue(tc.home_max) ? { min: tc.home_min, max: tc.home_max } : undefined,
+        away: hasValue(tc.away_min) || hasValue(tc.away_max) ? { min: tc.away_min, max: tc.away_max } : undefined,
+        total: hasValue(tc.total_min) || hasValue(tc.total_max) ? { min: tc.total_min, max: tc.total_max } : undefined,
       });
-      
+
+      // Time
+      if (timeEnabled) {
+        if (timeMode === 'after') {
+          conditions.match_time = { after: timeValue.min };
+        } else if (timeMode === 'before') {
+          conditions.match_time = { before: timeValue.max };
+        } else {
+          conditions.match_time = { between: [timeValue.min, timeValue.max] };
+        }
+      }
+
+      // Score
+      if (scoreEnabled) {
+        if (scoreMode === 'exact') {
+          conditions.score = { exact: { home: exactScore.home, away: exactScore.away } };
+        } else {
+          conditions.score = {};
+          if (scoreRange.home_min !== undefined || scoreRange.home_max !== undefined) {
+            conditions.score.home = { min: scoreRange.home_min, max: scoreRange.home_max };
+          }
+          if (scoreRange.away_min !== undefined || scoreRange.away_max !== undefined) {
+            conditions.score.away = { min: scoreRange.away_min, max: scoreRange.away_max };
+          }
+          if (scoreRange.total_min !== undefined || scoreRange.total_max !== undefined) {
+            conditions.score.total_goals = { min: scoreRange.total_min, max: scoreRange.total_max };
+          }
+        }
+      }
+
+      // Corners
+      if (cornersEnabled) conditions.corners = buildTeamCond(corners);
+
+      // Shots
+      if (shotsEnabled) conditions.shots = buildTeamCond(shots);
+
+      // Shots on target
+      if (shotsOnTargetEnabled) conditions.shots_on_target = buildTeamCond(shotsOnTarget);
+
+      // Yellow cards
+      if (yellowCardsEnabled) {
+        const yc = buildTeamCond(yellowCards) as any;
+        if (yellowCardsTimeEnabled && yellowCardsTimeWindow.from != null && yellowCardsTimeWindow.to != null) {
+          yc.time_window = { from: yellowCardsTimeWindow.from, to: yellowCardsTimeWindow.to };
+        }
+        conditions.yellow_cards = yc;
+      }
+
+      // Red cards
+      if (redCardsEnabled) {
+        const rc = buildTeamCond(redCards) as any;
+        if (redCardsTimeEnabled && redCardsTimeWindow.from != null && redCardsTimeWindow.to != null) {
+          rc.time_window = { from: redCardsTimeWindow.from, to: redCardsTimeWindow.to };
+        }
+        conditions.red_cards = rc;
+      }
+
+      // Dangerous attacks
+      if (attacksEnabled) conditions.dangerous_attacks = buildTeamCond(attacks);
+
+      // Goals
+      if (goalsEnabled) conditions.goals = buildTeamCond(goals);
+
+      // Possession
+      if (possessionEnabled) {
+        conditions.possession = {
+          home: hasValue(possession.home_min) || hasValue(possession.home_max) ? { min: possession.home_min, max: possession.home_max } : undefined,
+          away: hasValue(possession.away_min) || hasValue(possession.away_max) ? { min: possession.away_min, max: possession.away_max } : undefined,
+        };
+      }
+
+      // Substitutions
+      if (substitutionsEnabled) {
+        const sc = buildTeamCond(substitutions) as any;
+        if (substitutionsTimeEnabled && substitutionsTimeWindow.from != null && substitutionsTimeWindow.to != null) {
+          sc.time_window = { from: substitutionsTimeWindow.from, to: substitutionsTimeWindow.to };
+        }
+        conditions.substitutions = sc;
+      }
+
+      // SofaScore live stats
+      if (xgEnabled) conditions.xg = buildTeamCond(xg);
+      if (bigChancesEnabled) conditions.big_chances = buildTeamCond(bigChances);
+      if (shotsInBoxEnabled) conditions.shots_in_box = buildTeamCond(shotsInBox);
+      if (passAccuracyEnabled) {
+        const pc = buildTeamCond(passAccuracy);
+        conditions.pass_accuracy = { home: pc.home, away: pc.away };
+      }
+      if (interceptionsEnabled) conditions.interceptions = buildTeamCond(interceptions);
+      if (clearancesEnabled) conditions.clearances = buildTeamCond(clearances);
+
+      // Pre-match odds
+      if (preMatchOddsEnabled && Object.keys(preMatchMarkets).length > 0) {
+        const preMatchOdds: Record<string, { min?: number; max?: number }> = {};
+        for (const [market, range] of Object.entries(preMatchMarkets)) {
+          if (range.min !== undefined || range.max !== undefined) {
+            preMatchOdds[market] = { min: range.min, max: range.max };
+          }
+        }
+        if (Object.keys(preMatchOdds).length > 0) {
+          conditions.pre_match_odds = preMatchOdds;
+        }
+      }
+
+      const { data, error } = await dbHelpers.updateFilter(filterId, {
+        name,
+        description: description || null,
+        conditions,
+        is_active: isActive,
+        notification_enabled: notificationEnabled,
+        telegram_enabled: telegramEnabled,
+      });
+
       if (error) {
         setError(`Error: ${error}`);
         setSaving(false);
@@ -211,11 +609,11 @@ export default function FilterEditPage() {
       }
 
       setSuccess('✅ Filter saved successfully!');
-      
+
       setTimeout(() => {
         router.push('/dashboard/filters');
       }, 1500);
-      
+
     } catch (err: any) {
       console.error('Error saving filter:', err);
       setError(err?.message || 'Error saving filter');
@@ -223,23 +621,23 @@ export default function FilterEditPage() {
       setSaving(false);
     }
   };
-  
+
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this filter?')) {
       return;
     }
-    
+
     setDeleting(true);
-    
+
     try {
       const { error } = await dbHelpers.deleteFilter(filterId);
-      
+
       if (error) {
         setError(`Error: ${error}`);
         setDeleting(false);
         return;
       }
-      
+
       router.push('/dashboard/filters');
     } catch (err: any) {
       console.error('Error deleting filter:', err);
@@ -248,126 +646,107 @@ export default function FilterEditPage() {
     }
   };
   
-  const updateCondition = (
-    category: keyof FilterConditions,
-    field: 'min' | 'max',
-    value: string
+  // ============================================
+  // RENDER HELPERS
+  // ============================================
+
+  const renderTeamCondition = (
+    title: string,
+    enabled: boolean,
+    setEnabled: (val: boolean) => void,
+    values: TeamCondition,
+    setValues: (val: TeamCondition) => void,
+    icon: React.ReactNode,
+    opts?: {
+      useFloat?: boolean;
+      noTotal?: boolean;
+      hint?: string;
+      timeWindow?: {
+        enabled: boolean;
+        setEnabled: (val: boolean) => void;
+        values: { from?: number; to?: number };
+        setValues: (val: { from?: number; to?: number }) => void;
+      };
+    }
   ) => {
-    const numValue = value === '' ? undefined : parseInt(value);
+    const useFloat = opts?.useFloat ?? false;
+    const noTotal = opts?.noTotal ?? false;
+    const hint = opts?.hint;
+    const parseNum = (v: string) => v !== '' ? (useFloat ? parseFloat(v) : parseInt(v)) : undefined;
+    const key = title.toLowerCase().replace(/\s+/g, '_');
+    const isOpen = openSection === key;
 
-    setFormData({
-      ...formData,
-      conditions: {
-        ...formData.conditions,
-        [category]: {
-          ...((formData.conditions as Record<string, any>)[category] || {}),
-          [field]: numValue,
-        },
-      },
-    });
+    const toggleEnabled = (checked: boolean) => {
+      setEnabled(checked);
+      if (checked) setOpenSection(key);
+      else if (openSection === key) setOpenSection(null);
+    };
+
+    return (
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setOpenSection(isOpen ? null : key)}>
+            {icon}
+            <h3 className="text-lg font-semibold">{title}</h3>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={enabled} onChange={(e) => toggleEnabled(e.target.checked)} className="w-5 h-5 rounded" />
+            <span className="text-sm">Enable</span>
+          </label>
+        </div>
+        {enabled && isOpen && (
+          <div className="space-y-4">
+            {hint && <p className="text-xs text-text-muted bg-glass-light/30 rounded px-3 py-2">{hint}</p>}
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-accent-green">Home</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" step={useFloat ? '0.1' : '1'} placeholder="Min" value={values.home_min !== undefined ? values.home_min : ''} onChange={(e) => setValues({ ...values, home_min: parseNum(e.target.value) })} min={0} className="input-field" />
+                <input type="number" step={useFloat ? '0.1' : '1'} placeholder="Max" value={values.home_max !== undefined ? values.home_max : ''} onChange={(e) => setValues({ ...values, home_max: parseNum(e.target.value) })} min={0} className="input-field" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-accent-cyan">Away</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" step={useFloat ? '0.1' : '1'} placeholder="Min" value={values.away_min !== undefined ? values.away_min : ''} onChange={(e) => setValues({ ...values, away_min: parseNum(e.target.value) })} min={0} className="input-field" />
+                <input type="number" step={useFloat ? '0.1' : '1'} placeholder="Max" value={values.away_max !== undefined ? values.away_max : ''} onChange={(e) => setValues({ ...values, away_max: parseNum(e.target.value) })} min={0} className="input-field" />
+              </div>
+            </div>
+            {!noTotal && (
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-accent-purple">Match Total</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" step={useFloat ? '0.1' : '1'} placeholder="Min" value={values.total_min !== undefined ? values.total_min : ''} onChange={(e) => setValues({ ...values, total_min: parseNum(e.target.value) })} min={0} className="input-field" />
+                  <input type="number" step={useFloat ? '0.1' : '1'} placeholder="Max" value={values.total_max !== undefined ? values.total_max : ''} onChange={(e) => setValues({ ...values, total_max: parseNum(e.target.value) })} min={0} className="input-field" />
+                </div>
+              </div>
+            )}
+            {opts?.timeWindow && (
+              <div className="border-t border-glass-light/20 pt-4 mt-4">
+                <label className="flex items-center gap-2 cursor-pointer mb-3">
+                  <input type="checkbox" checked={opts.timeWindow.enabled} onChange={(e) => opts.timeWindow!.setEnabled(e.target.checked)} className="w-4 h-4 rounded" />
+                  <span className="text-sm font-semibold text-accent-amber">⏱ Time Window (minutes)</span>
+                </label>
+                {opts.timeWindow.enabled && (
+                  <div>
+                    <p className="text-xs text-text-muted mb-2">Only count events that happen between these minutes</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input type="number" placeholder="From min" value={opts.timeWindow.values.from !== undefined ? opts.timeWindow.values.from : ''} onChange={(e) => opts.timeWindow!.setValues({ ...opts.timeWindow!.values, from: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} max={120} className="input-field" />
+                      <input type="number" placeholder="To min" value={opts.timeWindow.values.to !== undefined ? opts.timeWindow.values.to : ''} onChange={(e) => opts.timeWindow!.setValues({ ...opts.timeWindow!.values, to: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} max={120} className="input-field" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  // Detect and render extended conditions that the basic UI can't edit
-  const extConditions = formData.conditions as any as ExtendedFilterConditions;
-  const extendedSummary: string[] = [];
-
-  // Check for extended match_time
-  if (extConditions.match_time) {
-    const mt = extConditions.match_time as any;
-    if (mt.after !== undefined) extendedSummary.push(`Match time: after ${mt.after}'`);
-    if (mt.before !== undefined) extendedSummary.push(`Match time: before ${mt.before}'`);
-    if (mt.between) extendedSummary.push(`Match time: between ${mt.between[0]}'-${mt.between[1]}'`);
-  }
-  // Check for team-specific stats (extended format: {home: {min}, away: {min}, total: {min}})
-  const checkTeamSpecific = (key: string, label: string) => {
-    const cond = (extConditions as any)[key];
-    if (!cond) return;
-    if (cond.home && typeof cond.home === 'object') {
-      const parts: string[] = [];
-      if (cond.home.min !== undefined) parts.push(`Home min: ${cond.home.min}`);
-      if (cond.home.max !== undefined) parts.push(`Home max: ${cond.home.max}`);
-      if (cond.away?.min !== undefined) parts.push(`Away min: ${cond.away.min}`);
-      if (cond.away?.max !== undefined) parts.push(`Away max: ${cond.away.max}`);
-      if (cond.total?.min !== undefined) parts.push(`Total min: ${cond.total.min}`);
-      if (cond.total?.max !== undefined) parts.push(`Total max: ${cond.total.max}`);
-      if (parts.length > 0) extendedSummary.push(`${label}: ${parts.join(', ')}`);
-    } else if (cond.total && typeof cond.total === 'object') {
-      const parts: string[] = [];
-      if (cond.total.min !== undefined) parts.push(`min: ${cond.total.min}`);
-      if (cond.total.max !== undefined) parts.push(`max: ${cond.total.max}`);
-      if (parts.length > 0) extendedSummary.push(`${label}: ${parts.join(', ')}`);
-    }
-  };
-  checkTeamSpecific('corners', 'Corners');
-  checkTeamSpecific('shots_on_target', 'Shots on Target');
-  checkTeamSpecific('dangerous_attacks', 'Dangerous Attacks');
-  checkTeamSpecific('attacks', 'Attacks');
-  checkTeamSpecific('yellow_cards', 'Yellow Cards');
-  checkTeamSpecific('red_cards', 'Red Cards');
-  checkTeamSpecific('substitutions', 'Substitutions');
-
-  // Time window display
-  const checkTimeWindow = (key: string, label: string) => {
-    const cond = (extConditions as any)[key];
-    if (cond?.time_window?.from != null && cond?.time_window?.to != null) {
-      extendedSummary.push(`${label} time window: ${cond.time_window.from}' – ${cond.time_window.to}'`);
-    }
-  };
-  checkTimeWindow('yellow_cards', 'Yellow Cards');
-  checkTimeWindow('red_cards', 'Red Cards');
-  checkTimeWindow('substitutions', 'Substitutions');
-
-  // Score extended
-  if (extConditions.score) {
-    const s = extConditions.score;
-    const parts: string[] = [];
-    if (s.difference) {
-      if (s.difference.min !== undefined) parts.push(`Goal diff min: ${s.difference.min}`);
-      if (s.difference.max !== undefined) parts.push(`Goal diff max: ${s.difference.max}`);
-    }
-    if (s.total_goals) {
-      if (s.total_goals.min !== undefined) parts.push(`Total goals min: ${s.total_goals.min}`);
-      if (s.total_goals.max !== undefined) parts.push(`Total goals max: ${s.total_goals.max}`);
-    }
-    if (parts.length > 0) extendedSummary.push(`Score: ${parts.join(', ')}`);
-  }
-
-  // Possession extended
-  if (extConditions.possession) {
-    const p = extConditions.possession as any;
-    if (p.home || p.away || p.dominant) {
-      const parts: string[] = [];
-      if (p.home?.min !== undefined) parts.push(`Home min: ${p.home.min}%`);
-      if (p.home?.max !== undefined) parts.push(`Home max: ${p.home.max}%`);
-      if (p.away?.min !== undefined) parts.push(`Away min: ${p.away.min}%`);
-      if (p.away?.max !== undefined) parts.push(`Away max: ${p.away.max}%`);
-      if (p.dominant) parts.push(`Dominant: ${p.dominant}`);
-      if (parts.length > 0) extendedSummary.push(`Possession: ${parts.join(', ')}`);
-    }
-  }
-
-  // Trends
-  if (extConditions.trends) {
-    const t = extConditions.trends;
-    const parts: string[] = [];
-    if (t.corners_increasing) parts.push('Corners increasing');
-    if (t.shots_increasing) parts.push('Shots increasing');
-    if (t.cards_increasing) parts.push('Cards increasing');
-    if (t.home_pressure) parts.push('Home pressure');
-    if (t.away_pressure) parts.push('Away pressure');
-    if (parts.length > 0) extendedSummary.push(`Trends: ${parts.join(', ')}`);
-  }
-
-  // Pre-match odds
-  if (extConditions.pre_match_odds) {
-    const count = Object.keys(extConditions.pre_match_odds).filter(k => extConditions.pre_match_odds![k]).length;
-    if (count > 0) extendedSummary.push(`Pre-match odds: ${count} market(s) configured`);
-  }
-  
   // ============================================
   // RENDER
   // ============================================
-  
+
   if (loading) {
     return (
       <AuthWrapper>
@@ -517,8 +896,8 @@ export default function FilterEditPage() {
                 </label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="ex: Over 9.5 Corners"
                   className="input-field"
                 />
@@ -528,9 +907,9 @@ export default function FilterEditPage() {
                 <label className="block text-sm font-semibold mb-2">
                   Description (optional)
                 </label>
-                  <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe this filter..."
                   rows={3}
                   className="input-field resize-none"
@@ -541,8 +920,8 @@ export default function FilterEditPage() {
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
                     className="w-5 h-5 rounded border-glass-medium checked:bg-accent-cyan"
                   />
                   <div>
@@ -556,455 +935,242 @@ export default function FilterEditPage() {
             </div>
           </div>
           
-          {/* ========== CONDITIONS ========== */}
+          {/* ========== PRE-MATCH ODDS ========== */}
           <div className="glass-card p-6">
-            <h2 className="text-xl font-display font-semibold mb-4">
-              Filter Conditions
-            </h2>
-            
-            <div className="space-y-6">
-              {/* Corners */}
-              <div>
-                <h3 className="font-semibold mb-3">⚽ Corners</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.corners?.min || ''}
-                      onChange={(e) => updateCondition('corners', 'min', e.target.value)}
-                      placeholder="ex: 8"
-                      className="input-field"
-                    />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-accent-amber" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/></svg>
+                <h3 className="text-lg font-semibold">Pre-Match Odds Filter</h3>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={preMatchOddsEnabled} onChange={(e) => setPreMatchOddsEnabled(e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Enable</span>
+              </label>
+            </div>
+            {preMatchOddsEnabled && (
+              <div className="space-y-4">
+                <div className="text-xs text-text-muted mb-2">Select markets and set odds ranges. The filter will match when pre-match odds for selected markets fall within your specified range.</div>
+                <div>
+                  <div className="text-sm font-semibold text-accent-cyan mb-2">Result (1X2)</div>
+                  <div className="space-y-2">
+                    {[{ key: 'home_win', label: 'Home Win' }, { key: 'draw', label: 'Draw' }, { key: 'away_win', label: 'Away Win' }].map(m => (
+                      <OddsMarketRow key={m.key} marketKey={m.key} label={m.label} markets={preMatchMarkets} setMarkets={setPreMatchMarkets} />
+                    ))}
                   </div>
-                    <div>
-                      <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.corners?.max || ''}
-                      onChange={(e) => updateCondition('corners', 'max', e.target.value)}
-                      placeholder="ex: 15"
-                      className="input-field"
-                    />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-accent-green mb-2">Goals Over/Under</div>
+                  <div className="space-y-2">
+                    {[{ key: 'goals_over_0_5', label: 'Over 0.5 Goals' }, { key: 'goals_under_0_5', label: 'Under 0.5 Goals' }, { key: 'goals_over_1_5', label: 'Over 1.5 Goals' }, { key: 'goals_under_1_5', label: 'Under 1.5 Goals' }, { key: 'goals_over_2_5', label: 'Over 2.5 Goals' }, { key: 'goals_under_2_5', label: 'Under 2.5 Goals' }, { key: 'goals_over_3_5', label: 'Over 3.5 Goals' }, { key: 'goals_under_3_5', label: 'Under 3.5 Goals' }, { key: 'goals_over_4_5', label: 'Over 4.5 Goals' }, { key: 'goals_under_4_5', label: 'Under 4.5 Goals' }].map(m => (
+                      <OddsMarketRow key={m.key} marketKey={m.key} label={m.label} markets={preMatchMarkets} setMarkets={setPreMatchMarkets} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-accent-purple mb-2">First Half Goals</div>
+                  <div className="space-y-2">
+                    {[{ key: 'first_half_over_0_5', label: 'FH Over 0.5 Goals' }, { key: 'first_half_under_0_5', label: 'FH Under 0.5 Goals' }, { key: 'first_half_over_1_5', label: 'FH Over 1.5 Goals' }, { key: 'first_half_under_1_5', label: 'FH Under 1.5 Goals' }, { key: 'first_half_over_2_5', label: 'FH Over 2.5 Goals' }, { key: 'first_half_under_2_5', label: 'FH Under 2.5 Goals' }].map(m => (
+                      <OddsMarketRow key={m.key} marketKey={m.key} label={m.label} markets={preMatchMarkets} setMarkets={setPreMatchMarkets} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-accent-amber mb-2">Corners Over/Under</div>
+                  <div className="space-y-2">
+                    {[{ key: 'corners_over_7_5', label: 'Over 7.5 Corners' }, { key: 'corners_under_7_5', label: 'Under 7.5 Corners' }, { key: 'corners_over_8_5', label: 'Over 8.5 Corners' }, { key: 'corners_under_8_5', label: 'Under 8.5 Corners' }, { key: 'corners_over_9_5', label: 'Over 9.5 Corners' }, { key: 'corners_under_9_5', label: 'Under 9.5 Corners' }, { key: 'corners_over_10_5', label: 'Over 10.5 Corners' }, { key: 'corners_under_10_5', label: 'Under 10.5 Corners' }, { key: 'corners_over_11_5', label: 'Over 11.5 Corners' }, { key: 'corners_under_11_5', label: 'Under 11.5 Corners' }].map(m => (
+                      <OddsMarketRow key={m.key} marketKey={m.key} label={m.label} markets={preMatchMarkets} setMarkets={setPreMatchMarkets} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-yellow-400 mb-2">Cards Over/Under</div>
+                  <div className="space-y-2">
+                    {[{ key: 'cards_over_2_5', label: 'Over 2.5 Cards' }, { key: 'cards_under_2_5', label: 'Under 2.5 Cards' }, { key: 'cards_over_3_5', label: 'Over 3.5 Cards' }, { key: 'cards_under_3_5', label: 'Under 3.5 Cards' }, { key: 'cards_over_4_5', label: 'Over 4.5 Cards' }, { key: 'cards_under_4_5', label: 'Under 4.5 Cards' }, { key: 'cards_over_5_5', label: 'Over 5.5 Cards' }, { key: 'cards_under_5_5', label: 'Under 5.5 Cards' }].map(m => (
+                      <OddsMarketRow key={m.key} marketKey={m.key} label={m.label} markets={preMatchMarkets} setMarkets={setPreMatchMarkets} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-accent-blue mb-2">Both Teams To Score</div>
+                  <div className="space-y-2">
+                    {[{ key: 'btts_yes', label: 'BTTS Yes' }, { key: 'btts_no', label: 'BTTS No' }].map(m => (
+                      <OddsMarketRow key={m.key} marketKey={m.key} label={m.label} markets={preMatchMarkets} setMarkets={setPreMatchMarkets} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-text-secondary mb-2">Double Chance</div>
+                  <div className="space-y-2">
+                    {[{ key: 'double_chance_1x', label: 'Home or Draw (1X)' }, { key: 'double_chance_x2', label: 'Draw or Away (X2)' }, { key: 'double_chance_12', label: 'Home or Away (12)' }].map(m => (
+                      <OddsMarketRow key={m.key} marketKey={m.key} label={m.label} markets={preMatchMarkets} setMarkets={setPreMatchMarkets} />
+                    ))}
                   </div>
                 </div>
               </div>
-              
-              {/* Shots on Target */}
-              <div>
-                <h3 className="font-semibold mb-3">🎯 Shots on Target</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.shots_on_target?.min || ''}
-                      onChange={(e) => updateCondition('shots_on_target', 'min', e.target.value)}
-                      placeholder="ex: 10"
-                      className="input-field"
-                    />
-                  </div>
-                    <div>
-                      <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.shots_on_target?.max || ''}
-                      onChange={(e) => updateCondition('shots_on_target', 'max', e.target.value)}
-                      placeholder="ex: 20"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Total Shots */}
-              <div>
-                <h3 className="font-semibold mb-3">⚡ Total Shots</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.total_shots?.min || ''}
-                      onChange={(e) => updateCondition('total_shots', 'min', e.target.value)}
-                      placeholder="ex: 15"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.total_shots?.max || ''}
-                      onChange={(e) => updateCondition('total_shots', 'max', e.target.value)}
-                      placeholder="ex: 30"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Yellow Cards */}
-              <div>
-                <h3 className="font-semibold mb-3">🟨 Yellow Cards</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.yellow_cards?.min || ''}
-                      onChange={(e) => updateCondition('yellow_cards', 'min', e.target.value)}
-                      placeholder="ex: 3"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.yellow_cards?.max || ''}
-                      onChange={(e) => updateCondition('yellow_cards', 'max', e.target.value)}
-                      placeholder="ex: 8"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-                {/* Time Window */}
-                <div className="mt-3">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={yellowCardsTimeEnabled}
-                      onChange={(e) => setYellowCardsTimeEnabled(e.target.checked)}
-                      className="w-4 h-4 rounded border-glass-medium checked:bg-accent-amber"
-                    />
-                    <span className="text-accent-amber font-medium">⏱ Time Window (minutes)</span>
-                  </label>
-                  {yellowCardsTimeEnabled && (
-                    <div className="grid grid-cols-2 gap-3 mt-2 pl-6">
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">From min</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          value={yellowCardsTimeWindow.from ?? ''}
-                          onChange={(e) => setYellowCardsTimeWindow({ ...yellowCardsTimeWindow, from: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                          placeholder="0"
-                          className="input-field text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">To min</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          value={yellowCardsTimeWindow.to ?? ''}
-                          onChange={(e) => setYellowCardsTimeWindow({ ...yellowCardsTimeWindow, to: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                          placeholder="90"
-                          className="input-field text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Match Time */}
-              <div>
-                <h3 className="font-semibold mb-3">⏱️ Match Time (Minutes)</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">From minute</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.match_time?.min || 1}
-                      onChange={(e) => updateCondition('match_time', 'min', e.target.value)}
-                      placeholder="1"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">To minute</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.match_time?.max || 90}
-                      onChange={(e) => updateCondition('match_time', 'max', e.target.value)}
-                      placeholder="90"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Red Cards */}
-              <div>
-                <h3 className="font-semibold mb-3">🔴 Red Cards</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.red_cards?.min || ''}
-                      onChange={(e) => updateCondition('red_cards', 'min', e.target.value)}
-                      placeholder="ex: 0"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.red_cards?.max || ''}
-                      onChange={(e) => updateCondition('red_cards', 'max', e.target.value)}
-                      placeholder="ex: 3"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-                {/* Time Window */}
-                <div className="mt-3">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={redCardsTimeEnabled}
-                      onChange={(e) => setRedCardsTimeEnabled(e.target.checked)}
-                      className="w-4 h-4 rounded border-glass-medium checked:bg-accent-amber"
-                    />
-                    <span className="text-accent-amber font-medium">⏱ Time Window (minutes)</span>
-                  </label>
-                  {redCardsTimeEnabled && (
-                    <div className="grid grid-cols-2 gap-3 mt-2 pl-6">
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">From min</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          value={redCardsTimeWindow.from ?? ''}
-                          onChange={(e) => setRedCardsTimeWindow({ ...redCardsTimeWindow, from: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                          placeholder="0"
-                          className="input-field text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">To min</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          value={redCardsTimeWindow.to ?? ''}
-                          onChange={(e) => setRedCardsTimeWindow({ ...redCardsTimeWindow, to: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                          placeholder="90"
-                          className="input-field text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Goals */}
-              <div>
-                <h3 className="font-semibold mb-3">⚽ Goals</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.goals?.min || ''}
-                      onChange={(e) => updateCondition('goals', 'min', e.target.value)}
-                      placeholder="ex: 2"
-                      className="input-field"
-                    />
-                  </div>
-                    <div>
-                      <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.goals?.max || ''}
-                      onChange={(e) => updateCondition('goals', 'max', e.target.value)}
-                      placeholder="ex: 5"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-              </div>
+            )}
+          </div>
 
-              {/* Substitutions */}
-              <div>
-                <h3 className="font-semibold mb-3">🔄 Substitutions</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={(formData.conditions as any).substitutions?.min || ''}
-                      onChange={(e) => updateCondition('substitutions' as any, 'min', e.target.value)}
-                      placeholder="ex: 2"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={(formData.conditions as any).substitutions?.max || ''}
-                      onChange={(e) => updateCondition('substitutions' as any, 'max', e.target.value)}
-                      placeholder="ex: 6"
-                      className="input-field"
-                    />
-                  </div>
+          {/* ========== TIME CONDITIONS ========== */}
+          <div className="glass-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-accent-amber" />
+                <h3 className="text-lg font-semibold">Match Time (minutes)</h3>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={timeEnabled} onChange={(e) => setTimeEnabled(e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Enable</span>
+              </label>
+            </div>
+            {timeEnabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Time Mode</label>
+                  <select value={timeMode} onChange={(e) => setTimeMode(e.target.value as any)} className="input-field" title="Select time mode">
+                    <option value="after">After minute... (from minute X to end)</option>
+                    <option value="before">Before minute... (from kickoff to minute X)</option>
+                    <option value="between">Between minutes...</option>
+                  </select>
+                  <p className="text-xs text-text-muted mt-1">
+                    {timeMode === 'after' && 'Filter triggers only after this minute until full time (e.g. after 60 = minutes 60-90)'}
+                    {timeMode === 'before' && 'Filter triggers from kickoff up to this minute (e.g. before 45 = first half only)'}
+                    {timeMode === 'between' && 'Filter triggers only between these two minutes'}
+                  </p>
                 </div>
-                {/* Time Window */}
-                <div className="mt-3">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={substitutionsTimeEnabled}
-                      onChange={(e) => setSubstitutionsTimeEnabled(e.target.checked)}
-                      className="w-4 h-4 rounded border-glass-medium checked:bg-accent-amber"
-                    />
-                    <span className="text-accent-amber font-medium">⏱ Time Window (minutes)</span>
-                  </label>
-                  {substitutionsTimeEnabled && (
-                    <div className="grid grid-cols-2 gap-3 mt-2 pl-6">
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">From min</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          value={substitutionsTimeWindow.from ?? ''}
-                          onChange={(e) => setSubstitutionsTimeWindow({ ...substitutionsTimeWindow, from: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                          placeholder="0"
-                          className="input-field text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-text-muted mb-1">To min</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          value={substitutionsTimeWindow.to ?? ''}
-                          onChange={(e) => setSubstitutionsTimeWindow({ ...substitutionsTimeWindow, to: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                          placeholder="90"
-                          className="input-field text-sm"
-                        />
+                {timeMode === 'between' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" placeholder="From min" value={timeValue.min} onChange={(e) => setTimeValue({ ...timeValue, min: parseInt(e.target.value) || 1 })} min={1} max={90} className="input-field" />
+                    <input type="number" placeholder="To min" value={timeValue.max} onChange={(e) => setTimeValue({ ...timeValue, max: parseInt(e.target.value) || 90 })} min={1} max={90} className="input-field" />
+                  </div>
+                ) : (
+                  <input type="number" placeholder={timeMode === 'after' ? 'After minute...' : 'Before minute...'} value={timeMode === 'after' ? timeValue.min : timeValue.max} onChange={(e) => { const val = parseInt(e.target.value) || 1; setTimeValue(timeMode === 'after' ? { ...timeValue, min: val } : { ...timeValue, max: val }); }} min={1} max={90} className="input-field" />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ========== SCORE CONDITIONS ========== */}
+          <div className="glass-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Target className="w-5 h-5 text-accent-green" />
+                <h3 className="text-lg font-semibold">Score</h3>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={scoreEnabled} onChange={(e) => setScoreEnabled(e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Enable</span>
+              </label>
+            </div>
+            {scoreEnabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Score Mode</label>
+                  <select value={scoreMode} onChange={(e) => setScoreMode(e.target.value as any)} className="input-field" title="Select score mode">
+                    <option value="exact">Exact Score (ex: 0-0, 1-0)</option>
+                    <option value="range">Range (min/max goals)</option>
+                  </select>
+                </div>
+                {scoreMode === 'exact' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm mb-2">Home Goals</label>
+                      <input type="number" value={exactScore.home} onChange={(e) => setExactScore({ ...exactScore, home: parseInt(e.target.value) || 0 })} min={0} className="input-field" title="Home team goals" />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-2">Away Goals</label>
+                      <input type="number" value={exactScore.away} onChange={(e) => setExactScore({ ...exactScore, away: parseInt(e.target.value) || 0 })} min={0} className="input-field" title="Away team goals" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-accent-green">Home Goals</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input type="number" placeholder="Min" value={scoreRange.home_min !== undefined ? scoreRange.home_min : ''} onChange={(e) => setScoreRange({ ...scoreRange, home_min: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} className="input-field" />
+                        <input type="number" placeholder="Max" value={scoreRange.home_max !== undefined ? scoreRange.home_max : ''} onChange={(e) => setScoreRange({ ...scoreRange, home_max: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} className="input-field" />
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Possession */}
-              <div>
-                <h3 className="font-semibold mb-3">📊 Possession (%)</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Min</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.possession?.min || ''}
-                      onChange={(e) => updateCondition('possession', 'min', e.target.value)}
-                      placeholder="ex: 40"
-                      className="input-field"
-                    />
-                  </div>
                     <div>
-                      <label className="block text-sm text-text-muted mb-2">Max</label>
-                    <input
-                      type="number"
-                      value={formData.conditions.possession?.max || ''}
-                      onChange={(e) => updateCondition('possession', 'max', e.target.value)}
-                      placeholder="ex: 60"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Score (Exact) */}
-              <div>
-                <h3 className="font-semibold mb-3">🎯 Exact Score</h3>
-                <p className="text-xs text-text-muted mb-3">Choose the exact score you are looking for (e.g. 0-0, 1-1, 2-2)</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Home Goals</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={formData.conditions.score?.home !== undefined ? formData.conditions.score.home : ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        conditions: {
-                          ...formData.conditions,
-                          score: {
-                            ...formData.conditions.score,
-                            home: e.target.value === '' ? undefined : parseInt(e.target.value),
-                            type: 'exact',
-                          },
-                        },
-                      })}
-                      placeholder="ex: 0"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-muted mb-2">Away Goals</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={formData.conditions.score?.away !== undefined ? formData.conditions.score.away : ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        conditions: {
-                          ...formData.conditions,
-                          score: {
-                            ...formData.conditions.score,
-                            away: e.target.value === '' ? undefined : parseInt(e.target.value),
-                            type: 'exact',
-                          },
-                        },
-                      })}
-                      placeholder="ex: 0"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-                {formData.conditions.score?.home !== undefined && formData.conditions.score?.away !== undefined && (
-                  <div className="mt-2 p-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20">
-                    <p className="text-xs text-accent-cyan">Target score: <strong>{formData.conditions.score.home}-{formData.conditions.score.away}</strong></p>
+                      <label className="block text-sm font-semibold mb-2 text-accent-cyan">Away Goals</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input type="number" placeholder="Min" value={scoreRange.away_min !== undefined ? scoreRange.away_min : ''} onChange={(e) => setScoreRange({ ...scoreRange, away_min: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} className="input-field" />
+                        <input type="number" placeholder="Max" value={scoreRange.away_max !== undefined ? scoreRange.away_max : ''} onChange={(e) => setScoreRange({ ...scoreRange, away_max: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} className="input-field" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-accent-purple">Match Total Goals</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input type="number" placeholder="Min (ex: 3 for Over 2.5)" value={scoreRange.total_min !== undefined ? scoreRange.total_min : ''} onChange={(e) => setScoreRange({ ...scoreRange, total_min: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} className="input-field" />
+                        <input type="number" placeholder="Max" value={scoreRange.total_max !== undefined ? scoreRange.total_max : ''} onChange={(e) => setScoreRange({ ...scoreRange, total_max: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} className="input-field" />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* ========== STATISTICS CONDITIONS ========== */}
+          <div className="space-y-6">
+            {renderTeamCondition('Corners', cornersEnabled, setCornersEnabled, corners, setCorners, <Activity className="w-5 h-5 text-accent-cyan" />)}
+            {renderTeamCondition('Shots', shotsEnabled, setShotsEnabled, shots, setShots, <Target className="w-5 h-5 text-accent-green" />)}
+            {renderTeamCondition('Shots on Target', shotsOnTargetEnabled, setShotsOnTargetEnabled, shotsOnTarget, setShotsOnTarget, <Target className="w-5 h-5 text-accent-purple" />)}
+            {renderTeamCondition('Goals', goalsEnabled, setGoalsEnabled, goals, setGoals, <Target className="w-5 h-5 text-accent-green" />)}
+            {renderTeamCondition('Yellow Cards', yellowCardsEnabled, setYellowCardsEnabled, yellowCards, setYellowCards, <div className="w-5 h-5 bg-yellow-500 rounded" />, { timeWindow: { enabled: yellowCardsTimeEnabled, setEnabled: setYellowCardsTimeEnabled, values: yellowCardsTimeWindow, setValues: setYellowCardsTimeWindow } })}
+            {renderTeamCondition('Red Cards', redCardsEnabled, setRedCardsEnabled, redCards, setRedCards, <div className="w-5 h-5 bg-red-500 rounded" />, { timeWindow: { enabled: redCardsTimeEnabled, setEnabled: setRedCardsTimeEnabled, values: redCardsTimeWindow, setValues: setRedCardsTimeWindow } })}
+            {renderTeamCondition('Dangerous Attacks', attacksEnabled, setAttacksEnabled, attacks, setAttacks, <TrendingUp className="w-5 h-5 text-accent-amber" />)}
+            {renderTeamCondition('Substitutions', substitutionsEnabled, setSubstitutionsEnabled, substitutions, setSubstitutions, <Users className="w-5 h-5 text-accent-cyan" />, { timeWindow: { enabled: substitutionsTimeEnabled, setEnabled: setSubstitutionsTimeEnabled, values: substitutionsTimeWindow, setValues: setSubstitutionsTimeWindow } })}
+          </div>
+
+          {/* ========== POSSESSION ========== */}
+          <div className="glass-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-accent-purple" />
+                <h3 className="text-lg font-semibold">Possession (%)</h3>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={possessionEnabled} onChange={(e) => setPossessionEnabled(e.target.checked)} className="w-5 h-5 rounded" />
+                <span className="text-sm">Enable</span>
+              </label>
+            </div>
+            {possessionEnabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-accent-green">Home Possession (%)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" placeholder="Min %" value={possession.home_min !== undefined ? possession.home_min : ''} onChange={(e) => setPossession({ ...possession, home_min: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} max={100} className="input-field" />
+                    <input type="number" placeholder="Max %" value={possession.home_max !== undefined ? possession.home_max : ''} onChange={(e) => setPossession({ ...possession, home_max: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} max={100} className="input-field" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-accent-cyan">Away Possession (%)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="number" placeholder="Min %" value={possession.away_min !== undefined ? possession.away_min : ''} onChange={(e) => setPossession({ ...possession, away_min: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} max={100} className="input-field" />
+                    <input type="number" placeholder="Max %" value={possession.away_max !== undefined ? possession.away_max : ''} onChange={(e) => setPossession({ ...possession, away_max: e.target.value !== '' ? parseInt(e.target.value) : undefined })} min={0} max={100} className="input-field" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ========== SOFASCORE LIVE STATS ========== */}
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-5 h-5 text-accent-purple" />
+              <h3 className="text-lg font-semibold">SofaScore Live Stats</h3>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-purple/20 text-accent-purple font-semibold">LIVE ONLY</span>
+            </div>
+            <p className="text-xs text-text-muted mb-4">Enriched in real-time from SofaScore during live matches. Skipped (not failed) for pre-match or non-enriched matches.</p>
+            <div className="space-y-6">
+              {renderTeamCondition('xG (Expected Goals)', xgEnabled, setXgEnabled, xg, setXg, <Target className="w-5 h-5 text-accent-cyan" />, { useFloat: true, hint: 'Expected Goals per team. Typical range: 0.0 – 3.0. Example: Home xG ≥ 1.0' })}
+              {renderTeamCondition('Big Chances', bigChancesEnabled, setBigChancesEnabled, bigChances, setBigChances, <Target className="w-5 h-5 text-accent-green" />, { hint: 'Clear scoring opportunities created. Example: Total ≥ 3' })}
+              {renderTeamCondition('Shots in Box', shotsInBoxEnabled, setShotsInBoxEnabled, shotsInBox, setShotsInBox, <Target className="w-5 h-5 text-accent-amber" />, { hint: 'Shots from inside the penalty area.' })}
+              {renderTeamCondition('Pass Accuracy (%)', passAccuracyEnabled, setPassAccuracyEnabled, passAccuracy, setPassAccuracy, <Activity className="w-5 h-5 text-accent-blue" />, { noTotal: true, hint: 'Pass accuracy percentage (0–100). Example: Home ≥ 80%' })}
+              {renderTeamCondition('Interceptions', interceptionsEnabled, setInterceptionsEnabled, interceptions, setInterceptions, <Shield className="w-5 h-5 text-accent-cyan" />, { hint: 'Defensive interceptions per team.' })}
+              {renderTeamCondition('Clearances', clearancesEnabled, setClearancesEnabled, clearances, setClearances, <Shield className="w-5 h-5 text-accent-purple" />, { hint: 'Defensive clearances. Example: Away ≥ 8 suggests sustained home pressure.' })}
             </div>
           </div>
-          
-          {/* ========== EXTENDED CONDITIONS (read-only) ========== */}
-          {extendedSummary.length > 0 && (
-            <div className="glass-card p-6 border-l-4 border-accent-amber">
-              <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-accent-amber" />
-                Advanced Conditions
-              </h2>
-              <p className="text-xs text-text-muted mb-3">
-                These conditions were set from a template or the advanced filter builder. They are preserved when saving.
-              </p>
-              <div className="space-y-2">
-                {extendedSummary.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-glass-light/50">
-                    <CheckCircle className="w-4 h-4 text-accent-green shrink-0" />
-                    <span className="text-sm text-text-primary">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* ========== NOTIFICATIONS ========== */}
           <div className="glass-card p-6">
@@ -1014,12 +1180,11 @@ export default function FilterEditPage() {
             </h2>
             
             <div className="space-y-3">
-              {/* Browser Notifications */}
               <label className="flex items-center gap-3 p-4 rounded-lg bg-glass-light hover:bg-glass-medium transition-all cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.notification_enabled}
-                  onChange={(e) => setFormData({ ...formData, notification_enabled: e.target.checked })}
+                  checked={notificationEnabled}
+                  onChange={(e) => setNotificationEnabled(e.target.checked)}
                   className="w-5 h-5 rounded border-glass-medium checked:bg-accent-cyan"
                 />
                 <div className="flex-1">
@@ -1033,12 +1198,11 @@ export default function FilterEditPage() {
                 </div>
               </label>
               
-              {/* Telegram Notifications */}
               <label className="flex items-center gap-3 p-4 rounded-lg bg-glass-light hover:bg-glass-medium transition-all cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.telegram_enabled}
-                  onChange={(e) => setFormData({ ...formData, telegram_enabled: e.target.checked })}
+                  checked={telegramEnabled}
+                  onChange={(e) => setTelegramEnabled(e.target.checked)}
                   className="w-5 h-5 rounded border-glass-medium checked:bg-accent-purple"
                 />
                 <div className="flex-1">
@@ -1055,7 +1219,7 @@ export default function FilterEditPage() {
           </div>
           
           {/* ========== ACTIONS ========== */}
-            <div className="flex gap-4">
+          <div className="flex gap-4">
             <button
               onClick={() => router.push('/dashboard/filters')}
               className="btn-secondary flex-1"
@@ -1065,20 +1229,20 @@ export default function FilterEditPage() {
             
             <button
               onClick={handleSave}
-              disabled={saving || !formData.name.trim()}
+              disabled={saving || !name.trim()}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      Save Changes
-                    </>
-                  )}
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Save Changes
+                </>
+              )}
             </button>
           </div>
           
