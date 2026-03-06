@@ -24,10 +24,10 @@ const config: Config = {
         text: {
           primary: '#E8EAED',
           secondary: '#9CA3AF',
-          muted: '#6B7280',
+          muted: '#8B929E',
         },
         glass: {
-          light: 'rgba(255, 255, 255, 0.05)',
+          light: 'rgba(255, 255, 255, 0.08)',
           medium: 'rgba(255, 255, 255, 0.1)',
           strong: 'rgba(255, 255, 255, 0.15)',
         }
