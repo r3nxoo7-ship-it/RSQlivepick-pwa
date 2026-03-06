@@ -33,6 +33,8 @@ export default function TriggeredMatchDetailsPage() {
   const [triggered, setTriggered] = useState<any>(null);
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [stats, setStats] = useState<any>(null);
+  const [firstHalfStats, setFirstHalfStats] = useState<any>(null);
+  const [secondHalfStats, setSecondHalfStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeStatsTab, setActiveStatsTab] = useState<'full' | '1st' | '2nd'>('full');
@@ -76,6 +78,8 @@ export default function TriggeredMatchDetailsPage() {
           const sofascoreEventId = isSofascoreMatch ? rawMatchId.replace('ss_', '') : null;
 
           let fetchedStats: any = null;
+          let fetchedFirstHalf: any = null;
+          let fetchedSecondHalf: any = null;
 
           // 1. For SofaScore matches, go directly to SofaScore stats
           if (sofascoreEventId) {
@@ -83,7 +87,11 @@ export default function TriggeredMatchDetailsPage() {
               const ssRes = await fetch(`/api/sofascore/match-stats?eventId=${sofascoreEventId}`);
               if (ssRes.ok) {
                 const ssData = await ssRes.json();
-                if (ssData.found && ssData.stats) fetchedStats = ssData.stats;
+                if (ssData.found && ssData.stats) {
+                  fetchedStats = ssData.stats;
+                  if (ssData.firstHalfStats) fetchedFirstHalf = ssData.firstHalfStats;
+                  if (ssData.secondHalfStats) fetchedSecondHalf = ssData.secondHalfStats;
+                }
               }
             } catch { /* fall through */ }
           }
@@ -131,8 +139,8 @@ export default function TriggeredMatchDetailsPage() {
             }
           }
 
-          // 3. If still no halftime data, try SofaScore find-event for half scores
-          if (fetchedStats && fetchedStats.homeHalfScore == null && foundTriggered.home_team && foundTriggered.away_team) {
+          // 3. If still no halftime data, try SofaScore find-event for half scores + period stats
+          if (foundTriggered.home_team && foundTriggered.away_team) {
             try {
               const matchDate = (foundTriggered.matched_at || foundTriggered.created_at || '').split('T')[0];
               if (matchDate) {
@@ -141,9 +149,27 @@ export default function TriggeredMatchDetailsPage() {
                 );
                 if (findRes.ok) {
                   const findData = await findRes.json();
-                  if (findData.found && findData.period1Home != null) {
-                    fetchedStats.homeHalfScore = findData.period1Home;
-                    fetchedStats.awayHalfScore = findData.period1Away ?? 0;
+                  if (findData.found) {
+                    // Set halftime scores if missing
+                    if (fetchedStats && fetchedStats.homeHalfScore == null && findData.period1Home != null) {
+                      fetchedStats.homeHalfScore = findData.period1Home;
+                      fetchedStats.awayHalfScore = findData.period1Away ?? 0;
+                    }
+                    // Fetch period stats from SofaScore if we don't have them yet
+                    if (!fetchedFirstHalf && findData.eventId) {
+                      try {
+                        const ssRes = await fetch(`/api/sofascore/match-stats?eventId=${findData.eventId}`);
+                        if (ssRes.ok) {
+                          const ssData = await ssRes.json();
+                          if (ssData.found) {
+                            if (ssData.firstHalfStats) fetchedFirstHalf = ssData.firstHalfStats;
+                            if (ssData.secondHalfStats) fetchedSecondHalf = ssData.secondHalfStats;
+                            // Also use SofaScore full stats if ESPN didn't provide any
+                            if (!fetchedStats && ssData.stats) fetchedStats = ssData.stats;
+                          }
+                        }
+                      } catch { /* non-fatal */ }
+                    }
                   }
                 }
               }
@@ -151,6 +177,8 @@ export default function TriggeredMatchDetailsPage() {
           }
 
           if (fetchedStats) setStats(fetchedStats);
+          if (fetchedFirstHalf) setFirstHalfStats(fetchedFirstHalf);
+          if (fetchedSecondHalf) setSecondHalfStats(fetchedSecondHalf);
         } catch (statsError) {
           console.error('Error fetching match stats:', statsError);
         }
@@ -503,7 +531,40 @@ export default function TriggeredMatchDetailsPage() {
                   </>
                 )}
 
-                {activeStatsTab === '1st' && hasHalfTime && (
+                {activeStatsTab === '1st' && firstHalfStats && (
+                  <>
+                    {hasHalfTime && <TriggeredStatRow label="Goals" home={htHome} away={htAway} />}
+                    {firstHalfStats.homePoss > 0 && (
+                      <TriggeredStatRow label="Possession" home={firstHalfStats.homePoss} away={firstHalfStats.awayPoss} unit="%" />
+                    )}
+                    {(firstHalfStats.homeShots > 0 || firstHalfStats.awayShots > 0) && (
+                      <TriggeredStatRow label="Total Shots" home={firstHalfStats.homeShots} away={firstHalfStats.awayShots} />
+                    )}
+                    {(firstHalfStats.homeSoT > 0 || firstHalfStats.awaySoT > 0) && (
+                      <TriggeredStatRow label="Shots on Target" home={firstHalfStats.homeSoT} away={firstHalfStats.awaySoT} />
+                    )}
+                    {(firstHalfStats.homeCorners > 0 || firstHalfStats.awayCorners > 0) && (
+                      <TriggeredStatRow label="Corners" home={firstHalfStats.homeCorners} away={firstHalfStats.awayCorners} />
+                    )}
+                    {(firstHalfStats.homeOffsides > 0 || firstHalfStats.awayOffsides > 0) && (
+                      <TriggeredStatRow label="Offsides" home={firstHalfStats.homeOffsides} away={firstHalfStats.awayOffsides} />
+                    )}
+                    {(firstHalfStats.homeFouls > 0 || firstHalfStats.awayFouls > 0) && (
+                      <TriggeredStatRow label="Fouls" home={firstHalfStats.homeFouls} away={firstHalfStats.awayFouls} />
+                    )}
+                    {(firstHalfStats.homeYellow > 0 || firstHalfStats.awayYellow > 0) && (
+                      <TriggeredStatRow label="Yellow Cards" home={firstHalfStats.homeYellow} away={firstHalfStats.awayYellow} />
+                    )}
+                    {(firstHalfStats.homeRed > 0 || firstHalfStats.awayRed > 0) && (
+                      <TriggeredStatRow label="Red Cards" home={firstHalfStats.homeRed} away={firstHalfStats.awayRed} />
+                    )}
+                    {firstHalfStats.homeXg != null && (
+                      <TriggeredStatRow label="xG" home={firstHalfStats.homeXg} away={firstHalfStats.awayXg} />
+                    )}
+                  </>
+                )}
+
+                {activeStatsTab === '1st' && !firstHalfStats && hasHalfTime && (
                   <div className="text-center py-8">
                     <div className="mb-4">
                       <TriggeredStatRow label="1st Half Goals" home={htHome} away={htAway} />
@@ -511,13 +572,10 @@ export default function TriggeredMatchDetailsPage() {
                     <p className="text-sm text-text-muted">
                       Detailed 1st half statistics are not available.
                     </p>
-                    <p className="text-xs text-text-muted mt-2">
-                      Full match statistics shown in &quot;Full Match&quot; tab.
-                    </p>
                   </div>
                 )}
 
-                {activeStatsTab === '1st' && !hasHalfTime && (
+                {activeStatsTab === '1st' && !firstHalfStats && !hasHalfTime && (
                   <div className="text-center py-8">
                     <AlertCircle className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
                     <p className="text-sm text-text-muted">
@@ -526,7 +584,42 @@ export default function TriggeredMatchDetailsPage() {
                   </div>
                 )}
 
-                {activeStatsTab === '2nd' && hasHalfTime && shHome != null && shAway != null && shHome >= 0 && shAway >= 0 && (
+                {activeStatsTab === '2nd' && secondHalfStats && (
+                  <>
+                    {shHome != null && shAway != null && shHome >= 0 && shAway >= 0 && (
+                      <TriggeredStatRow label="Goals" home={shHome} away={shAway} />
+                    )}
+                    {secondHalfStats.homePoss > 0 && (
+                      <TriggeredStatRow label="Possession" home={secondHalfStats.homePoss} away={secondHalfStats.awayPoss} unit="%" />
+                    )}
+                    {(secondHalfStats.homeShots > 0 || secondHalfStats.awayShots > 0) && (
+                      <TriggeredStatRow label="Total Shots" home={secondHalfStats.homeShots} away={secondHalfStats.awayShots} />
+                    )}
+                    {(secondHalfStats.homeSoT > 0 || secondHalfStats.awaySoT > 0) && (
+                      <TriggeredStatRow label="Shots on Target" home={secondHalfStats.homeSoT} away={secondHalfStats.awaySoT} />
+                    )}
+                    {(secondHalfStats.homeCorners > 0 || secondHalfStats.awayCorners > 0) && (
+                      <TriggeredStatRow label="Corners" home={secondHalfStats.homeCorners} away={secondHalfStats.awayCorners} />
+                    )}
+                    {(secondHalfStats.homeOffsides > 0 || secondHalfStats.awayOffsides > 0) && (
+                      <TriggeredStatRow label="Offsides" home={secondHalfStats.homeOffsides} away={secondHalfStats.awayOffsides} />
+                    )}
+                    {(secondHalfStats.homeFouls > 0 || secondHalfStats.awayFouls > 0) && (
+                      <TriggeredStatRow label="Fouls" home={secondHalfStats.homeFouls} away={secondHalfStats.awayFouls} />
+                    )}
+                    {(secondHalfStats.homeYellow > 0 || secondHalfStats.awayYellow > 0) && (
+                      <TriggeredStatRow label="Yellow Cards" home={secondHalfStats.homeYellow} away={secondHalfStats.awayYellow} />
+                    )}
+                    {(secondHalfStats.homeRed > 0 || secondHalfStats.awayRed > 0) && (
+                      <TriggeredStatRow label="Red Cards" home={secondHalfStats.homeRed} away={secondHalfStats.awayRed} />
+                    )}
+                    {secondHalfStats.homeXg != null && (
+                      <TriggeredStatRow label="xG" home={secondHalfStats.homeXg} away={secondHalfStats.awayXg} />
+                    )}
+                  </>
+                )}
+
+                {activeStatsTab === '2nd' && !secondHalfStats && hasHalfTime && shHome != null && shAway != null && shHome >= 0 && shAway >= 0 && (
                   <div className="text-center py-8">
                     <div className="mb-4">
                       <TriggeredStatRow label="2nd Half Goals" home={shHome} away={shAway} />
@@ -534,13 +627,10 @@ export default function TriggeredMatchDetailsPage() {
                     <p className="text-sm text-text-muted">
                       Detailed 2nd half statistics are not available.
                     </p>
-                    <p className="text-xs text-text-muted mt-2">
-                      Full match statistics shown in &quot;Full Match&quot; tab.
-                    </p>
                   </div>
                 )}
 
-                {activeStatsTab === '2nd' && (!hasHalfTime || shHome == null || shAway == null || shHome < 0 || shAway < 0) && (
+                {activeStatsTab === '2nd' && !secondHalfStats && (!hasHalfTime || shHome == null || shAway == null || shHome < 0 || shAway < 0) && (
                   <div className="text-center py-8">
                     <AlertCircle className="w-8 h-8 text-text-muted mx-auto mb-3 opacity-40" />
                     <p className="text-sm text-text-muted">

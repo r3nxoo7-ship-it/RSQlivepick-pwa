@@ -220,14 +220,7 @@ async function fetchJsonFromSofascore<T>(path: string, revalidate: number): Prom
 // ─── Conversions ─────────────────────────────────────────────────────────────
 
 /** Convert SofaScore stats response into the normalized shape */
-export function normalizeSofascoreStats(
-  data: SofascoreStatsResponse,
-  halftimeHomeGoals?: number,
-  halftimeAwayGoals?: number,
-): NormalizedSofascoreStats {
-  const allPeriod = data.statistics.find(s => s.period === 'ALL');
-  const groups = allPeriod?.groups ?? [];
-
+function normalizeGroups(groups: SofascoreStatGroup[]): Omit<NormalizedSofascoreStats, 'homeHalfScore' | 'awayHalfScore' | '_source'> {
   const poss = extractStat(groups, 'ballPossession');
   const xg = extractStat(groups, 'expectedGoals');
   const sot = extractStat(groups, 'shotsOnGoal'); // "Shots on target"
@@ -272,8 +265,6 @@ export function normalizeSofascoreStats(
     awayYellow: yellow.away,
     homeRed: red.home,
     awayRed: red.away,
-    homeHalfScore: halftimeHomeGoals,
-    awayHalfScore: halftimeAwayGoals,
     homeXg: xgHome || undefined,
     awayXg: xgAway || undefined,
     homeBigChances: bigChances.home || undefined,
@@ -292,8 +283,33 @@ export function normalizeSofascoreStats(
     awayClearances: clearances.away || undefined,
     homeGoalsPrevented: gpHome || undefined,
     awayGoalsPrevented: gpAway || undefined,
+  };
+}
+
+export function normalizeSofascoreStats(
+  data: SofascoreStatsResponse,
+  halftimeHomeGoals?: number,
+  halftimeAwayGoals?: number,
+): NormalizedSofascoreStats {
+  const allPeriod = data.statistics.find(s => s.period === 'ALL');
+  const extracted = normalizeGroups(allPeriod?.groups ?? []);
+
+  return {
+    ...extracted,
+    homeHalfScore: halftimeHomeGoals,
+    awayHalfScore: halftimeAwayGoals,
     _source: 'sofascore',
   };
+}
+
+/** Normalize stats for a specific period (1ST or 2ND). Returns null if that period isn't available. */
+export function normalizeSofascorePeriodStats(
+  data: SofascoreStatsResponse,
+  period: '1ST' | '2ND',
+): NormalizedSofascoreStats | null {
+  const periodData = data.statistics.find(s => s.period === period);
+  if (!periodData || periodData.groups.length === 0) return null;
+  return { ...normalizeGroups(periodData.groups), _source: 'sofascore' };
 }
 
 /**

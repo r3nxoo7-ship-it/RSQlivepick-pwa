@@ -16,7 +16,7 @@
  *   { found: false }
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getMatchStatistics, normalizeSofascoreStats } from '@/lib/sofascore-api';
+import { getMatchStatistics, normalizeSofascoreStats, normalizeSofascorePeriodStats } from '@/lib/sofascore-api';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -43,11 +43,15 @@ export async function GET(req: NextRequest) {
   const htAway = halftimeAway != null ? parseInt(halftimeAway, 10) : undefined;
 
   const stats = normalizeSofascoreStats(data, htHome, htAway);
+  const firstHalfStats = normalizeSofascorePeriodStats(data, '1ST');
+  const secondHalfStats = normalizeSofascorePeriodStats(data, '2ND');
 
   return NextResponse.json(
     {
       found: true,
       stats,
+      firstHalfStats,
+      secondHalfStats,
       raw: data.statistics,
     },
     {
