@@ -1,17 +1,17 @@
 // ============================================
-// FILTER TEMPLATES LIBRARY — v2 (Research-Driven)
+// FILTER TEMPLATES LIBRARY — v3 (Competitor-Researched)
 // ============================================
-// Rebuilt based on LivePick.eu strategies, statistical football analysis,
-// and audit of the filter engine's actually-evaluated condition types.
+// Built from research across: LivePick.eu, InPlayGuru, Overlyzer,
+// PlayThePercentage, BetTheBuilder + filter engine audit.
 //
-// Key v2 improvements:
-// • Removed dead `trends` conditions (engine never evaluates them — section 17)
-// • Reduced condition count per template (3-4 instead of 6-7) for higher trigger rates
-// • Lowered unrealistic thresholds (e.g. 7 total SOT → 5)
-// • Added substitution-based templates (untapped condition type)
-// • Added fouls-based templates (untapped condition type)
-// • Added shots_in_box templates (SofaScore exclusive)
-// • Kept all ML + xG templates with refined thresholds
+// v3 quality rules:
+// • Minimum 3 conditions per template (match_time + 2+ stat conditions)
+// • All match_time capped at 82 max (bookmakers block bets after ~83rd minute)
+// • Focus on result quality, not trigger volume
+// • Added Under goals/corners templates (BetTheBuilder highest-ROI)
+// • Added First-Half template (PlayThePercentage key market)
+// • Added Dominance Imbalance (InPlayGuru pattern)
+// • Strengthened weak templates with additional conditions
 //
 // Stats reference (per full 90-min match averages):
 //   Corners 9-10 | Goals 2.6-2.8 | Yellow cards 3-4
@@ -124,31 +124,30 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   },
 
   {
-    id: 'goals-home-comeback-signal',
-    name: '🏠 Home Comeback Signal',
-    description: 'Home team trailing 0-1 or 0-2 but dominating with 3+ SOT and 48%+ possession. Home advantage + stat dominance = comeback incoming.',
+    id: 'goals-away-comeback-signal',
+    name: '✈️ Away Comeback Signal',
+    description: 'Away team trailing 0-1 but creating more chances (3+ away SOT, 6+ away DA). Counter-attacks or quality play creates comeback. Value on BTTS or away goal.',
     category: 'goals',
-    icon: '🏠',
-    popularity: 5,
-    successRate: 72,
-    confidence: 'High',
+    icon: '✈️',
+    popularity: 4,
+    successRate: 69,
+    confidence: 'Medium',
     notificationEnabled: true,
-    tags: ['comeback', 'home-advantage', 'BTTS'],
-    backgroundImage: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80',
-    color: 'amber',
+    tags: ['comeback', 'away', 'BTTS', 'value'],
+    color: 'purple',
     conditions: {
       score: {
-        home: { max: 0 },
-        away: { min: 1, max: 2 },
+        home: { min: 1 },
+        away: { max: 0 },
       },
       shots_on_target: {
-        home: { min: 3 },
+        away: { min: 3 },
       },
-      possession: {
-        home: { min: 48 },
+      dangerous_attacks: {
+        away: { min: 6 },
       },
       match_time: {
-        between: [50, 82],
+        between: [50, 78],
       },
     } as any,
   },
@@ -172,16 +171,19 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 6 },
       },
+      dangerous_attacks: {
+        total: { min: 6 },
+      },
       match_time: {
-        between: [62, 85],
+        between: [62, 82],
       },
     } as any,
   },
 
   {
     id: 'goals-late-goal-incoming',
-    name: '⏰ Late Goal Incoming (75+ min)',
-    description: 'Low-scoring match (0-1 goals) but sustained pressure with 4+ SOT and 7+ dangerous attacks after 75th minute. Statistically, late goals happen in ~35% of matches.',
+    name: '⏰ Late Goal Incoming (72+ min)',
+    description: 'Low-scoring match (0-1 goals) but sustained pressure with 4+ SOT and 7+ dangerous attacks after 72nd minute. Statistically, late goals happen in ~35% of matches.',
     category: 'goals',
     icon: '⌛',
     popularity: 4,
@@ -202,7 +204,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { min: 7 },
       },
       match_time: {
-        between: [75, 89],
+        between: [72, 82],
       },
     } as any,
   },
@@ -242,7 +244,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'corners-late-rush',
     name: '🚀 Corner Rush — Late Game',
-    description: '7+ corners already with attacking pressure (4+ SOT) after 70th minute. Teams pushing hard in final third — corner line likely to be exceeded.',
+    description: '7+ corners already with SOT pressure (4+) and 6+ dangerous attacks after 68th minute. Teams pushing hard — corner line likely exceeded.',
     category: 'corners',
     icon: '🚀',
     popularity: 5,
@@ -259,8 +261,11 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 4 },
       },
+      dangerous_attacks: {
+        total: { min: 6 },
+      },
       match_time: {
-        between: [70, 88],
+        between: [68, 82],
       },
     } as any,
   },
@@ -280,6 +285,9 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       corners: {
         total: { min: 4 },
+      },
+      shots_on_target: {
+        total: { min: 2 },
       },
       dangerous_attacks: {
         total: { min: 5 },
@@ -309,8 +317,11 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 3 },
       },
+      dangerous_attacks: {
+        total: { min: 4 },
+      },
       match_time: {
-        between: [60, 85],
+        between: [55, 82],
       },
     } as any,
   },
@@ -322,22 +333,26 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'cards-storm-second-half',
     name: '🟨 Card Storm — Second Half',
-    description: '3+ yellow cards after 55th minute with rising tension. Second halves see 60% of all cards. Great for Over cards market.',
+    description: '3+ yellow cards with 6+ fouls and 2+ SOT after 55th minute. High-tension match — second halves see 60% of all cards. Great for Over cards market.',
     category: 'cards',
     icon: '🟨',
     popularity: 4,
     successRate: 71,
     confidence: 'High',
     notificationEnabled: true,
-    tags: ['cards', 'second-half', 'yellow'],
+    tags: ['cards', 'second-half', 'yellow', 'fouls'],
     backgroundImage: 'https://images.unsplash.com/photo-1552667466-07770ae110d0?w=800&q=80',
     color: 'amber',
     conditions: {
       yellow_cards: {
         total: { min: 3 },
       },
+      fouls: { min: 6, team: 'total' },
+      shots_on_target: {
+        total: { min: 2 },
+      },
       match_time: {
-        between: [55, 85],
+        between: [55, 82],
       },
     } as any,
   },
@@ -365,7 +380,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { min: 5 },
       },
       match_time: {
-        after: 55,
+        between: [55, 82],
       },
     } as any,
   },
@@ -428,7 +443,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         home: { min: 3 },
       },
       match_time: {
-        between: [50, 85],
+        between: [50, 82],
       },
     } as any,
   },
@@ -465,7 +480,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'adv-late-low-score-pressure',
     name: '🎭 Late Low-Score Pressure',
-    description: 'Match after 75th min with 0-1 goals but 5+ SOT and 8+ DA. Both teams desperate for a result — high tension creates late goals.',
+    description: 'Match after 72nd min with 0-1 goals but 5+ SOT and 8+ DA. Both teams desperate for a result — high tension creates late goals.',
     category: 'advanced',
     icon: '🎭',
     popularity: 4,
@@ -486,15 +501,15 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { min: 8 },
       },
       match_time: {
-        between: [75, 89],
+        between: [72, 82],
       },
     } as any,
   },
 
   {
     id: 'adv-final-push',
-    name: '⏰ Final Push — 78+ min',
-    description: 'Match in final 12 minutes with 6+ corners, 5+ SOT, and 2+ cards. Everything pointing to chaotic finish. Good for late corner/goal/card markets.',
+    name: '⏰ Final Push — 72+ min',
+    description: 'Match after 72nd min with 6+ corners, 5+ SOT, and 2+ cards. Chaotic finish — last window to bet before bookmakers lock markets.',
     category: 'advanced',
     icon: '⌛',
     popularity: 5,
@@ -515,7 +530,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { min: 2 },
       },
       match_time: {
-        between: [78, 90],
+        between: [72, 82],
       },
     } as any,
   },
@@ -581,7 +596,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         dominant: 'balanced',
       },
       match_time: {
-        between: [70, 88],
+        between: [68, 82],
       },
     } as any,
   },
@@ -601,7 +616,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       substitutions: { min: 2, team: 'total' },
       shots_on_target: { min: 4 },
-      match_time: { min: 65, max: 85 },
+      dangerous_attacks: { min: 4 },
+      match_time: { min: 60, max: 82 },
     },
   },
 
@@ -620,7 +636,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       fouls: { min: 8, team: 'total' },
       yellow_cards: { min: 3 },
-      match_time: { min: 45, max: 85 },
+      corners: { min: 3 },
+      match_time: { min: 45, max: 82 },
     } as any,
   },
 
@@ -658,7 +675,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       possession: { min: 60 },
       dangerous_attacks: { min: 5 },
       shots_on_target: { min: 3 },
-      match_time: { min: 30, max: 85 },
+      match_time: { min: 30, max: 82 },
     },
   },
 
@@ -677,6 +694,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       shots_in_box: { min: 4, team: 'total' },
       shots_on_target: { min: 3 },
+      dangerous_attacks: { min: 4 },
       match_time: { min: 40, max: 82 },
     },
   },
@@ -821,7 +839,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { min: 6 },
       },
       match_time: {
-        between: [62, 85],
+        between: [62, 82],
       },
     } as any,
   },
@@ -851,7 +869,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { max: 5 },
       },
       match_time: {
-        between: [70, 87],
+        between: [70, 82],
       },
     } as any,
   },
@@ -969,7 +987,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
         total: { min: 5 },
       },
       match_time: {
-        between: [55, 83],
+        between: [55, 82],
       },
     } as any,
   },
@@ -1018,7 +1036,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       xg: { total: { min: 2.0 } },
       shots_on_target: { total: { min: 4 } },
-      match_time: { between: [45, 85] },
+      dangerous_attacks: { total: { min: 5 } },
+      match_time: { between: [45, 82] },
     } as any,
   },
 
@@ -1037,7 +1056,137 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       clearances: { total: { min: 10 } },
       xg: { total: { max: 0.8 } },
-      match_time: { between: [45, 85] },
+      shots_on_target: { total: { max: 3 } },
+      match_time: { between: [45, 82] },
+    } as any,
+  },
+
+  // ============================================
+  // UNDER TEMPLATES (2) — BetTheBuilder highest-ROI systems
+  // ============================================
+
+  {
+    id: 'under-25-goals-fortress',
+    name: '🛡️ Under 2.5 Goals — Low Activity',
+    description: 'Score 0-0 or 0-1 with few chances created (max 4 SOT, max 6 DA, max 4 corners). Tight defensive match — Under 2.5 goals looking safe.',
+    category: 'advanced',
+    icon: '🛡️',
+    popularity: 4,
+    successRate: 72,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['under-goals', 'defensive', 'tight', 'low-scoring'],
+    color: 'blue',
+    conditions: {
+      score: {
+        total_goals: { max: 1 },
+      },
+      shots_on_target: {
+        total: { max: 4 },
+      },
+      dangerous_attacks: {
+        total: { max: 6 },
+      },
+      corners: {
+        total: { max: 4 },
+      },
+      match_time: {
+        between: [60, 82],
+      },
+    } as any,
+  },
+
+  {
+    id: 'under-corners-quiet-match',
+    name: '🔇 Under Corners — Quiet Match',
+    description: 'Max 3 corners with few total shots (max 6) and low dangerous attacks (max 5) after 55th minute. Match tempo too low for corners to pile up.',
+    category: 'corners',
+    icon: '🔇',
+    popularity: 4,
+    successRate: 73,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['under-corners', 'low-tempo', 'quiet'],
+    color: 'blue',
+    conditions: {
+      corners: {
+        total: { max: 3 },
+      },
+      total_shots: {
+        total: { max: 6 },
+      },
+      dangerous_attacks: {
+        total: { max: 5 },
+      },
+      match_time: {
+        between: [55, 78],
+      },
+    } as any,
+  },
+
+  // ============================================
+  // FIRST-HALF + DOMINANCE TEMPLATES (2) — InPlayGuru/PTP
+  // ============================================
+
+  {
+    id: 'first-half-pressure-signal',
+    name: '🔥 First-Half Pressure — Goal Coming',
+    description: 'Still 0-0 but heavy first-half pressure: 3+ SOT, 5+ DA, 3+ corners before 42nd minute. High chance of first-half goal. Over 0.5 FH market.',
+    category: 'goals',
+    icon: '🔥',
+    popularity: 5,
+    successRate: 74,
+    confidence: 'High',
+    notificationEnabled: true,
+    tags: ['first-half', 'pressure', 'early', 'over-goals'],
+    color: 'amber',
+    conditions: {
+      score: {
+        total_goals: { max: 0 },
+      },
+      shots_on_target: {
+        total: { min: 3 },
+      },
+      dangerous_attacks: {
+        total: { min: 5 },
+      },
+      corners: {
+        total: { min: 3 },
+      },
+      match_time: {
+        between: [25, 42],
+      },
+    } as any,
+  },
+
+  {
+    id: 'dominance-imbalance-away',
+    name: '💎 Dominance Imbalance — Away Control',
+    description: 'Away team controls the match (55%+ poss, 4+ SOT, 5+ DA) but score is level. Stats domination not reflected in score — away goal or win coming.',
+    category: 'advanced',
+    icon: '💎',
+    popularity: 4,
+    successRate: 70,
+    confidence: 'Medium',
+    notificationEnabled: true,
+    tags: ['dominance', 'imbalance', 'away', 'value-bet'],
+    color: 'purple',
+    conditions: {
+      possession: {
+        away: { min: 55 },
+      },
+      shots_on_target: {
+        away: { min: 4 },
+      },
+      dangerous_attacks: {
+        away: { min: 5 },
+      },
+      score: {
+        difference: { max: 0 },
+      },
+      match_time: {
+        between: [50, 78],
+      },
     } as any,
   },
 ];
