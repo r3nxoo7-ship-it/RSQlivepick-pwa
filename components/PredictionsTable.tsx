@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, Cpu } from 'lucide-react';
+import { TrendingUp, Cpu, ChevronDown } from 'lucide-react';
 import type { LiveMatch } from '@/lib/unified-api';
 import type { FullPredictions } from '@/lib/prediction-engine';
 
@@ -114,6 +114,7 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
   const [predictions, setPredictions] = useState<Map<number, PredictionResponse>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadedCount, setLoadedCount] = useState(0);
+  const [expandedCard, setExpandedCard] = useState<number | null>(null);
 
   useEffect(() => {
     if (matches.length === 0) {
@@ -180,6 +181,11 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
   // Count matches that have Bzzoiro data loaded
   const mlCount = [...predictions.values()].filter(p => p.bzzoiro).length;
 
+  // Flat list of all markets for mobile cards
+  const ALL_MARKETS = ALL_GROUPS.flatMap(g =>
+    g.markets.map(m => ({ ...m, group: g.group }))
+  );
+
   return (
     <div className="glass-card overflow-hidden">
       <div className="p-4 border-b border-glass-lighter flex items-center justify-between">
@@ -202,7 +208,125 @@ export default function PredictionsTable({ matches }: PredictionsTableProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* ===== MOBILE CARD VIEW (< md) ===== */}
+      <div className="md:hidden divide-y divide-glass-lighter/50">
+        {matches.map((match, rowIdx) => {
+          const fixtureId = match.fixture?.id;
+          const pred = fixtureId ? predictions.get(fixtureId) : null;
+          const isLoading = loading && !pred;
+          const leagueName = match.league?.name || '';
+          const kickoff = match.fixture?.date
+            ? new Date(match.fixture.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : '';
+          const hasBzzoiro = !!pred?.bzzoiro;
+          const isExpanded = expandedCard === (fixtureId || rowIdx);
+
+          // Get top predictions for collapsed view (top 3 by probability)
+          const topPreds = pred
+            ? ALL_MARKETS
+                .map(m => ({ ...m, prob: getPredictionValue(pred, m.key) }))
+                .filter(m => m.prob !== null)
+                .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0))
+                .slice(0, 3)
+            : [];
+
+          return (
+            <div
+              key={fixtureId || rowIdx}
+              className="hover:bg-glass-light/20 transition-colors"
+            >
+              <div
+                onClick={() => setExpandedCard(isExpanded ? null : (fixtureId || rowIdx))}
+                className="flex items-center gap-2 px-3 py-3 cursor-pointer"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-white text-sm truncate flex items-center gap-1">
+                    {match.teams?.home?.name || '?'} vs {match.teams?.away?.name || '?'}
+                    {hasBzzoiro && <ConfidenceDot confidence={pred!.bzzoiro!.confidence} />}
+                  </p>
+                  <p className="text-[10px] text-text-muted truncate">
+                    {kickoff && <span className="text-accent-cyan">{kickoff}</span>}
+                    {kickoff && leagueName && ' • '}
+                    {leagueName}
+                  </p>
+                </div>
+
+                {/* Preview badges when collapsed */}
+                {!isExpanded && !isLoading && topPreds.length > 0 && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    {topPreds.map(m => (
+                      <span
+                        key={m.key}
+                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums ${getProbStyle(m.prob!)}`}
+                        title={`${m.group} ${m.label}`}
+                      >
+                        <span className="text-[8px] opacity-60">{m.label}</span>
+                        {Math.round(m.prob!)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {!isExpanded && isLoading && (
+                  <div className="w-16 h-5 rounded bg-glass-light animate-pulse shrink-0" />
+                )}
+
+                <ChevronDown className={`w-4 h-4 text-text-muted shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              </div>
+
+              {/* Expanded prediction grid */}
+              {isExpanded && (
+                <div className="px-3 pb-3">
+                  {isLoading ? (
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="h-10 rounded bg-glass-light animate-pulse" />
+                      ))}
+                    </div>
+                  ) : pred ? (
+                    <div className="space-y-2">
+                      {ALL_GROUPS.map(g => {
+                        const groupMarkets = g.markets
+                          .map(m => ({ ...m, prob: getPredictionValue(pred, m.key) }))
+                          .filter(m => m.prob !== null);
+                        if (groupMarkets.length === 0) return null;
+                        const isML = g.group === '1X2 ML';
+
+                        return (
+                          <div key={g.group}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isML ? 'text-accent-cyan' : 'text-text-muted'}`}>
+                              {isML ? (
+                                <span className="flex items-center gap-1">
+                                  <Cpu className="w-3 h-3" /> 1X2 ML
+                                </span>
+                              ) : g.group}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {groupMarkets.map(m => (
+                                <span
+                                  key={m.key}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold tabular-nums ${getProbStyle(m.prob!)} ${isML ? 'ring-1 ring-accent-cyan/20' : ''}`}
+                                >
+                                  <span className="text-[10px] opacity-60 font-semibold">{m.label}</span>
+                                  {Math.round(m.prob!)}%
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-muted text-center py-2">No predictions available</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ===== DESKTOP TABLE VIEW (>= md) ===== */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             {/* Group headers */}
