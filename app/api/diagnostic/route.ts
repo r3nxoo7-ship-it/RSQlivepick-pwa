@@ -98,7 +98,47 @@ export async function GET() {
   }
   
   // ==========================================
-  // CHECK 4: Current Time & Expected Matches
+  // CHECK 4: SofaScore direct tests from Vercel
+  // ==========================================
+
+  const today = new Date().toISOString().split('T')[0];
+  const sfHeaders = {
+    Accept: '*/*',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    Referer: 'https://www.sofascore.com/',
+  };
+
+  const ssTests = [
+    { label: 'sofascore.ro/scheduled', url: `https://www.sofascore.ro/api/v1/sport/football/scheduled-events/${today}` },
+    { label: 'sofascore.ro/live', url: 'https://www.sofascore.ro/api/v1/sport/football/events/live' },
+    { label: 'sofascore.com/scheduled', url: `https://www.sofascore.com/api/v1/sport/football/scheduled-events/${today}` },
+    { label: 'sofascore.com/live', url: 'https://www.sofascore.com/api/v1/sport/football/events/live' },
+    { label: 'api.sofascore.com/live', url: 'https://api.sofascore.com/api/v1/sport/football/events/live' },
+  ];
+
+  results.checks.sofascore = {};
+  await Promise.allSettled(
+    ssTests.map(async ({ label, url }) => {
+      try {
+        const res = await fetch(url, { headers: sfHeaders, cache: 'no-store' });
+        const body = res.ok ? await res.json() : null;
+        results.checks.sofascore[label] = {
+          status: res.status,
+          ok: res.ok,
+          count: body?.events?.length ?? 0,
+        };
+      } catch (e) {
+        results.checks.sofascore[label] = {
+          status: 0,
+          ok: false,
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
+    })
+  );
+
+  // ==========================================
+  // CHECK 5: Current Time & Expected Matches
   // ==========================================
   
   const now = new Date();
