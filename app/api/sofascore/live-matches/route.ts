@@ -4,13 +4,14 @@
  * Server-side proxy for SofaScore live + scheduled matches.
  * This route MUST stay server-side — SofaScore blocks direct browser requests (403).
  *
- * Fallback chain: SofaScore → ESPN API (direct) → Supabase (cached ESPN)
+ * Fallback chain: SofaScore → API-Football (stats) → ESPN API (no stats) → Supabase (cached)
  *
  * Response: { matches: LiveMatch[], count: number, source: string }
  */
 
 import { NextResponse } from 'next/server';
 import { getLiveMatchesFromSofascore } from '@/lib/sofascore-api';
+import * as APIFootball from '@/lib/api-football';
 import * as ESPNAPI from '@/lib/espn-api';
 import * as espnSync from '@/lib/espn-sync';
 
@@ -168,19 +169,37 @@ export async function GET() {
     let matches = await getLiveMatchesFromSofascore();
     let source = 'sofascore';
 
-    // Fallback: SofaScore blocked/unavailable → call ESPN API directly for real-time data
+    // Fallback chain when SofaScore is blocked/unavailable:
+    // 1. API-Football (has full match statistics — corners, shots, attacks, dangerous attacks, etc.)
+    // 2. ESPN API (match list only, no detailed stats)
+    // 3. Supabase cache (last resort)
     if (!matches || matches.length === 0) {
+      // Fallback #1: API-Football — best fallback because it provides stats for filter matching
       try {
-        const espnLive = await fetchLiveFromESPNAPI();
-        if (espnLive.length > 0) {
-          matches = espnLive;
-          source = 'espn-api';
+        const apiFootballMatches = await APIFootball.getLiveMatches();
+        if (apiFootballMatches && apiFootballMatches.length > 0) {
+          matches = apiFootballMatches;
+          source = 'api-football';
+          console.log(`[/api/sofascore/live-matches] API-Football fallback: ${apiFootballMatches.length} matches with stats`);
         }
-      } catch (espnErr) {
-        console.warn('[/api/sofascore/live-matches] ESPN API fallback failed:', espnErr);
+      } catch (apiErr) {
+        console.warn('[/api/sofascore/live-matches] API-Football fallback failed:', apiErr instanceof Error ? apiErr.message : apiErr);
       }
 
-      // Last resort: read whatever is cached in Supabase (may include recently-synced live data)
+      // Fallback #2: ESPN API — has match listing but no detailed stats
+      if (!matches || matches.length === 0) {
+        try {
+          const espnLive = await fetchLiveFromESPNAPI();
+          if (espnLive.length > 0) {
+            matches = espnLive;
+            source = 'espn-api';
+          }
+        } catch (espnErr) {
+          console.warn('[/api/sofascore/live-matches] ESPN API fallback failed:', espnErr);
+        }
+      }
+
+      // Fallback #3: Supabase cache — last resort
       if (!matches || matches.length === 0) {
         try {
           const liveRaw = await espnSync.getLiveMatchesOnly();

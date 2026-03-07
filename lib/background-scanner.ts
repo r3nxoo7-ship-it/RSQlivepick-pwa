@@ -192,6 +192,33 @@ class BackgroundScannerService {
         console.warn('[Scanner] SofaScore enrichment failed (non-fatal):', e instanceof Error ? e.message : e);
       }
 
+      // API-Football stats fallback: if matches still lack statistics (SofaScore blocked/down),
+      // try fetching individual match stats from API-Football so filter conditions can still trigger
+      const matchesNeedingStats = matches.filter((m: any) => {
+        const s = m.fixture?.status?.short;
+        if (!s || s === 'NS' || s === 'TBD' || s === 'PST' || s === 'CANC') return false;
+        return (!m.statistics || m.statistics.length === 0) && !(m as any).sofascore_stats;
+      });
+      if (matchesNeedingStats.length > 0) {
+        try {
+          const { getMatchStatistics } = await import('@/lib/api-football');
+          const statsResults = await Promise.allSettled(
+            matchesNeedingStats.slice(0, 10).map(async (m: any) => {
+              const stats = await getMatchStatistics(m.fixture.id);
+              if (stats && stats.length > 0) {
+                m.statistics = stats;
+              }
+            })
+          );
+          const enriched = statsResults.filter(r => r.status === 'fulfilled').length;
+          if (enriched > 0) {
+            console.log(`[Scanner] API-Football stats fallback: enriched ${enriched}/${matchesNeedingStats.length} matches`);
+          }
+        } catch (e) {
+          console.warn('[Scanner] API-Football stats fallback failed (non-fatal):', e instanceof Error ? e.message : e);
+        }
+      }
+
       // Enrich with match event timelines if any filter uses time_window conditions
       if (filtersNeedEvents(activeFilters)) {
         try {

@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getLiveMatches } from '@/lib/api-football';
+import { getLiveMatches, getMatchStatistics } from '@/lib/api-football';
 import { matchesFilter } from '@/lib/filter-engine';
 import * as espnSync from '@/lib/espn-sync';
 import type { Filter } from '@/lib/supabase';
@@ -135,6 +135,26 @@ export async function GET(req: NextRequest) {
     if (matches.length === 0) {
       return NextResponse.json({ ok: true, message: 'No live matches', notifications: 0 });
     }
+
+    // 1b. Enrich matches with stats from API-Football ─────────────────────────
+    //     /fixtures?live=all does NOT include statistics; fetch them per-match.
+    //     Limit to first 15 live matches to stay within rate limits.
+    const liveOnly = matches.filter(m => {
+      const s = m.fixture?.status?.short;
+      return s && s !== 'NS' && s !== 'TBD' && s !== 'PST' && s !== 'CANC';
+    });
+    const statsResults = await Promise.allSettled(
+      liveOnly.slice(0, 15).map(async m => {
+        if (m.statistics && m.statistics.length > 0) return; // already has stats
+        try {
+          const stats = await getMatchStatistics(m.fixture.id);
+          if (stats && stats.length > 0) m.statistics = stats;
+        } catch { /* non-fatal */ }
+      })
+    );
+    const enrichedCount = statsResults.filter(r => r.status === 'fulfilled').length;
+    console.log(`[CronScan] Enriched ${enrichedCount}/${liveOnly.length} matches with stats`);
+
 
     // 2. Load all Telegram-enabled active filters (across all users) ──────────
     //    We join profiles to get the telegram_chat_id in one query.

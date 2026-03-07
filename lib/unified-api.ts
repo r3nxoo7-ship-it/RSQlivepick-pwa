@@ -3,8 +3,8 @@
 // ============================================
 // Wrapper with automatic fallback:
 // 1. SofaScore (best stats: xG, big chances, shots in box) - PRIMARY
-// 2. Supabase (ESPN data synced every 1 minute) - FALLBACK #1
-// 3. API-Football (FREE 100/day) - FALLBACK #2
+// 2. API-Football (has match stats: corners, shots, attacks, DA) - FALLBACK #1
+// 3. Supabase (ESPN data synced every 1 minute, no stats) - FALLBACK #2
 // 4. Football-Data.org (FREE 14,400/day) - FALLBACK #3
 
 import * as FootballData from './football-data';
@@ -93,48 +93,52 @@ export async function getLiveMatches() {
     console.warn('⚠️ SofaScore fetch failed:', err instanceof Error ? err.message : err);
   }
 
-  // 2. FALLBACK: Server-synced Supabase data (ESPN)
+  // 2. FALLBACK: API-Football (provides full match statistics — corners, shots, attacks, DA, etc.)
+  if (ENABLE_FALLBACK) {
+    try {
+      console.log('📡 Trying API-Football (FALLBACK #2 — has stats)...');
+      const matches = await APIFootball.getLiveMatches();
+      if (matches && matches.length > 0) {
+        console.log(`✅ API-Football FALLBACK SUCCESS: ${matches.length} matches with stats`);
+        return matches;
+      }
+    } catch (apiError) {
+      console.warn('⚠️ API-Football failed:', apiError instanceof Error ? apiError.message : apiError);
+    }
+  }
+
+  // 3. FALLBACK: Server-synced Supabase data (ESPN — no detailed stats)
   try {
-    console.log('📡 Trying server /api/espn/matches (synced data)...');
+    console.log('📡 Trying server /api/espn/matches (synced data, no stats)...');
     const res = await fetch('/api/espn/matches');
     if (res.ok) {
       const body = await res.json();
       // Support both formats
       if (body?.live?.matches && body?.upcoming?.matches) {
         const allMatches = [...(body.live.matches || []), ...(body.upcoming.matches || [])];
-        console.log(`✅ /api/espn/matches FALLBACK SUCCESS: ${allMatches.length} matches`);
+        console.log(`✅ /api/espn/matches FALLBACK SUCCESS: ${allMatches.length} matches (no stats)`);
         return allMatches;
       } else if (body?.matches && body.matches.length > 0) {
-        console.log(`✅ /api/espn/matches FALLBACK SUCCESS: ${body.matches.length} matches`);
+        console.log(`✅ /api/espn/matches FALLBACK SUCCESS: ${body.matches.length} matches (no stats)`);
         return body.matches;
       }
     } else {
       console.warn('⚠️ /api/espn/matches returned', res.status);
     }
   } catch (err) {
-    console.warn('⚠️ Server-synced lookup failed, trying more fallbacks...', err);
+    console.warn('⚠️ Server-synced lookup failed:', err instanceof Error ? err.message : err);
   }
 
-  // 3. FALLBACK: API-Football
+  // 4. FALLBACK: Football-Data.org
   if (ENABLE_FALLBACK) {
     try {
-      console.log('📡 Trying API-Football (FALLBACK)...');
-      const matches = await APIFootball.getLiveMatches();
-      console.log(`✅ API-Football FALLBACK SUCCESS: ${matches.length} matches`);
+      console.log('🔄 Trying Football-Data.org (FALLBACK)...');
+      const matches = await FootballData.getLiveMatches();
+      console.log(`✅ Football-Data FALLBACK SUCCESS: ${matches.length} matches`);
       return matches;
-    } catch (apiError) {
-      console.error('❌ API-Football failed:', apiError);
-
-      // 4. FALLBACK: Football-Data.org
-      try {
-        console.log('🔄 Trying Football-Data.org (FALLBACK)...');
-        const matches = await FootballData.getLiveMatches();
-        console.log(`✅ Football-Data FALLBACK SUCCESS: ${matches.length} matches`);
-        return matches;
-      } catch (fallbackError) {
-        console.error('❌ FALLBACK APIs also failed:', fallbackError);
-        throw new Error('All APIs failed. Check your API keys and limits.');
-      }
+    } catch (fallbackError) {
+      console.error('❌ All fallback APIs failed:', fallbackError);
+      throw new Error('All APIs failed. Check your API keys and limits.');
     }
   } else {
     throw new Error('SofaScore unavailable and fallback disabled.');
