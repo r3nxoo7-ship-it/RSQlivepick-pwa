@@ -14,12 +14,12 @@
  */
 
 const SOFASCORE_BASES = [
+  // sofascore.ro — works from Vercel cloud IPs (no geo-blocking on .ro domain)
+  'https://www.sofascore.ro/api/v1',
   // Cloudflare Worker proxy (env var set after deploying worker)
   ...(process.env.SOFASCORE_PROXY_URL ? [process.env.SOFASCORE_PROXY_URL] : []),
   'https://api.sofascore.com/api/v1',
   'https://www.sofascore.com/api/v1',
-  // Regional domain — may bypass cloud IP blocking on api.sofascore.com
-  'https://www.sofascore.ro/api/v1',
 ];
 
 const FETCH_HEADERS: Record<string, string> = {
