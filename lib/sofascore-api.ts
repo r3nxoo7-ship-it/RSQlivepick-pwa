@@ -18,6 +18,8 @@ const SOFASCORE_BASES = [
   ...(process.env.SOFASCORE_PROXY_URL ? [process.env.SOFASCORE_PROXY_URL] : []),
   'https://api.sofascore.com/api/v1',
   'https://www.sofascore.com/api/v1',
+  // Regional domain — may bypass cloud IP blocking on api.sofascore.com
+  'https://www.sofascore.ro/api/v1',
 ];
 
 const FETCH_HEADERS: Record<string, string> = {
@@ -214,9 +216,13 @@ async function fetchFromSofascore(path: string, revalidate: number): Promise<Res
         headers,
         next: { revalidate },
       });
-      if (res.ok) return res;
-    } catch {
-      // Try next base URL
+      if (res.ok) {
+        console.log(`[SofaScore] ✅ ${base} succeeded for ${path}`);
+        return res;
+      }
+      console.log(`[SofaScore] ❌ ${base} returned ${res.status} for ${path}`);
+    } catch (err) {
+      console.log(`[SofaScore] ❌ ${base} failed for ${path}: ${err instanceof Error ? err.message : err}`);
     }
   }
   return null;
