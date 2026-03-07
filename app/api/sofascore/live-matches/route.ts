@@ -117,9 +117,17 @@ function espnMatchToLiveMatch(m: ESPNAPI.ESPNMatch, leagueName: string): any {
 async function fetchFromESPNAPI(): Promise<any[]> {
   const activeLeagues = await ESPNAPI.getActiveTodayLeagues();
 
-  // Fetch all matches across active leagues in parallel
+  // Build a 7-day date range so upcoming matches (next week) are included.
+  // ESPN accepts dates=YYYYMMDD-YYYYMMDD on the scoreboard endpoint.
+  const now = Date.now();
+  const todayStr = new Date(now).toISOString().slice(0, 10).replace(/-/g, '');
+  const weekLaterStr = new Date(now + 7 * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10).replace(/-/g, '');
+  const dateRange = `${todayStr}-${weekLaterStr}`;
+
+  // Fetch all matches across active leagues in parallel (7-day window)
   const leagueResults = await Promise.allSettled(
-    activeLeagues.map(cfg => ESPNAPI.getLeagueMatches(cfg.sport, cfg.league))
+    activeLeagues.map(cfg => ESPNAPI.getLeagueMatches(cfg.sport, cfg.league, dateRange))
   );
 
   // Collect all non-completed matches, tracking which league config each belongs to
