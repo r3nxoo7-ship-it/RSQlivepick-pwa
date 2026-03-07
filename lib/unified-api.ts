@@ -150,6 +150,16 @@ export async function getLiveMatches() {
  * Uses SofaScore as primary and ESPN as fallback
  */
 export async function getLiveAndUpcomingMatches() {
+  // Helper: is this match's date today (local timezone)?
+  const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  function isToday(m: any): boolean {
+    const d = m.fixture?.date;
+    if (!d) return true; // no date → treat as today
+    const matchDay = new Date(d);
+    const key = `${matchDay.getFullYear()}-${String(matchDay.getMonth() + 1).padStart(2, '0')}-${String(matchDay.getDate()).padStart(2, '0')}`;
+    return key === todayKey;
+  }
+
   // 1. PRIMARY: SofaScore via server-side proxy (avoids 403 browser blocks)
   try {
     console.log('📡 Fetching live and upcoming matches (SofaScore PRIMARY via proxy)...');
@@ -157,12 +167,15 @@ export async function getLiveAndUpcomingMatches() {
     const allMatches = res.ok ? (await res.json()).matches as any[] : null;
     if (allMatches && allMatches.length > 0) {
       const live = allMatches.filter((m: any) => isLiveStatus(m.fixture?.status));
-      const upcoming = allMatches.filter((m: any) => isUpcomingStatus(m.fixture?.status));
-      console.log(`✅ SofaScore: ${live.length} live, ${upcoming.length} upcoming`);
+      const allUpcoming = allMatches.filter((m: any) => isUpcomingStatus(m.fixture?.status));
+      // Split upcoming into today vs future days
+      const upcoming = allUpcoming.filter(isToday);
+      const scheduled = allUpcoming.filter(m => !isToday(m));
+      console.log(`✅ SofaScore: ${live.length} live, ${upcoming.length} upcoming today, ${scheduled.length} scheduled future`);
       return {
         live,
         upcoming,
-        scheduled: [],
+        scheduled,
         teamForm: {},
       };
     }
