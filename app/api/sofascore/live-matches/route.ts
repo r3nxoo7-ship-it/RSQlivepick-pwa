@@ -178,9 +178,24 @@ export async function GET() {
       try {
         const apiFootballMatches = await APIFootball.getLiveMatches();
         if (apiFootballMatches && apiFootballMatches.length > 0) {
+          // /fixtures?live=all does NOT include embedded statistics —
+          // fetch per-match stats in parallel so the live page can display them.
+          const liveOnly = apiFootballMatches.filter((m: any) => {
+            const s = m.fixture?.status?.short;
+            return s && s !== 'NS' && s !== 'TBD' && s !== 'PST' && s !== 'CANC';
+          });
+          await Promise.allSettled(
+            liveOnly.slice(0, 15).map(async (m: any) => {
+              try {
+                const stats = await APIFootball.getMatchStatistics(m.fixture.id);
+                if (stats && stats.length > 0) m.statistics = stats;
+              } catch { /* non-fatal */ }
+            })
+          );
           matches = apiFootballMatches;
           source = 'api-football';
-          console.log(`[/api/sofascore/live-matches] API-Football fallback: ${apiFootballMatches.length} matches with stats`);
+          const withStats = liveOnly.filter((m: any) => m.statistics?.length > 0).length;
+          console.log(`[/api/sofascore/live-matches] API-Football fallback: ${apiFootballMatches.length} matches (${withStats} with stats)`);
         }
       } catch (apiErr) {
         console.warn('[/api/sofascore/live-matches] API-Football fallback failed:', apiErr instanceof Error ? apiErr.message : apiErr);

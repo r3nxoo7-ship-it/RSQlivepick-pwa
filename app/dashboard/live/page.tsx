@@ -267,18 +267,43 @@ export default function LiveMatchesPage() {
       }
       
       // Apply filters directly inline to avoid dependency issues
+      // SofaScore enrichment for filters (also populates stats for display)
+      // When SofaScore is blocked, this fails and we fall back to API-Football stats
+      try {
+        await enrichMatchesWithSofascore(allMatches, userFilters);
+        console.log('✅ Enriched live matches with SofaScore stats');
+      } catch (enrichErr) {
+        console.warn('⚠️ SofaScore enrichment failed (non-fatal):', enrichErr);
+      }
+
+      // API-Football stats fallback: if any live match still lacks stats (SofaScore blocked),
+      // fetch individual match stats from API-Football so the live page can display them
+      const matchesMissingStats = allMatches.filter((m: any) => {
+        const s = m.fixture?.status?.short;
+        if (!s || s === 'NS' || s === 'TBD' || s === 'PST' || s === 'CANC') return false;
+        return (!m.statistics || m.statistics.length === 0) && !m.sofascore_stats;
+      });
+      if (matchesMissingStats.length > 0) {
+        try {
+          const { getMatchStatistics } = await import('@/lib/api-football');
+          await Promise.allSettled(
+            matchesMissingStats.slice(0, 10).map(async (m: any) => {
+              const stats = await getMatchStatistics(m.fixture.id);
+              if (stats && stats.length > 0) m.statistics = stats;
+            })
+          );
+          console.log(`✅ API-Football stats fallback: enriched ${matchesMissingStats.length} matches`);
+        } catch (e) {
+          console.warn('⚠️ API-Football stats fallback failed:', e);
+        }
+      }
+
+      // Re-render with updated stats
+      setMatches([...allMatches]);
+
       if (userFilters.length > 0) {
         setApplyingFilters(true);
         try {
-          // Enrich live matches with SofaScore stats before filter evaluation
-          // (same enrichment the background scanner does)
-          try {
-            await enrichMatchesWithSofascore(allMatches, userFilters);
-            console.log('✅ Enriched live matches with SofaScore stats');
-          } catch (enrichErr) {
-            console.warn('⚠️ SofaScore enrichment failed (non-fatal):', enrichErr);
-          }
-
           console.log('🎯 Applying filters to matches...');
           const results = await applyFiltersToMatches(allMatches, userFilters);
           setFilterResults(results);
