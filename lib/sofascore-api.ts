@@ -620,14 +620,28 @@ export async function getLiveMatchesFromSofascore(): Promise<any[]> {
 
     console.log(`[SofaScore] ${activeEvents.length} active matches found`);
 
-    // Enrich each event with full statistics in parallel
-    // Always try to fetch match-level stats for live matches — the SofaScore
-    // /event/{id}/statistics endpoint returns possession, shots, corners etc.
-    // even when hasEventPlayerStatistics is false (that flag controls player-level stats).
-    const enrichedMatches = await Promise.all(
+    // Sort: live (inprogress) first, then upcoming by start time
+    activeEvents.sort((a, b) => {
+      const aLive = a.status?.type === 'inprogress' ? 0 : 1;
+      const bLive = b.status?.type === 'inprogress' ? 0 : 1;
+      if (aLive !== bLive) return aLive - bLive;
+      return a.startTimestamp - b.startTimestamp;
+    });
+
+    // Only fetch stats for the first 30 live events to avoid Vercel 10s timeout.
+    // 200+ parallel API calls would timeout the entire function and return [].
+    const liveIds = new Set(
+      activeEvents
+        .filter(e => e.status?.type === 'inprogress')
+        .slice(0, 30)
+        .map(e => e.id)
+    );
+
+    // Enrich events: fetch stats in parallel only for capped live set
+    const enrichedMatches = await Promise.allSettled(
       activeEvents.map(async (event) => {
-        const isLive = event.status?.type === 'inprogress';
-        const stats = isLive
+        const fetchStats = liveIds.has(event.id);
+        const stats = fetchStats
           ? await getMatchStatistics(event.id)
           : null;
 
@@ -757,8 +771,12 @@ export async function getLiveMatchesFromSofascore(): Promise<any[]> {
       })
     );
 
-    console.log(`[SofaScore] Enriched ${enrichedMatches.length} matches with statistics`);
-    return enrichedMatches;
+    const results = enrichedMatches
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+      .map(r => r.value);
+
+    console.log(`[SofaScore] Enriched ${results.length} matches (${liveIds.size} with stats)`);
+    return results;
   } catch (err) {
     console.error('[SofaScore] Error fetching live matches:', err instanceof Error ? err.message : err);
     return [];
