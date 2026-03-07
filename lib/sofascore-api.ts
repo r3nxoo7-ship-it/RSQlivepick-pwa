@@ -208,23 +208,14 @@ async function fetchFromSofascore(path: string, revalidate: number): Promise<Res
     try {
       const isProxy = proxyUrl && base === proxyUrl;
       const headers: Record<string, string> = { ...FETCH_HEADERS };
-      // Use matching Referer for each domain — mismatched Referer can cause 403
-      // on stricter endpoints like /events/live
-      if (base.includes('sofascore.ro')) {
-        headers['Referer'] = 'https://www.sofascore.ro/';
-      } else {
-        headers['Referer'] = 'https://www.sofascore.com/';
-      }
       if (isProxy && proxySecret) {
         headers['x-proxy-secret'] = proxySecret;
       }
 
-      // revalidate=0 → no-store (always fresh); otherwise use ISR revalidation
-      const fetchOptions: RequestInit = revalidate === 0
-        ? { headers, cache: 'no-store' }
-        : { headers, next: { revalidate } };
-
-      const res = await fetch(`${base}${path}`, fetchOptions);
+      // Always use cache: 'no-store' — the route is force-dynamic and mixing
+      // next: { revalidate } with cache: 'no-store' in the same request scope
+      // can silently break all fetches in Next.js 14 App Router.
+      const res = await fetch(`${base}${path}`, { headers, cache: 'no-store' });
       if (res.ok) {
         console.log(`[SofaScore] ✅ ${base} succeeded for ${path}`);
         return res;
