@@ -208,14 +208,23 @@ async function fetchFromSofascore(path: string, revalidate: number): Promise<Res
     try {
       const isProxy = proxyUrl && base === proxyUrl;
       const headers: Record<string, string> = { ...FETCH_HEADERS };
+      // Use matching Referer for each domain — mismatched Referer can cause 403
+      // on stricter endpoints like /events/live
+      if (base.includes('sofascore.ro')) {
+        headers['Referer'] = 'https://www.sofascore.ro/';
+      } else {
+        headers['Referer'] = 'https://www.sofascore.com/';
+      }
       if (isProxy && proxySecret) {
         headers['x-proxy-secret'] = proxySecret;
       }
 
-      const res = await fetch(`${base}${path}`, {
-        headers,
-        next: { revalidate },
-      });
+      // revalidate=0 → no-store (always fresh); otherwise use ISR revalidation
+      const fetchOptions: RequestInit = revalidate === 0
+        ? { headers, cache: 'no-store' }
+        : { headers, next: { revalidate } };
+
+      const res = await fetch(`${base}${path}`, fetchOptions);
       if (res.ok) {
         console.log(`[SofaScore] ✅ ${base} succeeded for ${path}`);
         return res;
@@ -432,7 +441,8 @@ export function computeFormSummary(matches: SofascoreRecentMatch[], teamId: numb
 /** Fetch all scheduled football events for a given date (YYYY-MM-DD) */
 export async function getScheduledEvents(date: string): Promise<SofascoreEvent[]> {
   try {
-    const res = await fetchFromSofascore(`/sport/football/scheduled-events/${date}`, 300);
+    // Use 30s revalidation so match statuses (notstarted→inprogress) stay fresh
+    const res = await fetchFromSofascore(`/sport/football/scheduled-events/${date}`, 30);
     if (!res) return [];
     const data = await res.json();
     return (data.events as SofascoreEvent[]) ?? [];
@@ -444,7 +454,8 @@ export async function getScheduledEvents(date: string): Promise<SofascoreEvent[]
 /** Fetch all currently LIVE football events (any date/league) */
 export async function getLiveEvents(): Promise<SofascoreEvent[]> {
   try {
-    const res = await fetchFromSofascore('/sport/football/events/live', 30);
+    // revalidate=0 → cache: 'no-store', always fetch fresh live data
+    const res = await fetchFromSofascore('/sport/football/events/live', 0);
     if (!res) return [];
     const data = await res.json();
     return (data.events as SofascoreEvent[]) ?? [];
