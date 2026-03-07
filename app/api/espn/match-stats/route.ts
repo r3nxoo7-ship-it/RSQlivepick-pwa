@@ -61,9 +61,9 @@ export async function GET(request: NextRequest) {
         awayAttacks: parsed.away['attacks'] || 0,
         homeDangerousAttacks: parsed.home['dangerousAttacks'] || parsed.home['dangerous attacks'] || 0,
         awayDangerousAttacks: parsed.away['dangerousAttacks'] || parsed.away['dangerous attacks'] || 0,
-        // Halftime scores from linescores (period 1)
-        homeHalfScore: parsed.homeHalfScore,
-        awayHalfScore: parsed.awayHalfScore,
+        // Halftime scores from linescores (period 1) — null means absent, not 0
+        homeHalfScore: parsed.homeHalfScore ?? null,
+        awayHalfScore: parsed.awayHalfScore ?? null,
       };
 
       // Check non-halftime stats for > 0 (halftime 0-0 is valid, don't require > 0 for those)

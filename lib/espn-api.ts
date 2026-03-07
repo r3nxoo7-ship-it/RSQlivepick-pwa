@@ -743,7 +743,8 @@ export function parseSummaryStats(
 
   // --- Halftime scores from linescores ---
   // ESPN summary header.competitions[0].competitors[].linescores[]
-  // linescores[0] = period 1 (1st half), linescores[1] = period 2 (2nd half)
+  // Each linescore has { period: 1|2, value: number } — pick period 1 explicitly,
+  // falling back to index 0 if there's no period field (older ESPN API format).
   const competitors: any[] = summary?.header?.competitions?.[0]?.competitors || [];
   for (const [idx, comp] of competitors.entries()) {
     const compId = comp.team?.id;
@@ -752,12 +753,31 @@ export function parseSummaryStats(
     const isHome = homeTeamId ? String(compId) === String(homeTeamId) : (homeAway === 'home' || idx === 0);
     const isAway = awayTeamId ? String(compId) === String(awayTeamId) : (homeAway === 'away' || idx === 1);
     const linescores: any[] = comp.linescores || [];
-    // parseFloat can return 0 for "0", which is a valid halftime score — don't use || 0 fallback
-    const halfVal = linescores[0]?.value;
-    const halfScore = halfVal != null ? parseFloat(halfVal) : undefined;
-    if (halfScore != null && !isNaN(halfScore)) {
+
+    // Prefer the entry explicitly tagged for period 1; fall back to first entry
+    const period1Entry = linescores.find((ls: any) => ls.period === 1 || ls.period === '1')
+      ?? linescores[0];
+
+    // parseFloat(0) = 0 which is a valid half-time score — use null only when absent
+    const rawVal = period1Entry?.value ?? period1Entry?.displayValue;
+    const halfScore = rawVal != null && rawVal !== '' ? parseFloat(String(rawVal)) : null;
+
+    if (halfScore !== null && !isNaN(halfScore)) {
       if (isHome && !isAway) result.homeHalfScore = halfScore;
       if (isAway && !isHome) result.awayHalfScore = halfScore;
+    }
+  }
+
+  // Fallback: if competitor linescores weren't available, try competition-level linescores
+  // ESPN sometimes puts away/home period scores at summary.header.competitions[0].linescores
+  if (result.homeHalfScore == null || result.awayHalfScore == null) {
+    const compLevel: any[] = summary?.header?.competitions?.[0]?.linescores || [];
+    if (compLevel.length >= 2) {
+      // [0] = home team period 1, [1] = away team period 1 (varies by ESPN version)
+      const h = parseFloat(String(compLevel[0]?.value ?? compLevel[0]?.displayValue ?? ''));
+      const a = parseFloat(String(compLevel[1]?.value ?? compLevel[1]?.displayValue ?? ''));
+      if (!isNaN(h) && result.homeHalfScore == null) result.homeHalfScore = h;
+      if (!isNaN(a) && result.awayHalfScore == null) result.awayHalfScore = a;
     }
   }
 
