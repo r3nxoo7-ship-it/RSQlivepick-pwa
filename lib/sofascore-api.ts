@@ -14,6 +14,8 @@
  */
 
 const SOFASCORE_BASES = [
+  // Cloudflare Worker proxy (env var set after deploying worker)
+  ...(process.env.SOFASCORE_PROXY_URL ? [process.env.SOFASCORE_PROXY_URL] : []),
   'https://api.sofascore.com/api/v1',
   'https://www.sofascore.com/api/v1',
 ];
@@ -197,10 +199,19 @@ function nameMatches(a: string, b: string): boolean {
 }
 
 async function fetchFromSofascore(path: string, revalidate: number): Promise<Response | null> {
+  const proxyUrl = process.env.SOFASCORE_PROXY_URL;
+  const proxySecret = process.env.SOFASCORE_PROXY_SECRET;
+
   for (const base of SOFASCORE_BASES) {
     try {
+      const isProxy = proxyUrl && base === proxyUrl;
+      const headers: Record<string, string> = { ...FETCH_HEADERS };
+      if (isProxy && proxySecret) {
+        headers['x-proxy-secret'] = proxySecret;
+      }
+
       const res = await fetch(`${base}${path}`, {
-        headers: FETCH_HEADERS,
+        headers,
         next: { revalidate },
       });
       if (res.ok) return res;

@@ -15,7 +15,10 @@
 //
 // Stats reference (per full 90-min match averages):
 //   Corners 9-10 | Goals 2.6-2.8 | Yellow cards 3-4
-//   SOT 4-5/team | Dangerous attacks 30-50/team | Possession 50/50
+//   SOT 4-5/team | Total shots 12-15/team | Possession 50/50
+//
+// Note: dangerous_attacks removed — SofaScore doesn't provide this stat.
+// Replaced with total_shots which SofaScore reliably provides.
 
 import type { FilterConditions } from '@/lib/supabase';
 
@@ -45,7 +48,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'goals-zero-zero-pressure',
     name: '⚽ 0:0 But Pressure Mounting',
-    description: 'Still goalless but teams are creating chances — 5+ shots on target after 55 min. Next goal coming. Use for Over 0.5 or Next Goal market before the dam breaks.',
+    description: 'Still goalless but teams are creating chances — 5+ shots on target and 8+ total shots after 55 min. Next goal coming. Use for Over 0.5 or Next Goal market before the dam breaks.',
     category: 'goals',
     icon: '⚽',
     popularity: 5,
@@ -62,6 +65,9 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 5 },
       },
+      total_shots: {
+        total: { min: 8 },
+      },
       match_time: {
         between: [55, 82],
       },
@@ -71,7 +77,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'goals-over-25-live',
     name: '⚽ Over 2.5 Goals — Live Signal',
-    description: '1-2 goals already in with 5+ SOT and 8+ dangerous attacks. Strong indicators for a third goal. Best used for Over 2.5 after 55th minute.',
+    description: '1-2 goals already in with 5+ SOT and 10+ total shots. Strong indicators for a third goal. Best used for Over 2.5 after 55th minute.',
     category: 'goals',
     icon: '🎯',
     popularity: 5,
@@ -88,8 +94,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 5 },
       },
-      dangerous_attacks: {
-        total: { min: 8 },
+      total_shots: {
+        total: { min: 10 },
       },
       match_time: {
         between: [55, 82],
@@ -126,7 +132,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'goals-away-comeback-signal',
     name: '✈️ Away Comeback Signal',
-    description: 'Away team trailing 0-1 but creating more chances (3+ away SOT, 6+ away DA). Counter-attacks or quality play creates comeback. Value on BTTS or away goal.',
+    description: 'Away team trailing 0-1 but creating more chances (3+ away SOT, 5+ away total shots). Counter-attacks or quality play creates comeback. Value on BTTS or away goal.',
     category: 'goals',
     icon: '✈️',
     popularity: 4,
@@ -143,8 +149,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         away: { min: 3 },
       },
-      dangerous_attacks: {
-        away: { min: 6 },
+      total_shots: {
+        away: { min: 5 },
       },
       match_time: {
         between: [50, 78],
@@ -155,7 +161,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'goals-over-35-late-push',
     name: '⚽ Over 3.5 Goals — Late Push',
-    description: 'Already 2+ goals scored and both teams still creating chances (6+ SOT total). High probability of a 4th goal before full time.',
+    description: 'Already 2+ goals scored and both teams still creating chances (6+ SOT, 8+ total shots). High probability of a 4th goal before full time.',
     category: 'goals',
     icon: '🎯',
     popularity: 4,
@@ -171,8 +177,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 6 },
       },
-      dangerous_attacks: {
-        total: { min: 6 },
+      total_shots: {
+        total: { min: 8 },
       },
       match_time: {
         between: [62, 82],
@@ -183,7 +189,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'goals-late-goal-incoming',
     name: '⏰ Late Goal Incoming (72+ min)',
-    description: 'Low-scoring match (0-1 goals) but sustained pressure with 4+ SOT and 7+ dangerous attacks after 72nd minute. Statistically, late goals happen in ~35% of matches.',
+    description: 'Low-scoring match (0-1 goals) but sustained pressure with 4+ SOT and 6+ total shots after 72nd minute. Statistically, late goals happen in ~35% of matches.',
     category: 'goals',
     icon: '⌛',
     popularity: 4,
@@ -200,8 +206,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 4 },
       },
-      dangerous_attacks: {
-        total: { min: 7 },
+      total_shots: {
+        total: { min: 6 },
       },
       match_time: {
         between: [72, 82],
@@ -244,7 +250,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'corners-late-rush',
     name: '🚀 Corner Rush — Late Game',
-    description: '7+ corners already with SOT pressure (4+) and 6+ dangerous attacks after 68th minute. Teams pushing hard — corner line likely exceeded.',
+    description: '7+ corners already with SOT pressure (4+) and 6+ total shots after 68th minute. Teams pushing hard — corner line likely exceeded.',
     category: 'corners',
     icon: '🚀',
     popularity: 5,
@@ -261,7 +267,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 4 },
       },
-      dangerous_attacks: {
+      total_shots: {
         total: { min: 6 },
       },
       match_time: {
@@ -273,7 +279,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'corners-early-machine',
     name: '🎪 Early Corner Machine',
-    description: '4+ corners before 50th minute with high attacking pressure. At this pace, match will exceed 10+ total corners. Great for Asian corners or Over 9.5.',
+    description: '4+ corners before 50th minute with high attacking pressure (5+ total shots). At this pace, match will exceed 10+ total corners. Great for Asian corners or Over 9.5.',
     category: 'corners',
     icon: '🎪',
     popularity: 4,
@@ -289,7 +295,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 2 },
       },
-      dangerous_attacks: {
+      total_shots: {
         total: { min: 5 },
       },
       match_time: {
@@ -301,7 +307,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'corners-pressure-combo',
     name: '⚡ Corner + Shot Pressure',
-    description: '5+ corners combined with 3+ SOT after 60th minute. Active match with set-piece and open-play danger. Good for next corner or over corner markets.',
+    description: '5+ corners combined with 3+ SOT and 5+ total shots after 60th minute. Active match with set-piece and open-play danger. Good for next corner or over corner markets.',
     category: 'corners',
     icon: '⚡',
     popularity: 4,
@@ -317,8 +323,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 3 },
       },
-      dangerous_attacks: {
-        total: { min: 4 },
+      total_shots: {
+        total: { min: 5 },
       },
       match_time: {
         between: [55, 82],
@@ -360,7 +366,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'cards-red-chaos',
     name: '🟥 Red Card + Attacking Pressure',
-    description: 'Red card issued and the team with numerical advantage is pressing (3+ corners, 5+ DA). Set-piece surge likely — good for corners and goals.',
+    description: 'Red card issued and the team with numerical advantage is pressing (3+ corners, 2+ SOT). Set-piece surge likely — good for corners and goals.',
     category: 'cards',
     icon: '🟥',
     popularity: 4,
@@ -376,8 +382,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       corners: {
         total: { min: 3 },
       },
-      dangerous_attacks: {
-        total: { min: 5 },
+      shots_on_target: {
+        total: { min: 2 },
       },
       match_time: {
         between: [55, 82],
@@ -422,7 +428,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'adv-home-dominance',
     name: '⚡ Home Team Domination',
-    description: 'Home team controlling the match with 55%+ possession, 6+ dangerous attacks, and 3+ SOT. Strong home win or Over goals signal.',
+    description: 'Home team controlling the match with 55%+ possession, 4+ total shots, and 3+ SOT. Strong home win or Over goals signal.',
     category: 'advanced',
     icon: '🔥',
     popularity: 5,
@@ -436,8 +442,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       possession: {
         home: { min: 55 },
       },
-      dangerous_attacks: {
-        home: { min: 6 },
+      total_shots: {
+        home: { min: 4 },
       },
       shots_on_target: {
         home: { min: 3 },
@@ -480,7 +486,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'adv-late-low-score-pressure',
     name: '🎭 Late Low-Score Pressure',
-    description: 'Match after 72nd min with 0-1 goals but 5+ SOT and 8+ DA. Both teams desperate for a result — high tension creates late goals.',
+    description: 'Match after 72nd min with 0-1 goals but 5+ SOT and 8+ total shots. Both teams desperate for a result — high tension creates late goals.',
     category: 'advanced',
     icon: '🎭',
     popularity: 4,
@@ -497,7 +503,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 5 },
       },
-      dangerous_attacks: {
+      total_shots: {
         total: { min: 8 },
       },
       match_time: {
@@ -616,7 +622,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       substitutions: { min: 2, team: 'total' },
       shots_on_target: { min: 4 },
-      dangerous_attacks: { min: 4 },
+      total_shots: { min: 6 },
       match_time: { min: 60, max: 82 },
     },
   },
@@ -663,7 +669,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'adv-attackers-dominate',
     name: '🏆 Attacking Dominance',
-    description: '60%+ possession with 5+ dangerous attacks and 3+ SOT. One team is siege-creating chances — use for goal markets or team goal lines.',
+    description: '60%+ possession with 8+ total shots and 3+ SOT. One team is siege-creating chances — use for goal markets or team goal lines.',
     category: 'advanced',
     icon: '🏆',
     popularity: 5,
@@ -673,7 +679,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     tags: ['possession', 'attacks', 'high-confidence'],
     conditions: {
       possession: { min: 60 },
-      dangerous_attacks: { min: 5 },
+      total_shots: { min: 8 },
       shots_on_target: { min: 3 },
       match_time: { min: 30, max: 82 },
     },
@@ -694,7 +700,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       shots_in_box: { min: 4, team: 'total' },
       shots_on_target: { min: 3 },
-      dangerous_attacks: { min: 4 },
+      total_shots: { min: 6 },
       match_time: { min: 40, max: 82 },
     },
   },
@@ -1036,7 +1042,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
     conditions: {
       xg: { total: { min: 2.0 } },
       shots_on_target: { total: { min: 4 } },
-      dangerous_attacks: { total: { min: 5 } },
+      total_shots: { total: { min: 6 } },
       match_time: { between: [45, 82] },
     } as any,
   },
@@ -1068,7 +1074,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'under-25-goals-fortress',
     name: '🛡️ Under 2.5 Goals — Low Activity',
-    description: 'Score 0-0 or 0-1 with few chances created (max 4 SOT, max 6 DA, max 4 corners). Tight defensive match — Under 2.5 goals looking safe.',
+    description: 'Score 0-0 or 0-1 with few chances created (max 4 SOT, max 8 total shots, max 4 corners). Tight defensive match — Under 2.5 goals looking safe.',
     category: 'advanced',
     icon: '🛡️',
     popularity: 4,
@@ -1084,8 +1090,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { max: 4 },
       },
-      dangerous_attacks: {
-        total: { max: 6 },
+      total_shots: {
+        total: { max: 8 },
       },
       corners: {
         total: { max: 4 },
@@ -1099,7 +1105,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'under-corners-quiet-match',
     name: '🔇 Under Corners — Quiet Match',
-    description: 'Max 3 corners with few total shots (max 6) and low dangerous attacks (max 5) after 55th minute. Match tempo too low for corners to pile up.',
+    description: 'Max 3 corners with few total shots (max 6) after 55th minute. Match tempo too low for corners to pile up.',
     category: 'corners',
     icon: '🔇',
     popularity: 4,
@@ -1115,9 +1121,6 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       total_shots: {
         total: { max: 6 },
       },
-      dangerous_attacks: {
-        total: { max: 5 },
-      },
       match_time: {
         between: [55, 78],
       },
@@ -1131,7 +1134,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'first-half-pressure-signal',
     name: '🔥 First-Half Pressure — Goal Coming',
-    description: 'Still 0-0 but heavy first-half pressure: 3+ SOT, 5+ DA, 3+ corners before 42nd minute. High chance of first-half goal. Over 0.5 FH market.',
+    description: 'Still 0-0 but heavy first-half pressure: 3+ SOT, 4+ total shots, 3+ corners before 42nd minute. High chance of first-half goal. Over 0.5 FH market.',
     category: 'goals',
     icon: '🔥',
     popularity: 5,
@@ -1147,8 +1150,8 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         total: { min: 3 },
       },
-      dangerous_attacks: {
-        total: { min: 5 },
+      total_shots: {
+        total: { min: 4 },
       },
       corners: {
         total: { min: 3 },
@@ -1162,7 +1165,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
   {
     id: 'dominance-imbalance-away',
     name: '💎 Dominance Imbalance — Away Control',
-    description: 'Away team controls the match (55%+ poss, 4+ SOT, 5+ DA) but score is level. Stats domination not reflected in score — away goal or win coming.',
+    description: 'Away team controls the match (55%+ poss, 4+ SOT, 5+ total shots) but score is level. Stats domination not reflected in score — away goal or win coming.',
     category: 'advanced',
     icon: '💎',
     popularity: 4,
@@ -1178,7 +1181,7 @@ export const RAW_TEMPLATES: FilterTemplate[] = [
       shots_on_target: {
         away: { min: 4 },
       },
-      dangerous_attacks: {
+      total_shots: {
         away: { min: 5 },
       },
       score: {

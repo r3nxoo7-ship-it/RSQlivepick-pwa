@@ -1,0 +1,7 @@
+name = "sofascore-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[vars]
+# Set PROXY_SECRET via `wrangler secret put PROXY_SECRET`
+# This prevents unauthorized usage of your proxy
