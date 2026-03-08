@@ -4,9 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // Route must remain dynamic (uses request parameters / user_id)
 export const dynamic = 'force-dynamic';
 
-// Allow caching for 60 seconds before revalidation (HTTP cache)
-// This reduces Supabase read costs significantly for active users
-export const revalidate = 60;
+// No ISR caching — filters must always be fresh after edits
+export const revalidate = 0;
 
 // Singleton client with connection pooling (REVERT to original approach)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -57,9 +56,8 @@ export async function GET(request: NextRequest) {
       { data: data || [], error: null },
       {
         headers: {
-          // Cache private per user: 60 seconds fresh + 60 second stale-while-revalidate
-          // This significantly reduces Supabase read costs
-          'Cache-Control': 'private, max-age=60, stale-while-revalidate=60',
+          // No browser caching — filters must reflect latest saved state
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
           'X-Content-Type-Options': 'nosniff',
           'X-Cached': 'true',
           'X-timestamp': new Date().toISOString(),

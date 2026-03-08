@@ -869,7 +869,10 @@ export const dbHelpers = {
    */
   async getFilterById(filterId: string): Promise<Filter | null> {
     try {
-      const response = await fetch(`/api/filters/get-by-id?filterId=${encodeURIComponent(filterId)}`);
+      const response = await fetch(`/api/filters/get-by-id?filterId=${encodeURIComponent(filterId)}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const result = await response.json();
 
       if (!response.ok || result.error) {

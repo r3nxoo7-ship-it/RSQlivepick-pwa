@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses request parameters
 export const dynamic = 'force-dynamic';
-export const revalidate = 60; // Cache for 60 seconds
+export const revalidate = 0; // Always fresh — must reflect latest edits
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     console.log('✅ Filter fetched successfully');
     return NextResponse.json({ data, error: null }, {
       headers: {
-        'Cache-Control': 'private, max-age=60, stale-while-revalidate=60',
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
       }
     });
   } catch (err) {
