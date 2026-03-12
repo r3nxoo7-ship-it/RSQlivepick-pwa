@@ -23,6 +23,7 @@ import { getTeamSchedule } from '@/lib/espn-api';
 import { findBzzoiroPrediction, fetchBzzoiroPredictions, type BzzoiroMatchedPrediction } from '@/lib/bzzoiro';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 15;
 
 // Cache predictions for 30 minutes
 const CACHE_DURATION = 30 * 60 * 1000;

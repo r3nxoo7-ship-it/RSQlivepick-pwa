@@ -16,6 +16,8 @@ import { matchesFilter } from '@/lib/filter-engine';
 import * as espnSync from '@/lib/espn-sync';
 import type { Filter } from '@/lib/supabase';
 
+export const maxDuration = 30;
+
 // ─── Supabase service-role client (bypasses RLS) ─────────────────────────────
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,18 +47,19 @@ async function sendTelegram(chatId: string | number, text: string): Promise<bool
   }
 }
 
-/** Check if we already notified this user about this match×filter combo in the last 4 hours */
-async function alreadyNotified(userId: string, matchId: string, filterId: string): Promise<boolean> {
+/** Batch-load all recent notifications for the given user+match combos (last 4h) */
+async function loadRecentNotifications(userIds: string[]): Promise<Set<string>> {
   const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const { data } = await supabase
     .from('triggered_matches')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('match_id', matchId)
-    .eq('filter_id', filterId)
-    .gte('created_at', since)
-    .limit(1);
-  return (data?.length ?? 0) > 0;
+    .select('user_id, match_id, filter_id')
+    .in('user_id', userIds)
+    .gte('created_at', since);
+  const set = new Set<string>();
+  for (const row of data ?? []) {
+    set.add(`${row.user_id}::${row.match_id}::${row.filter_id}`);
+  }
+  return set;
 }
 
 async function logTriggered(params: {
@@ -198,6 +201,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // 3b. Batch-load recent notifications to avoid per-pair DB queries ────────
+    const activeUserIds = [...new Set(activeFilters.map(f => f.user_id))];
+    const notifiedSet = await loadRecentNotifications(activeUserIds);
+
     // 4. Run filter matching for every match × filter combo ────────────────────
     let notificationsSent = 0;
 
@@ -215,8 +222,8 @@ export async function GET(req: NextRequest) {
           const result = await matchesFilter(match, filter as any);
           if (!result.matches) continue;
 
-          // Dedup — skip if already notified in last 4h
-          if (await alreadyNotified(filter.user_id, matchId, filter.id)) continue;
+          // Dedup — skip if already notified in last 4h (checked via batch-loaded set)
+          if (notifiedSet.has(`${filter.user_id}::${matchId}::${filter.id}`)) continue;
 
           // Send Telegram message
           const text = buildMessage(match, filter as any, result.matchedConditions ?? []);

@@ -157,9 +157,13 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   compiler: {
-    // Temporarily disabled to debug production issues
-    // removeConsole: process.env.NODE_ENV === 'production'
-  }
+    removeConsole: process.env.NODE_ENV === 'production'
+      ? { exclude: ['error', 'warn'] }
+      : false,
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', 'framer-motion'],
+  },
 };
 
 module.exports = withPWA(nextConfig);

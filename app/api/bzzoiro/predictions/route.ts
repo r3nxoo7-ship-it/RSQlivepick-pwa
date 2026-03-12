@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server';
 import { fetchBzzoiroPredictions, type BzzoiroPrediction } from '@/lib/bzzoiro';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 // In-memory cache: avoids hammering Bzzoiro on every prediction request
 const cache: { data: BzzoiroPrediction[]; fetchedAt: number } | null = (global as any).__bzzoiroCache ?? null;

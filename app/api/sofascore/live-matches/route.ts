@@ -18,6 +18,7 @@ import * as ESPNAPI from '@/lib/espn-api';
 import * as espnSync from '@/lib/espn-sync';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 15;
 
 /**
  * Convert an ESPNMatch to the LiveMatch format expected by the frontend.

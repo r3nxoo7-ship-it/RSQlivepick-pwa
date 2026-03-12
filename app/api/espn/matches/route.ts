@@ -10,6 +10,7 @@ import * as espnSync from '@/lib/espn-sync';
 import { ALL_EUROPEAN_SOCCER_LEAGUES } from '@/lib/espn-api';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 // Cache for 30 seconds to reduce Supabase load while keeping data relatively fresh
 export const revalidate = 10;
 

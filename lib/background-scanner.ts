@@ -181,6 +181,53 @@ class BackgroundScannerService {
       }
       // ─────────────────────────────────────────────────────────────────────────
 
+      // ── Pre-match odds enrichment (best-effort, non-blocking) ────────────────
+      // Fetch odds once per scan cycle from /api/odds/upcoming (server-cached 5min)
+      // and attach to matches by team name so pre_match_odds filter conditions work.
+      const hasOddsFilters = activeFilters.some(
+        f => f.is_active && ((f.conditions as any)?.pre_match_odds || (f.conditions as any)?.odds || (f.conditions as any)?.goal_line || (f.conditions as any)?.match_goals)
+      );
+      if (hasOddsFilters) {
+        try {
+          const oddsRes = await fetch('/api/odds/upcoming', {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (oddsRes.ok) {
+            const oddsData = await oddsRes.json();
+            const oddsMap = oddsData.oddsMap || {};
+            const mapKeys = Object.keys(oddsMap);
+            if (mapKeys.length > 0) {
+              let enrichedCount = 0;
+              const cleanName = (s: string) =>
+                s.trim().toLowerCase().replace(/[-_.']/g, ' ').replace(/\s+/g, ' ').trim();
+              const looseName = (s: string) =>
+                s.trim().toLowerCase().replace(/[-_.']/g, ' ').replace(/\s+/g, ' ')
+                  .replace(/\b(\w+)s\b/g, '$1').trim();
+
+              for (const m of matches) {
+                if ((m as any).odds) continue; // already has odds
+                const hName = cleanName(m.teams?.home?.name || '');
+                const aName = cleanName(m.teams?.away?.name || '');
+                if (!hName || !aName) continue;
+
+                const entry = oddsMap[`${hName}|${aName}`]
+                  ?? oddsMap[`${looseName(m.teams!.home!.name!)}|${looseName(m.teams!.away!.name!)}`];
+                if (entry) {
+                  (m as any).odds = entry;
+                  enrichedCount++;
+                }
+              }
+              if (enrichedCount > 0) {
+                console.log(`[Scanner] Odds enrichment: attached odds to ${enrichedCount}/${matches.length} matches`);
+              }
+            }
+          }
+        } catch (oddsErr) {
+          console.warn('[Scanner] Odds enrichment failed (non-fatal):', oddsErr instanceof Error ? oddsErr.message : oddsErr);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       let notificationsSentThisScan = 0;
       const completedMatches: { match_id: string; score_home: number; score_away: number }[] = [];
 
