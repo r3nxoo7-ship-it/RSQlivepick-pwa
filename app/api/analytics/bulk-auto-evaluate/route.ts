@@ -11,10 +11,56 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const API_FOOTBALL_KEY = process.env.NEXT_PUBLIC_API_FOOTBALL_KEY;
+const API_FOOTBALL_HOST = process.env.NEXT_PUBLIC_API_FOOTBALL_HOST || 'v3.football.api-sports.io';
+
 // Build template evaluationType lookup
 const templateEvalMap = new Map<string, ReturnType<typeof getEvaluationType>>();
 for (const t of RAW_TEMPLATES) {
   templateEvalMap.set(t.id, t.evaluationType);
+}
+
+function normalizeTeamName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function teamNamesRoughlyMatch(a: string, b: string): boolean {
+  const na = normalizeTeamName(a);
+  const nb = normalizeTeamName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  return na.includes(nb) || nb.includes(na);
+}
+
+async function fetchFinalScoreFromApiFootball(matchId: string): Promise<{ home: number; away: number } | null> {
+  if (!API_FOOTBALL_KEY) return null;
+  const fixtureId = Number(matchId);
+  if (!Number.isFinite(fixtureId)) return null;
+
+  try {
+    const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?id=${fixtureId}`, {
+      headers: { 'x-rapidapi-key': API_FOOTBALL_KEY, 'x-rapidapi-host': API_FOOTBALL_HOST },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    const fixture = data?.response?.[0];
+    const statusShort: string | undefined = fixture?.fixture?.status?.short;
+    if (!statusShort || !['FT', 'AET', 'PEN'].includes(statusShort)) return null;
+
+    const homeGoals = fixture?.goals?.home;
+    const awayGoals = fixture?.goals?.away;
+    if (typeof homeGoals === 'number' && typeof awayGoals === 'number') {
+      return { home: homeGoals, away: awayGoals };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -37,7 +83,86 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'user_id required' }, { status: 400 });
   }
 
-  // Get all finished triggered matches with final scores
+  // STEP 1: Finalize old LIVE matches (older than 3 hours = definitely completed)
+  const cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const { data: liveMatches } = await supabase
+    .from('triggered_matches')
+    .select('id, match_id, home_team, away_team')
+    .eq('user_id', user_id)
+    .in('match_status', ['LIVE', 'ongoing'])
+    .lt('triggered_at', cutoff)
+    .limit(5000);
+
+  let finalized = 0;
+  let scoreFetched = 0;
+
+  if (liveMatches && liveMatches.length > 0) {
+    // Get unique match IDs and look up final scores
+    const uniqueMatchIds = [...new Set(liveMatches.map(m => m.match_id))];
+    const scoreMap = new Map<string, { home: number; away: number }>();
+
+    // Build team lookup for ESPN matching
+    const teamsByMatch = new Map<string, { homeTeam: string; awayTeam: string }>();
+    for (const m of liveMatches) {
+      if (!teamsByMatch.has(m.match_id)) {
+        teamsByMatch.set(m.match_id, { homeTeam: m.home_team, awayTeam: m.away_team });
+      }
+    }
+
+    // Fetch scores: ESPN first, then API-Football fallback (limited to avoid rate limits)
+    let apiFetchCount = 0;
+    for (const matchId of uniqueMatchIds) {
+      // Try ESPN
+      try {
+        const { data: espnMatch } = await supabase
+          .from('espn_matches')
+          .select('home_team_name, away_team_name, home_score, away_score, status')
+          .eq('id', matchId)
+          .single();
+
+        const teams = teamsByMatch.get(matchId);
+        if (
+          espnMatch && teams &&
+          espnMatch.status === 'completed' &&
+          teamNamesRoughlyMatch(teams.homeTeam, espnMatch.home_team_name) &&
+          teamNamesRoughlyMatch(teams.awayTeam, espnMatch.away_team_name) &&
+          typeof espnMatch.home_score === 'number' &&
+          typeof espnMatch.away_score === 'number'
+        ) {
+          scoreMap.set(matchId, { home: espnMatch.home_score, away: espnMatch.away_score });
+        }
+      } catch {
+        // Not found in ESPN
+      }
+
+      // API-Football fallback (limit to 50 lookups to stay within rate limits)
+      if (!scoreMap.has(matchId) && apiFetchCount < 50) {
+        const afScore = await fetchFinalScoreFromApiFootball(matchId);
+        if (afScore) scoreMap.set(matchId, afScore);
+        apiFetchCount++;
+      }
+    }
+
+    // Update all LIVE matches to finished with scores
+    for (const m of liveMatches) {
+      const scores = scoreMap.get(m.match_id);
+      const updateData: Record<string, any> = { match_status: 'finished' };
+      if (scores) {
+        updateData.final_score_home = scores.home;
+        updateData.final_score_away = scores.away;
+        scoreFetched++;
+      }
+
+      const { error: updateErr } = await supabase
+        .from('triggered_matches')
+        .update(updateData)
+        .eq('id', m.id);
+
+      if (!updateErr) finalized++;
+    }
+  }
+
+  // STEP 2: Get all finished matches with final scores for auto-evaluation
   const { data: matches, error } = await supabase
     .from('triggered_matches')
     .select('id, filter_id, filter_name, match_time, score_home, score_away, final_score_home, final_score_away')
@@ -146,11 +271,13 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
+    finalized,
+    scoreFetched,
     evaluated,
     skipped,
     successCount,
     failCount,
     successRate: evaluated > 0 ? Math.round((successCount / evaluated) * 100) : null,
-    message: `Auto-evaluated ${evaluated} matches. ${successCount} good, ${failCount} bad. ${skipped} skipped.`,
+    message: `Finalized ${finalized} matches (${scoreFetched} with scores). Auto-evaluated ${evaluated} matches. ${successCount} good, ${failCount} bad. ${skipped} skipped.`,
   });
 }
