@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import { matchesFilter } from '@/lib/filter-engine';
+import { computeAutoSuccess, getEvaluationType, getEffectiveSuccess } from '@/lib/analytics';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 25;
@@ -80,65 +80,29 @@ async function fetchFinalScoreFromApiFootball(matchId: string): Promise<FinalSco
 }
 
 /**
- * Evaluates if a filter would match the final score
- * Returns true if the filter condition was satisfied at final score
+ * Evaluates if a triggered match was successful based on goals added after trigger.
+ * Uses the new goals-based approach instead of checking filter conditions at FT.
  */
 function evaluateFilterCondition(
   filter: any,
-  finalScore: { home: number; away: number; elapsed: number }
-): boolean {
-  const conditions = filter.conditions || {};
-
-  // Helper to check a numeric condition
-  const checkNumeric = (actual: number, min?: number, max?: number): boolean => {
-    if (min !== undefined && actual < min) return false;
-    if (max !== undefined && actual > max) return false;
-    return true;
-  };
-
-  // Evaluate each condition
-  for (const [key, value] of Object.entries(conditions)) {
-    if (!value || typeof value !== 'object') continue;
-
-    const v = value as any;
-    let conditionMet = true;
-
-    switch (key) {
-      case 'goals': {
-        const total = finalScore.home + finalScore.away;
-        if (v.team === 'home') {
-          conditionMet = checkNumeric(finalScore.home, v.min, v.max);
-        } else if (v.team === 'away') {
-          conditionMet = checkNumeric(finalScore.away, v.min, v.max);
-        } else {
-          conditionMet = checkNumeric(total, v.min, v.max);
-        }
-        break;
-      }
-
-      case 'corners':
-      case 'shots_on_target':
-      case 'total_shots':
-      case 'yellow_cards':
-      case 'red_cards':
-      case 'fouls':
-      case 'offsides': {
-        // These require live stats which we may not have at finalize time
-        // For now, we'll assume they could be true (be permissive)
-        // Better to count a filter as successful if goals condition passed
-        conditionMet = true;
-        break;
-      }
-
-      default:
-        conditionMet = true;
-    }
-
-    // If any condition is not met, filter fails
-    if (!conditionMet) return false;
+  triggerMatch: {
+    match_time: number;
+    score_home: number;
+    score_away: number;
+    final_score_home: number;
+    final_score_away: number;
   }
-
-  return true; // All conditions checked and passed
+): boolean {
+  const evalType = getEvaluationType(filter.template_id, filter.name);
+  const result = computeAutoSuccess(
+    triggerMatch.match_time,
+    triggerMatch.score_home,
+    triggerMatch.score_away,
+    triggerMatch.final_score_home,
+    triggerMatch.final_score_away,
+    evalType
+  );
+  return result ?? false;
 }
 
 /**
@@ -396,10 +360,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Now recalculate success_rate for all user's filters
-    // Get all user's filters with their conditions
+    // Get all user's filters with their conditions and template_id
     const { data: filters } = await supabaseAdmin
       .from('filters')
-      .select('id, trigger_count, conditions')
+      .select('id, trigger_count, conditions, name, template_id')
       .eq('user_id', user_id);
 
     if (filters && filters.length > 0) {
@@ -407,7 +371,7 @@ export async function POST(request: NextRequest) {
         // Get all triggered matches for this filter
         const { data: triggers } = await supabaseAdmin
           .from('triggered_matches')
-          .select('id, match_time, score_home, score_away, final_score_home, final_score_away, match_status')
+          .select('id, match_time, score_home, score_away, final_score_home, final_score_away, match_status, user_feedback, auto_success')
           .eq('filter_id', filter.id)
           .eq('user_id', user_id);
 
@@ -416,41 +380,38 @@ export async function POST(request: NextRequest) {
         const finishedTriggers = triggers.filter(t => t.match_status === 'finished');
         if (finishedTriggers.length === 0) continue;
 
-        // Calculate success: count how many matches had the predicted outcome at full time
+        // Calculate auto_success for each finished trigger and store it
         let successCount = 0;
         let evaluableCount = 0;
         for (const t of finishedTriggers) {
-          // Only evaluate if we have a final score — trigger-time score is always
-          // true (that's why it triggered) so using it inflates success rate to 100%
           if (t.final_score_home == null || t.final_score_away == null) continue;
+          if (t.score_home == null || t.score_away == null) continue;
           evaluableCount++;
-          const finalScore = {
-            home: t.final_score_home as number,
-            away: t.final_score_away as number,
-            elapsed: 90,
-          };
-          if (evaluateFilterCondition(filter, finalScore)) {
-            successCount++;
+
+          const autoSuccess = evaluateFilterCondition(filter, {
+            match_time: t.match_time ?? 60,
+            score_home: t.score_home as number,
+            score_away: t.score_away as number,
+            final_score_home: t.final_score_home as number,
+            final_score_away: t.final_score_away as number,
+          });
+
+          // Store auto_success if not already set
+          if (t.auto_success == null) {
+            await supabaseAdmin
+              .from('triggered_matches')
+              .update({ auto_success: autoSuccess })
+              .eq('id', t.id);
           }
+
+          // Use effective success: user_feedback > auto_success
+          const effective = getEffectiveSuccess(t.user_feedback, autoSuccess);
+          if (effective === true) successCount++;
         }
 
-        const scoreBasedRate = evaluableCount > 0
+        const successRate = evaluableCount > 0
           ? Math.round((successCount / evaluableCount) * 10000) / 100
-          : null; // null = no data yet, don't overwrite existing rate
-
-        // Check if user has given feedback — feedback-based rate takes priority
-        const { data: feedbackTriggers } = await supabaseAdmin
-          .from('triggered_matches')
-          .select('user_feedback')
-          .eq('filter_id', filter.id)
-          .eq('user_id', user_id)
-          .not('user_feedback', 'is', null);
-
-        let successRate: number | null = scoreBasedRate;
-        if (feedbackTriggers && feedbackTriggers.length > 0) {
-          const positive = feedbackTriggers.filter((t: any) => t.user_feedback === true).length;
-          successRate = Math.round((positive / feedbackTriggers.length) * 10000) / 100;
-        }
+          : null;
 
         // Only update success_rate if we actually have data to compute it from
         const updatePayload: Record<string, any> = {

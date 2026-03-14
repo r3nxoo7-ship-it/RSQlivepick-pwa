@@ -745,6 +745,18 @@ export default function FilterTemplatesPage() {
                             </span>
                           ))}
                         </div>
+
+                        {/* League Recommendations */}
+                        {template.recommendedLeagues && template.recommendedLeagues.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 mb-4">
+                            <span className="text-[10px] text-accent-green font-semibold">✅ Best:</span>
+                            {template.recommendedLeagues.slice(0, 3).map(league => (
+                              <span key={league} className="px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green text-[10px] border border-accent-green/20">
+                                {league}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         
                         {/* Stars and button */}
                         <div className="flex items-center justify-between gap-2">
@@ -915,6 +927,35 @@ export default function FilterTemplatesPage() {
                             {difficulty} Level
                           </span>
                         </div>
+
+                        {/* League Recommendations */}
+                        {(template.recommendedLeagues?.length || template.avoidLeagues?.length) ? (
+                          <div className="mb-4 space-y-1.5">
+                            {template.recommendedLeagues && template.recommendedLeagues.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="text-[10px] text-accent-green font-semibold">✅ Best:</span>
+                                {template.recommendedLeagues.slice(0, 3).map(league => (
+                                  <span key={league} className="px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green text-[10px] border border-accent-green/20">
+                                    {league}
+                                  </span>
+                                ))}
+                                {template.recommendedLeagues.length > 3 && (
+                                  <span className="text-[10px] text-text-muted">+{template.recommendedLeagues.length - 3}</span>
+                                )}
+                              </div>
+                            )}
+                            {template.avoidLeagues && template.avoidLeagues.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="text-[10px] text-accent-red font-semibold">⚠️ Avoid:</span>
+                                {template.avoidLeagues.map(league => (
+                                  <span key={league} className="px-1.5 py-0.5 rounded bg-accent-red/10 text-accent-red text-[10px] border border-accent-red/20">
+                                    {league}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
                         
                         {/* Condition Tags */}
                         <div className="flex flex-wrap gap-2 mb-4 flex-grow">

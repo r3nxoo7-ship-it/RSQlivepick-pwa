@@ -429,6 +429,8 @@ export interface TriggeredMatch {
   // Optional user feedback
   user_feedback?: boolean | null;
   feedback_at?: string | null;
+  // Auto-computed goal-based success (Phase 1 improvement)
+  auto_success?: boolean | null;
   created_at: string; // When this record was created
 }
 

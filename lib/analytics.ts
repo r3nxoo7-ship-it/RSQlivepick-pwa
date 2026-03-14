@@ -6,6 +6,109 @@
 import { Filter, TriggeredMatch } from './supabase';
 
 // ============================================
+// EVALUATION TYPE — How filters should be judged
+// ============================================
+export type EvaluationType = 'goals_over' | 'goals_under' | 'draw_hold' | 'defensive' | 'corners_only';
+
+/**
+ * Templates excluded from goal-movement evaluation.
+ * These are judged differently (low scoring = success for them).
+ */
+const EXCLUDED_TEMPLATE_IDS = new Set([
+  'xg-defensive-battle',
+  'under-25-goals-fortress',
+  'under-corners-quiet-match',
+  'ml-draw-hold',
+]);
+
+/**
+ * Determine evaluation type from template ID or filter name.
+ */
+export function getEvaluationType(templateId?: string, filterName?: string): EvaluationType {
+  const id = templateId || '';
+  const name = (filterName || '').toLowerCase();
+
+  // Defensive / under templates
+  if (EXCLUDED_TEMPLATE_IDS.has(id)) {
+    if (id === 'xg-defensive-battle') return 'defensive';
+    if (id === 'ml-draw-hold') return 'draw_hold';
+    if (id === 'under-25-goals-fortress') return 'goals_under';
+    if (id === 'under-corners-quiet-match') return 'corners_only';
+  }
+
+  // Name-based fallback detection
+  if (name.includes('under 2.5') || name.includes('under goals') || name.includes('fortress')) return 'goals_under';
+  if (name.includes('draw') && (name.includes('hold') || name.includes('ml'))) return 'draw_hold';
+  if (name.includes('defensive battle') || name.includes('low xg')) return 'defensive';
+  if (name.includes('under corner') || name.includes('quiet match')) return 'corners_only';
+  if (id.startsWith('corners-') && !name.includes('over') && !name.includes('goal')) return 'corners_only';
+
+  // Everything else is goals_over
+  return 'goals_over';
+}
+
+/**
+ * Compute auto_success for a single triggered match record using the user's
+ * evaluation criteria:
+ *   - Trigger at min 1-55: success if total goals added from trigger to FT >= 2
+ *   - Trigger at min 56+:  success if total goals added from trigger to FT >= 1
+ *
+ * Returns null if:
+ *   - Final scores are unknown
+ *   - Template is excluded (defensive/under/draw)
+ *   - Match time is unknown
+ */
+export function computeAutoSuccess(
+  matchTime: number | null,
+  scoreHome: number | null,
+  scoreAway: number | null,
+  finalScoreHome: number | null,
+  finalScoreAway: number | null,
+  evaluationType: EvaluationType
+): boolean | null {
+  // Can't evaluate without scores
+  if (finalScoreHome == null || finalScoreAway == null) return null;
+  if (scoreHome == null || scoreAway == null) return null;
+  if (matchTime == null) return null;
+
+  // Only evaluate goals_over templates with the standard criteria
+  if (evaluationType !== 'goals_over') {
+    // For goals_under: success = no more than 0 goals added (match stays low)
+    if (evaluationType === 'goals_under') {
+      const goalsAdded = (finalScoreHome + finalScoreAway) - (scoreHome + scoreAway);
+      return goalsAdded === 0; // No more goals = under held
+    }
+    // For draw_hold: success = final result is a draw
+    if (evaluationType === 'draw_hold') {
+      return finalScoreHome === finalScoreAway;
+    }
+    // defensive / corners_only: skip auto-eval
+    return null;
+  }
+
+  const goalsAdded = (finalScoreHome + finalScoreAway) - (scoreHome + scoreAway);
+
+  if (matchTime <= 55) {
+    return goalsAdded >= 2;
+  } else {
+    return goalsAdded >= 1;
+  }
+}
+
+/**
+ * Compute the effective success for a triggered match.
+ * Priority: user_feedback > auto_success
+ */
+export function getEffectiveSuccess(
+  userFeedback: boolean | null | undefined,
+  autoSuccess: boolean | null | undefined
+): boolean | null {
+  if (userFeedback !== null && userFeedback !== undefined) return userFeedback;
+  if (autoSuccess !== null && autoSuccess !== undefined) return autoSuccess;
+  return null;
+}
+
+// ============================================
 // TYPES
 // ============================================
 export interface PerformanceData {
