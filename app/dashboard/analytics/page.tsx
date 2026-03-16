@@ -693,13 +693,23 @@ export default function AnalyticsPage() {
                           <div className="flex items-center gap-3">
                             <div className="flex flex-col items-center shrink-0">
                               <div className="flex items-center gap-1">
-                                <span className="text-base font-bold text-accent-cyan">{g.finalScoreHome ?? g.scoreHome ?? 0}</span>
-                                <span className="text-xs text-text-muted">-</span>
-                                <span className="text-base font-bold text-accent-blue">{g.finalScoreAway ?? g.scoreAway ?? 0}</span>
+                                {g.finalScoreHome != null ? (
+                                  <>
+                                    <span className="text-base font-bold text-accent-cyan">{g.finalScoreHome}</span>
+                                    <span className="text-xs text-text-muted">-</span>
+                                    <span className="text-base font-bold text-accent-blue">{g.finalScoreAway}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-base font-bold text-accent-amber">{g.scoreHome ?? 0}</span>
+                                    <span className="text-xs text-text-muted">-</span>
+                                    <span className="text-base font-bold text-accent-amber">{g.scoreAway ?? 0}</span>
+                                  </>
+                                )}
                               </div>
                               {g.finalScoreHome != null
                                 ? <span className="text-[9px] text-accent-green font-bold">FT</span>
-                                : <span className="text-[9px] text-accent-amber font-bold">{g.scoreHome ?? 0}-{g.scoreAway ?? 0} ⏱</span>
+                                : <span className="text-[9px] text-accent-amber font-bold">⏱ pending</span>
                               }
                             </div>
                             <div className="flex-1 min-w-0">
@@ -866,9 +876,19 @@ export default function AnalyticsPage() {
                                 <div className="flex items-center gap-2 min-w-0">
                                   <div className="flex flex-col items-center shrink-0">
                                     <div className="flex items-center gap-1">
-                                      <span className="text-xs font-bold text-accent-cyan">{m.final_score_home ?? m.score_home ?? 0}</span>
-                                      <span className="text-[10px] text-text-muted">-</span>
-                                      <span className="text-xs font-bold text-accent-blue">{m.final_score_away ?? m.score_away ?? 0}</span>
+                                      {m.final_score_home != null ? (
+                                        <>
+                                          <span className="text-xs font-bold text-accent-cyan">{m.final_score_home}</span>
+                                          <span className="text-[10px] text-text-muted">-</span>
+                                          <span className="text-xs font-bold text-accent-blue">{m.final_score_away}</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="text-xs font-bold text-accent-amber">{m.score_home ?? 0}</span>
+                                          <span className="text-[10px] text-text-muted">-</span>
+                                          <span className="text-xs font-bold text-accent-amber">{m.score_away ?? 0}</span>
+                                        </>
+                                      )}
                                     </div>
                                     {m.final_score_home != null
                                       ? <span className="text-[8px] text-accent-green font-bold leading-none">FT</span>

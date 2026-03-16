@@ -229,14 +229,14 @@ export async function POST(request: NextRequest) {
         if (!error) updatedCount++;
       }
     } else {
-      // Auto-finalize: mark old 'ongoing' matches (>30 minutes) as finished
-      // Most matches end within ~105 min of kickoff; 30 min after trigger is safe
-      const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      // Auto-finalize: mark old 'ongoing'/'LIVE' matches (>2 hours) as finished
+      // Most matches end within ~105 min of kickoff; 2h after last trigger is safe
+      const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
       const { data: ongoingMatches } = await supabaseAdmin
         .from('triggered_matches')
         .select('id, match_id, home_team, away_team')
         .eq('user_id', user_id)
-        .eq('match_status', 'ongoing')
+        .in('match_status', ['ongoing', 'LIVE', '1H', '2H', 'HT'])
         .lt('triggered_at', cutoff);
 
       if (ongoingMatches && ongoingMatches.length > 0) {

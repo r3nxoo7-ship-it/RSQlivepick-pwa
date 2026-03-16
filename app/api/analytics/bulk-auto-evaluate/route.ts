@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'user_id required' }, { status: 400 });
   }
 
-  // STEP 1: Finalize old LIVE matches (older than 3 hours = definitely completed)
-  const cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  // STEP 1: Finalize old LIVE matches (older than 2 hours = definitely completed)
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
   const { data: liveMatches } = await supabase
     .from('triggered_matches')
     .select('id, match_id, home_team, away_team')
