@@ -135,6 +135,25 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    // Prefer triggered_matches finalized scores over potentially stale ESPN data
+    if (tmAny && tmAny.final_score_home != null && tmAny.final_score_away != null) {
+      console.log(`✅ [Match Result] Using triggered_matches finalized score for ${matchId}: ${tmAny.final_score_home}-${tmAny.final_score_away} (ESPN had ${match.home_score}-${match.away_score})`);
+      return NextResponse.json({
+        matchId,
+        homeTeam: match.home_team_name,
+        awayTeam: match.away_team_name,
+        scoreHome: tmAny.final_score_home,
+        scoreAway: tmAny.final_score_away,
+        status: tmAny.match_status === 'finished' ? 'FT' : (match.status === 'completed' ? 'FT' : match.status),
+        statusLong: tmAny.match_status === 'finished' ? 'Match Finished' :
+                    match.status === 'completed' ? 'Match Finished' :
+                    match.status === 'in_progress' ? 'In Progress' : 'Scheduled',
+        league: match.league,
+        date: match.date,
+        source: 'triggered_matches_finalized',
+      });
+    }
+
     console.log(`✅ [Match Result] Found match: ${match.home_team_name} ${match.home_score} - ${match.away_score} ${match.away_team_name}`);
     
     const result = {
