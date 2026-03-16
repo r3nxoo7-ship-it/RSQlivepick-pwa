@@ -414,8 +414,8 @@ class BackgroundScannerService {
               // Always ensure we capture scores - use goals if available, fall back to 0
               score_home: (match.goals?.home !== null && match.goals?.home !== undefined) ? match.goals.home : 0,
               score_away: (match.goals?.away !== null && match.goals?.away !== undefined) ? match.goals.away : 0,
-              ht_score_home: (match as any).period1Home ?? null,
-              ht_score_away: (match as any).period1Away ?? null,
+              ht_score_home: match.score?.halftime?.home ?? (match as any).period1Home ?? null,
+              ht_score_away: match.score?.halftime?.away ?? (match as any).period1Away ?? null,
               match_status: match.fixture?.status?.short || 'ongoing',
             }),
           });
