@@ -5,7 +5,7 @@
 // ============================================
 // TOATE funcțiile CRUD implementate complet
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -50,6 +50,8 @@ export default function FiltersPage() {
   // Stale (never-triggered) filters
   const [staleFilters, setStaleFilters] = useState<{id: string; name: string; created_at: string}[]>([]);
   const [staleLoading, setStaleLoading] = useState(false);
+  // Stats bar filter
+  const [activeStatFilter, setActiveStatFilter] = useState<'all' | 'active' | 'push' | 'telegram' | 'never_triggered'>('all');
   
   // ============================================
   // LOAD FILTERS
@@ -392,6 +394,17 @@ export default function FiltersPage() {
     return preview.slice(0, 3).join(' • ') + (preview.length > 3 ? '...' : '');
   };
 
+  // ===== Computed filtered list =====
+  const displayedFilters = useMemo(() => {
+    switch (activeStatFilter) {
+      case 'active': return filters.filter(f => f.is_active);
+      case 'push': return filters.filter(f => f.notification_enabled);
+      case 'telegram': return filters.filter(f => f.telegram_enabled);
+      case 'never_triggered': return filters.filter(f => f.trigger_count === 0 && !f.last_triggered);
+      default: return filters;
+    }
+  }, [filters, activeStatFilter]);
+
   // ===== Multi-select handlers =====
   const toggleSelect = (filterId: string) => {
     setSelectedIds(prev => prev.includes(filterId) ? prev.filter(id => id !== filterId) : [...prev, filterId]);
@@ -462,38 +475,45 @@ export default function FiltersPage() {
             <div />
           </div>
           
-          {/* ========== STATS ========== */}
+          {/* ========== STATS (clickable filter buttons) ========== */}
           <div className="glass-card p-4 sm:p-6">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Total</div>
-                <div className="stat-value text-xl sm:text-2xl">{filters.length}</div>
-              </div>
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Active</div>
-                <div className="stat-value text-accent-green text-xl sm:text-2xl">
-                  {filters.filter(f => f.is_active).length}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Browser Push</div>
-                <div className="stat-value text-accent-cyan text-xl sm:text-2xl">
-                  {filters.filter(f => f.notification_enabled).length}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="stat-label text-xs sm:text-sm">Telegram</div>
-                <div className="stat-value text-accent-blue text-xl sm:text-2xl">
-                  {filters.filter(f => f.telegram_enabled).length}
-                </div>
-              </div>
-              <div className="text-center col-span-2 md:col-span-1">
-                <div className="stat-label text-xs sm:text-sm">Never Triggered</div>
-                <div className={`stat-value text-xl sm:text-2xl ${filters.filter(f => f.trigger_count === 0 && !f.last_triggered).length > 0 ? 'text-accent-yellow' : 'text-text-muted'}`}>
-                  {filters.filter(f => f.trigger_count === 0 && !f.last_triggered).length}
-                </div>
-              </div>
+              {[
+                { key: 'all' as const, label: 'Total', value: filters.length, color: '' },
+                { key: 'active' as const, label: 'Active', value: filters.filter(f => f.is_active).length, color: 'text-accent-green' },
+                { key: 'push' as const, label: 'Browser Push', value: filters.filter(f => f.notification_enabled).length, color: 'text-accent-cyan' },
+                { key: 'telegram' as const, label: 'Telegram', value: filters.filter(f => f.telegram_enabled).length, color: 'text-accent-blue' },
+                { key: 'never_triggered' as const, label: 'Never Triggered', value: filters.filter(f => f.trigger_count === 0 && !f.last_triggered).length, color: filters.filter(f => f.trigger_count === 0 && !f.last_triggered).length > 0 ? 'text-accent-yellow' : 'text-text-muted' },
+              ].map(stat => (
+                <button
+                  key={stat.key}
+                  onClick={() => setActiveStatFilter(prev => prev === stat.key ? 'all' : stat.key)}
+                  className={`text-center rounded-lg py-2 px-1 transition-all ${
+                    activeStatFilter === stat.key
+                      ? 'ring-2 ring-accent-cyan bg-accent-cyan/10 scale-[1.03]'
+                      : 'hover:bg-glass-light'
+                  } ${stat.key === 'never_triggered' ? 'col-span-2 md:col-span-1' : ''}`}
+                >
+                  <div className="stat-label text-xs sm:text-sm">{stat.label}</div>
+                  <div className={`stat-value text-xl sm:text-2xl ${stat.color}`}>{stat.value}</div>
+                </button>
+              ))}
             </div>
+            {activeStatFilter !== 'all' && (
+              <div className="mt-3 flex items-center justify-between text-xs text-text-muted">
+                <span>
+                  Showing <span className="font-semibold text-accent-cyan">{displayedFilters.length}</span> of {filters.length} filters
+                  {' — '}
+                  <span className="capitalize">{activeStatFilter.replace('_', ' ')}</span>
+                </span>
+                <button
+                  onClick={() => setActiveStatFilter('all')}
+                  className="text-accent-cyan hover:underline"
+                >
+                  Show all
+                </button>
+              </div>
+            )}
           </div>
           
           {/* ========== LOADING ========== */}
@@ -643,9 +663,9 @@ export default function FiltersPage() {
           )}
           
           {/* ========== FILTERS LIST ========== */}
-          {!loading && !error && filters.length > 0 && (
+          {!loading && !error && displayedFilters.length > 0 && (
             <div className="space-y-4">
-              {filters.map((filter, index) => {
+              {displayedFilters.map((filter, index) => {
                 const isOpen = openFilterId === filter.id;
                 return (
                   <motion.div
@@ -840,7 +860,7 @@ export default function FiltersPage() {
             </div>
           )}
           
-          {/* ========== EMPTY STATE ========== */}
+          {/* ========== EMPTY STATE (no filters at all) ========== */}
           {!loading && !error && filters.length === 0 && (
             <div className="glass-card p-12 text-center">
               <FilterIcon className="w-16 h-16 text-text-muted mx-auto mb-4" />
@@ -853,6 +873,25 @@ export default function FiltersPage() {
               <button onClick={handleCreateNew} className="btn-primary">
                 <Plus className="w-5 h-5 inline mr-2" />
                 Create first filter
+              </button>
+            </div>
+          )}
+
+          {/* ========== EMPTY STATE (filter active but no matches) ========== */}
+          {!loading && !error && filters.length > 0 && displayedFilters.length === 0 && (
+            <div className="glass-card p-10 text-center">
+              <FilterIcon className="w-12 h-12 text-text-muted mx-auto mb-3" />
+              <h3 className="text-lg font-display font-semibold mb-1">
+                No filters match &ldquo;{activeStatFilter.replace('_', ' ')}&rdquo;
+              </h3>
+              <p className="text-text-muted text-sm mb-4">
+                None of your {filters.length} filters fall into this category.
+              </p>
+              <button
+                onClick={() => setActiveStatFilter('all')}
+                className="text-accent-cyan hover:underline text-sm"
+              >
+                Show all filters
               </button>
             </div>
           )}
