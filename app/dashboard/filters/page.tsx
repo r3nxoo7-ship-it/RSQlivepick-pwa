@@ -20,6 +20,8 @@ import {
   BellOff,
   MessageCircle,
   Send,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import AuthWrapper from '@/components/AuthWrapper';
 import { authHelpers, dbHelpers } from '@/lib/supabase';
@@ -45,6 +47,9 @@ export default function FiltersPage() {
   const [lastApiDebug, setLastApiDebug] = useState<any>(null);
   // Multi-select state for mobile bulk actions
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Stale (never-triggered) filters
+  const [staleFilters, setStaleFilters] = useState<{id: string; name: string; created_at: string}[]>([]);
+  const [staleLoading, setStaleLoading] = useState(false);
   
   // ============================================
   // LOAD FILTERS
@@ -91,6 +96,57 @@ export default function FiltersPage() {
   useEffect(() => {
     loadFilters();
   }, [loadFilters]);
+
+  // ============================================
+  // LOAD STALE (NEVER-TRIGGERED) FILTERS
+  // ============================================
+
+  const loadStaleFilters = useCallback(async () => {
+    try {
+      const currentUser = authHelpers.getCurrentUser();
+      if (!currentUser) return;
+      const res = await fetch(`/api/filters/cleanup-stale?user_id=${encodeURIComponent(currentUser.id)}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      setStaleFilters(json.staleFilters || []);
+    } catch {
+      // silent — non-critical
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStaleFilters();
+  }, [loadStaleFilters]);
+
+  const handleStaleAction = async (action: 'deactivate' | 'delete', filterIds?: string[]) => {
+    const currentUser = authHelpers.getCurrentUser();
+    if (!currentUser) return;
+
+    const count = filterIds?.length || staleFilters.length;
+    const verb = action === 'delete' ? 'delete' : 'deactivate';
+    if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} ${count} never-triggered filter${count !== 1 ? 's' : ''}?`)) return;
+
+    setStaleLoading(true);
+    try {
+      const res = await fetch('/api/filters/cleanup-stale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser.id, action, filter_ids: filterIds }),
+      });
+      const json = await res.json();
+      if (res.ok && json.affected > 0) {
+        alert(`✅ ${json.affected} filter${json.affected !== 1 ? 's' : ''} ${json.action}`);
+        await loadFilters();
+        await loadStaleFilters();
+      } else if (json.error) {
+        alert(`Error: ${json.error}`);
+      }
+    } catch {
+      alert('Error performing cleanup');
+    } finally {
+      setStaleLoading(false);
+    }
+  };
   
   // ============================================
   // HANDLERS - VERSIUNE COMPLETĂ
@@ -408,7 +464,7 @@ export default function FiltersPage() {
           
           {/* ========== STATS ========== */}
           <div className="glass-card p-4 sm:p-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
               <div className="text-center">
                 <div className="stat-label text-xs sm:text-sm">Total</div>
                 <div className="stat-value text-xl sm:text-2xl">{filters.length}</div>
@@ -431,6 +487,12 @@ export default function FiltersPage() {
                   {filters.filter(f => f.telegram_enabled).length}
                 </div>
               </div>
+              <div className="text-center col-span-2 md:col-span-1">
+                <div className="stat-label text-xs sm:text-sm">Never Triggered</div>
+                <div className={`stat-value text-xl sm:text-2xl ${filters.filter(f => f.trigger_count === 0 && !f.last_triggered).length > 0 ? 'text-accent-yellow' : 'text-text-muted'}`}>
+                  {filters.filter(f => f.trigger_count === 0 && !f.last_triggered).length}
+                </div>
+              </div>
             </div>
           </div>
           
@@ -448,6 +510,58 @@ export default function FiltersPage() {
               <h3 className="text-accent-red font-semibold mb-2">❌ Error</h3>
               <p className="text-text-secondary text-sm">{error}</p>
             </div>
+          )}
+
+          {/* ========== STALE FILTERS WARNING ========== */}
+          {staleFilters.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card p-4 sm:p-6 border-l-4 border-accent-yellow"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-accent-yellow flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-accent-yellow">
+                      {staleFilters.length} filter{staleFilters.length !== 1 ? 's' : ''} never triggered
+                    </h3>
+                    <p className="text-text-muted text-sm mt-1">
+                      These filters are older than 7 days and have never matched a live match. Consider updating their conditions or removing them.
+                    </p>
+                    <div className="mt-2 space-y-1">
+                      {staleFilters.slice(0, 5).map(sf => (
+                        <div key={sf.id} className="flex items-center gap-2 text-xs text-text-secondary">
+                          <Clock className="w-3 h-3 text-text-muted" />
+                          <span className="font-medium">{sf.name}</span>
+                          <span className="text-text-muted">— created {new Date(sf.created_at).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                      {staleFilters.length > 5 && (
+                        <p className="text-xs text-text-muted">...and {staleFilters.length - 5} more</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleStaleAction('deactivate')}
+                    disabled={staleLoading}
+                    className="px-4 py-2 rounded-md border border-accent-yellow bg-accent-yellow/10 text-accent-yellow hover:bg-accent-yellow/15 transition-colors text-sm font-semibold disabled:opacity-50"
+                  >
+                    Deactivate All
+                  </button>
+                  <button
+                    onClick={() => handleStaleAction('delete')}
+                    disabled={staleLoading}
+                    className="px-4 py-2 rounded-md border border-accent-red bg-accent-red/10 text-accent-red hover:bg-accent-red/15 transition-colors text-sm font-semibold disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                    Delete All
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           )}
 
           {/* ========== ACTIONS TOOLBAR ========== */}
@@ -539,7 +653,7 @@ export default function FiltersPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
-                    className={`glass-card-hover p-0 border-l-4 ${filter.is_active ? 'border-accent-green' : 'border-glass-medium'}`}
+                    className={`glass-card-hover p-0 border-l-4 ${filter.trigger_count === 0 && !filter.last_triggered ? 'border-accent-yellow' : filter.is_active ? 'border-accent-green' : 'border-glass-medium'}`}
                   >
                     <div className="p-4 sm:p-6">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -711,8 +825,8 @@ export default function FiltersPage() {
                               </div>
                               <div>
                                 <p className="text-xs text-text-muted mb-1">Last triggered</p>
-                                <p className="text-sm">
-                                  {filter.last_triggered ? new Date(filter.last_triggered).toLocaleDateString() : 'Never'}
+                                <p className={`text-sm ${!filter.last_triggered ? 'text-accent-yellow' : ''}`}>
+                                  {filter.last_triggered ? new Date(filter.last_triggered).toLocaleDateString() : '⚠ Never'}
                                 </p>
                               </div>
                             </div>
