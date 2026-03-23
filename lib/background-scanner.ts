@@ -349,14 +349,20 @@ class BackgroundScannerService {
       }
 
       // Update completed matches with final scores
+      // Only include matches where goals data is actually present (not null/undefined)
+      // to avoid writing false 0-0 scores when the API doesn't return goal data
       for (const match of matches) {
         const status = match.fixture?.status?.short;
         if (status === 'FT' || status === 'AET' || status === 'PEN') {
-          completedMatches.push({
-            match_id: String(match.fixture.id),
-            score_home: match.goals?.home ?? 0,
-            score_away: match.goals?.away ?? 0,
-          });
+          const homeGoals = match.goals?.home;
+          const awayGoals = match.goals?.away;
+          if (typeof homeGoals === 'number' && typeof awayGoals === 'number') {
+            completedMatches.push({
+              match_id: String(match.fixture.id),
+              score_home: homeGoals,
+              score_away: awayGoals,
+            });
+          }
         }
       }
 

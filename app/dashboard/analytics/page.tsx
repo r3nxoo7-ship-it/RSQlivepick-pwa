@@ -106,6 +106,13 @@ export default function AnalyticsPage() {
         body: JSON.stringify({ user_id: user.id }),
       }).catch(() => {}); // Fire and forget
 
+      // Repair any wrong final scores (e.g. false 0-0 from stale API data)
+      fetch('/api/triggered-matches/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, repair: true }),
+      }).catch(() => {}); // Fire and forget
+
       // Clean up duplicate triggered_matches entries (from pre-fix multi-tab bug)
       fetch('/api/triggered-matches/cleanup', {
         method: 'POST',

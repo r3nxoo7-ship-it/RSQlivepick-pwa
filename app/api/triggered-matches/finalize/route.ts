@@ -214,14 +214,87 @@ export async function POST(request: NextRequest) {
 
     if (completed_matches && completed_matches.length > 0) {
       // Mark triggered matches as finished with final scores
+      // Only write scores that are actual numbers (not null/0-fallback)
       for (const cm of completed_matches) {
+        const hasValidScores = typeof cm.score_home === 'number' && typeof cm.score_away === 'number';
+
+        // If scanner reports 0-0, verify against ESPN/API-Football before storing
+        // (0-0 can be a real result, but also a common false value from stale API data)
+        if (hasValidScores && cm.score_home === 0 && cm.score_away === 0) {
+          // Look up the match to get team names for ESPN cross-check
+          const { data: tmRow } = await supabaseAdmin
+            .from('triggered_matches')
+            .select('home_team, away_team')
+            .eq('user_id', user_id)
+            .eq('match_id', String(cm.match_id))
+            .eq('match_status', 'ongoing')
+            .limit(1)
+            .single();
+
+          if (tmRow) {
+            // Try ESPN verification
+            let verifiedScore: { home: number; away: number } | null = null;
+            try {
+              const { data: espnMatch } = await supabaseAdmin
+                .from('espn_matches')
+                .select('home_team_name, away_team_name, home_score, away_score, status')
+                .eq('id', String(cm.match_id))
+                .single();
+
+              if (
+                espnMatch &&
+                espnMatch.status === 'completed' &&
+                teamNamesRoughlyMatch(tmRow.home_team, espnMatch.home_team_name) &&
+                teamNamesRoughlyMatch(tmRow.away_team, espnMatch.away_team_name) &&
+                typeof espnMatch.home_score === 'number' &&
+                typeof espnMatch.away_score === 'number'
+              ) {
+                verifiedScore = { home: espnMatch.home_score, away: espnMatch.away_score };
+              }
+            } catch { /* ignore */ }
+
+            // Try API-Football fallback
+            if (!verifiedScore) {
+              verifiedScore = await fetchFinalScoreFromApiFootball(String(cm.match_id));
+            }
+
+            if (verifiedScore) {
+              // Use verified score instead of scanner's 0-0
+              const { error } = await supabaseAdmin
+                .from('triggered_matches')
+                .update({
+                  match_status: 'finished',
+                  final_score_home: verifiedScore.home,
+                  final_score_away: verifiedScore.away,
+                })
+                .eq('user_id', user_id)
+                .eq('match_id', String(cm.match_id))
+                .eq('match_status', 'ongoing');
+              if (!error) updatedCount++;
+            } else {
+              // Can't verify — don't write 0-0, let the auto-finalize (2h) handle it
+              // Just mark as finished without score so backfill can fix it later
+              const { error } = await supabaseAdmin
+                .from('triggered_matches')
+                .update({ match_status: 'finished' })
+                .eq('user_id', user_id)
+                .eq('match_id', String(cm.match_id))
+                .eq('match_status', 'ongoing');
+              if (!error) updatedCount++;
+            }
+          }
+          continue; // Skip the normal write below
+        }
+
+        const updateData: Record<string, any> = { match_status: 'finished' };
+        if (hasValidScores) {
+          updateData.final_score_home = cm.score_home;
+          updateData.final_score_away = cm.score_away;
+        }
+
         const { error } = await supabaseAdmin
           .from('triggered_matches')
-          .update({
-            match_status: 'finished',
-            final_score_home: cm.score_home ?? null,
-            final_score_away: cm.score_away ?? null,
-          })
+          .update(updateData)
           .eq('user_id', user_id)
           .eq('match_id', String(cm.match_id))
           .eq('match_status', 'ongoing');
