@@ -229,7 +229,6 @@ class BackgroundScannerService {
       // ─────────────────────────────────────────────────────────────────────────
 
       let notificationsSentThisScan = 0;
-      const completedMatches: { match_id: string; score_home: number; score_away: number }[] = [];
 
       // Enrich ALL live matches with SofaScore stats (xG, big chances, shots in box, pass accuracy, etc.)
       // SofaScore is now PRIMARY data source — always enrich for maximum filter accuracy
@@ -348,23 +347,11 @@ class BackgroundScannerService {
         }
       }
 
-      // Update completed matches with final scores
-      // Only include matches where goals data is actually present (not null/undefined)
-      // to avoid writing false 0-0 scores when the API doesn't return goal data
-      for (const match of matches) {
-        const status = match.fixture?.status?.short;
-        if (status === 'FT' || status === 'AET' || status === 'PEN') {
-          const homeGoals = match.goals?.home;
-          const awayGoals = match.goals?.away;
-          if (typeof homeGoals === 'number' && typeof awayGoals === 'number') {
-            completedMatches.push({
-              match_id: String(match.fixture.id),
-              score_home: homeGoals,
-              score_away: awayGoals,
-            });
-          }
-        }
-      }
+      // NOTE: We no longer send completed_matches from the scanner.
+      // The live API can return stale/wrong goal data during FT transition,
+      // which caused false 0-0 scores. The finalize endpoint's auto-finalize
+      // path (runs after 2h with ESPN/API-Football verification) is more reliable.
+      // The scanner still calls finalize periodically to trigger that path.
 
       // Update state
       this.state.totalScans++;
@@ -373,8 +360,8 @@ class BackgroundScannerService {
       this.saveStateToStorage();
 
       // Every 5 scans (~2.5 minutes), finalize triggered matches and recalculate success rates
-      if (this.state.totalScans % 5 === 0 || completedMatches.length > 0) {
-        this.finalizeTriggeredMatches(currentUser.id, completedMatches);
+      if (this.state.totalScans % 5 === 0) {
+        this.finalizeTriggeredMatches(currentUser.id);
       }
 
       console.log(`✅ Background Scanner: Scan complete. Sent ${notificationsSentThisScan} notifications.`);
@@ -555,18 +542,12 @@ class BackgroundScannerService {
   /**
    * Finalize triggered matches and recalculate success rates
    */
-  private async finalizeTriggeredMatches(
-    userId: string,
-    completedMatches: { match_id: string; score_home: number; score_away: number }[]
-  ) {
+  private async finalizeTriggeredMatches(userId: string) {
     try {
       await fetch('/api/triggered-matches/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          completed_matches: completedMatches.length > 0 ? completedMatches : undefined,
-        }),
+        body: JSON.stringify({ user_id: userId }),
       });
     } catch {
       // Non-critical, don't log noise

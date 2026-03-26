@@ -11,6 +11,34 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const API_FOOTBALL_KEY = process.env.NEXT_PUBLIC_API_FOOTBALL_KEY;
+const API_FOOTBALL_HOST = process.env.NEXT_PUBLIC_API_FOOTBALL_HOST || 'v3.football.api-sports.io';
+
+async function fetchFinalScoreFromApiFootball(matchId: string): Promise<{ home: number; away: number } | null> {
+  if (!API_FOOTBALL_KEY) return null;
+  const fixtureId = Number(matchId);
+  if (!Number.isFinite(fixtureId)) return null;
+  try {
+    const res = await fetch(`https://${API_FOOTBALL_HOST}/fixtures?id=${fixtureId}`, {
+      headers: { 'x-rapidapi-key': API_FOOTBALL_KEY, 'x-rapidapi-host': API_FOOTBALL_HOST },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    const fixture = data?.response?.[0];
+    const statusShort: string | undefined = fixture?.fixture?.status?.short;
+    if (!statusShort || !['FT', 'AET', 'PEN'].includes(statusShort)) return null;
+    const homeGoals = fixture?.goals?.home;
+    const awayGoals = fixture?.goals?.away;
+    if (typeof homeGoals === 'number' && typeof awayGoals === 'number') {
+      return { home: homeGoals, away: awayGoals };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const matchId = request.nextUrl.searchParams.get('match_id');
@@ -65,7 +93,20 @@ export async function GET(request: NextRequest) {
       .eq('match_id', matchId)
       .limit(1);
 
-    const tmAny = tmAnyRows && tmAnyRows.length > 0 ? tmAnyRows[0] : null;
+    const tmAnyRaw = tmAnyRows && tmAnyRows.length > 0 ? tmAnyRows[0] : null;
+
+    // Sanity check: if stored final score has fewer total goals than trigger score,
+    // the final score is wrong (goals can never decrease). Treat as if no final score exists.
+    let tmAny = tmAnyRaw;
+    if (tmAny && tmAny.final_score_home != null && tmAny.final_score_away != null) {
+      const triggerTotal = (tmAny.score_home ?? 0) + (tmAny.score_away ?? 0);
+      const finalTotal = tmAny.final_score_home + tmAny.final_score_away;
+      if (finalTotal < triggerTotal) {
+        console.warn(`⚠️ [Match Result] Invalid final score for ${matchId}: FT ${tmAny.final_score_home}-${tmAny.final_score_away} < trigger ${tmAny.score_home}-${tmAny.score_away}. Ignoring stored final score.`);
+        // Null out the final score so downstream logic falls through to ESPN/API-Football
+        tmAny = { ...tmAny, final_score_home: null, final_score_away: null };
+      }
+    }
 
     if (!matches || matches.length === 0) {
       console.log(`⚠️ [Match Result] Match ${matchId} not found in espn_matches — trying triggered_matches fallback`);
@@ -85,6 +126,24 @@ export async function GET(request: NextRequest) {
           league: tm.league_name,
           source: 'triggered_matches_fallback',
         });
+      }
+
+      // Last resort: try API-Football directly for numeric fixture IDs
+      if (tmAny) {
+        const afScore = await fetchFinalScoreFromApiFootball(matchId);
+        if (afScore) {
+          return NextResponse.json({
+            matchId,
+            homeTeam: tmAny.home_team,
+            awayTeam: tmAny.away_team,
+            scoreHome: afScore.home,
+            scoreAway: afScore.away,
+            status: 'FT',
+            statusLong: 'Match Finished',
+            league: tmAny.league_name,
+            source: 'api_football_direct',
+          });
+        }
       }
 
       return NextResponse.json(
@@ -122,6 +181,22 @@ export async function GET(request: NextRequest) {
           statusLong: tmAny.match_status === 'finished' ? 'Match Finished' : 'In Progress',
           league: tmAny.league_name,
           source: 'triggered_matches_preferred_over_espn',
+        });
+      }
+
+      // Try API-Football for the real score
+      const afScoreCollision = await fetchFinalScoreFromApiFootball(matchId);
+      if (afScoreCollision) {
+        return NextResponse.json({
+          matchId,
+          homeTeam: tmAny.home_team,
+          awayTeam: tmAny.away_team,
+          scoreHome: afScoreCollision.home,
+          scoreAway: afScoreCollision.away,
+          status: 'FT',
+          statusLong: 'Match Finished',
+          league: tmAny.league_name,
+          source: 'api_football_collision_fallback',
         });
       }
 

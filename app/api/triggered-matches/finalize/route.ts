@@ -128,26 +128,44 @@ export async function POST(request: NextRequest) {
     let updatedCount = 0;
 
     // Optional repair mode: re-fetch FT scores for recent finished matches and correct wrong stored finals.
-    // Opt-in to avoid unexpected writes and API usage.
+    // Prioritizes matches with suspicious scores (final < trigger) over all matches.
     if (repair === true) {
       const { data: recentFinished } = await supabaseAdmin
         .from('triggered_matches')
-        .select('match_id, home_team, away_team, final_score_home, final_score_away')
+        .select('match_id, home_team, away_team, score_home, score_away, final_score_home, final_score_away')
         .eq('user_id', user_id)
         .eq('match_status', 'finished')
         .order('triggered_at', { ascending: false })
-        .limit(200);
+        .limit(500);
 
-      const unique = new Map<string, { homeTeam: string; awayTeam: string }>();
+      // Prioritize: first repair matches with suspicious scores, then others
+      const suspicious = new Map<string, { homeTeam: string; awayTeam: string }>();
+      const normal = new Map<string, { homeTeam: string; awayTeam: string }>();
+
       for (const t of recentFinished || []) {
-        if (!unique.has(t.match_id)) {
-          unique.set(t.match_id, { homeTeam: t.home_team, awayTeam: t.away_team });
+        if (suspicious.has(t.match_id) || normal.has(t.match_id)) continue;
+        const teams = { homeTeam: t.home_team, awayTeam: t.away_team };
+
+        const triggerTotal = (t.score_home ?? 0) + (t.score_away ?? 0);
+        const isMissing = t.final_score_home == null || t.final_score_away == null;
+        const isSuspicious = !isMissing && ((t.final_score_home ?? 0) + (t.final_score_away ?? 0)) < triggerTotal;
+
+        if (isMissing || isSuspicious) {
+          suspicious.set(t.match_id, teams);
+        } else {
+          normal.set(t.match_id, teams);
         }
-        if (unique.size >= 25) break; // cap per call
+      }
+
+      // Repair suspicious matches first (all of them), then up to 25 normal ones
+      const toRepair = new Map([...suspicious]);
+      for (const [matchId, teams] of normal) {
+        if (toRepair.size >= 50) break;
+        toRepair.set(matchId, teams);
       }
 
       let repairedMatches = 0;
-      for (const [matchId, teams] of unique) {
+      for (const [matchId, teams] of toRepair) {
         let score: FinalScore | null = null;
 
         // 1) ESPN by id only if teams match (prevents ID collision)
@@ -208,93 +226,94 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         repaired: repairedMatches,
-        message: 'Repair complete',
+        suspicious: suspicious.size,
+        message: `Repair complete. ${suspicious.size} suspicious scores checked.`,
       });
     }
 
     if (completed_matches && completed_matches.length > 0) {
-      // Mark triggered matches as finished with final scores
-      // Only write scores that are actual numbers (not null/0-fallback)
+      // Verify each completed match score before writing.
+      // The scanner's reported scores can be stale/wrong, so we always
+      // cross-check against the trigger-time score and external sources.
       for (const cm of completed_matches) {
         const hasValidScores = typeof cm.score_home === 'number' && typeof cm.score_away === 'number';
 
-        // If scanner reports 0-0, verify against ESPN/API-Football before storing
-        // (0-0 can be a real result, but also a common false value from stale API data)
-        if (hasValidScores && cm.score_home === 0 && cm.score_away === 0) {
-          // Look up the match to get team names for ESPN cross-check
-          const { data: tmRow } = await supabaseAdmin
-            .from('triggered_matches')
-            .select('home_team, away_team')
-            .eq('user_id', user_id)
-            .eq('match_id', String(cm.match_id))
-            .eq('match_status', 'ongoing')
-            .limit(1)
-            .single();
+        // Look up the triggered match to get trigger-time score for sanity check
+        const { data: tmRow } = await supabaseAdmin
+          .from('triggered_matches')
+          .select('home_team, away_team, score_home, score_away')
+          .eq('user_id', user_id)
+          .eq('match_id', String(cm.match_id))
+          .eq('match_status', 'ongoing')
+          .limit(1)
+          .single();
 
-          if (tmRow) {
-            // Try ESPN verification
-            let verifiedScore: { home: number; away: number } | null = null;
-            try {
-              const { data: espnMatch } = await supabaseAdmin
-                .from('espn_matches')
-                .select('home_team_name, away_team_name, home_score, away_score, status')
-                .eq('id', String(cm.match_id))
-                .single();
+        if (!tmRow) continue; // No ongoing match to finalize
 
-              if (
-                espnMatch &&
-                espnMatch.status === 'completed' &&
-                teamNamesRoughlyMatch(tmRow.home_team, espnMatch.home_team_name) &&
-                teamNamesRoughlyMatch(tmRow.away_team, espnMatch.away_team_name) &&
-                typeof espnMatch.home_score === 'number' &&
-                typeof espnMatch.away_score === 'number'
-              ) {
-                verifiedScore = { home: espnMatch.home_score, away: espnMatch.away_score };
-              }
-            } catch { /* ignore */ }
+        // Sanity check: final goals can never be less than trigger-time goals
+        const triggerTotal = (tmRow.score_home ?? 0) + (tmRow.score_away ?? 0);
+        const reportedTotal = hasValidScores ? (cm.score_home + cm.score_away) : -1;
+        const isSuspicious = !hasValidScores || reportedTotal < triggerTotal;
 
-            // Try API-Football fallback
-            if (!verifiedScore) {
-              verifiedScore = await fetchFinalScoreFromApiFootball(String(cm.match_id));
+        if (isSuspicious) {
+          // Score is suspicious — try to verify from ESPN/API-Football
+          let verifiedScore: { home: number; away: number } | null = null;
+          try {
+            const { data: espnMatch } = await supabaseAdmin
+              .from('espn_matches')
+              .select('home_team_name, away_team_name, home_score, away_score, status')
+              .eq('id', String(cm.match_id))
+              .single();
+
+            if (
+              espnMatch &&
+              espnMatch.status === 'completed' &&
+              teamNamesRoughlyMatch(tmRow.home_team, espnMatch.home_team_name) &&
+              teamNamesRoughlyMatch(tmRow.away_team, espnMatch.away_team_name) &&
+              typeof espnMatch.home_score === 'number' &&
+              typeof espnMatch.away_score === 'number'
+            ) {
+              verifiedScore = { home: espnMatch.home_score, away: espnMatch.away_score };
             }
+          } catch { /* ignore */ }
 
-            if (verifiedScore) {
-              // Use verified score instead of scanner's 0-0
-              const { error } = await supabaseAdmin
-                .from('triggered_matches')
-                .update({
-                  match_status: 'finished',
-                  final_score_home: verifiedScore.home,
-                  final_score_away: verifiedScore.away,
-                })
-                .eq('user_id', user_id)
-                .eq('match_id', String(cm.match_id))
-                .eq('match_status', 'ongoing');
-              if (!error) updatedCount++;
-            } else {
-              // Can't verify — don't write 0-0, let the auto-finalize (2h) handle it
-              // Just mark as finished without score so backfill can fix it later
-              const { error } = await supabaseAdmin
-                .from('triggered_matches')
-                .update({ match_status: 'finished' })
-                .eq('user_id', user_id)
-                .eq('match_id', String(cm.match_id))
-                .eq('match_status', 'ongoing');
-              if (!error) updatedCount++;
-            }
+          if (!verifiedScore) {
+            verifiedScore = await fetchFinalScoreFromApiFootball(String(cm.match_id));
           }
-          continue; // Skip the normal write below
+
+          if (verifiedScore && (verifiedScore.home + verifiedScore.away) >= triggerTotal) {
+            const { error } = await supabaseAdmin
+              .from('triggered_matches')
+              .update({
+                match_status: 'finished',
+                final_score_home: verifiedScore.home,
+                final_score_away: verifiedScore.away,
+              })
+              .eq('user_id', user_id)
+              .eq('match_id', String(cm.match_id))
+              .eq('match_status', 'ongoing');
+            if (!error) updatedCount++;
+          } else {
+            // Can't verify — mark finished without score, backfill will fix later
+            const { error } = await supabaseAdmin
+              .from('triggered_matches')
+              .update({ match_status: 'finished' })
+              .eq('user_id', user_id)
+              .eq('match_id', String(cm.match_id))
+              .eq('match_status', 'ongoing');
+            if (!error) updatedCount++;
+          }
+          continue;
         }
 
-        const updateData: Record<string, any> = { match_status: 'finished' };
-        if (hasValidScores) {
-          updateData.final_score_home = cm.score_home;
-          updateData.final_score_away = cm.score_away;
-        }
-
+        // Score looks valid (total >= trigger total) — write it
         const { error } = await supabaseAdmin
           .from('triggered_matches')
-          .update(updateData)
+          .update({
+            match_status: 'finished',
+            final_score_home: cm.score_home,
+            final_score_away: cm.score_away,
+          })
           .eq('user_id', user_id)
           .eq('match_id', String(cm.match_id))
           .eq('match_status', 'ongoing');
@@ -376,21 +395,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Backfill: patch any previously-finalized matches missing final scores
-    const { data: missingScores } = await supabaseAdmin
+    // Backfill: patch any previously-finalized matches with missing or suspicious final scores
+    // Suspicious = final total goals < trigger total goals (impossible — goals can't decrease)
+    const { data: backfillCandidates } = await supabaseAdmin
       .from('triggered_matches')
-      .select('id, match_id, home_team, away_team')
+      .select('id, match_id, home_team, away_team, score_home, score_away, final_score_home, final_score_away')
       .eq('user_id', user_id)
       .eq('match_status', 'finished')
-      .is('final_score_home', null)
-      .limit(50);
+      .limit(100);
 
-    if (missingScores && missingScores.length > 0) {
-      const backfillMatchIds = [...new Set(missingScores.map(m => m.match_id))];
+    const needsBackfill = (backfillCandidates || []).filter((m: any) => {
+      if (m.final_score_home == null) return true;
+      // Suspicious: final < trigger
+      const triggerTotal = (m.score_home ?? 0) + (m.score_away ?? 0);
+      const finalTotal = (m.final_score_home ?? 0) + (m.final_score_away ?? 0);
+      return finalTotal < triggerTotal;
+    });
+
+    if (needsBackfill.length > 0) {
+      const backfillMatchIds = [...new Set(needsBackfill.map((m: any) => m.match_id))];
       const backfillScoreMap = new Map<string, { home: number | null; away: number | null }>();
 
       for (const matchId of backfillMatchIds) {
-        const tm = (missingScores as any[]).find((m) => m.match_id === matchId);
+        const tm = needsBackfill.find((m: any) => m.match_id === matchId);
         try {
           const { data: espnMatch } = await supabaseAdmin
             .from('espn_matches')
@@ -418,9 +445,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      for (const tm of missingScores) {
+      for (const tm of needsBackfill) {
         const scores = backfillScoreMap.get(tm.match_id);
-        if (scores) {
+        if (scores && scores.home != null && scores.away != null) {
           await supabaseAdmin
             .from('triggered_matches')
             .update({

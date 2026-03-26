@@ -146,18 +146,24 @@ export default function AnalyticsPage() {
       .finally(() => setTriggeredLoading(false));
   }, [activeTab, userId, triggeredRange]);
 
-  // Fetch missing final scores for old matches (>2h) where final_score_* is null
+  // Fetch missing or suspicious final scores for old matches (>2h)
+  // A score is suspicious if: null, or final total goals < trigger total goals (impossible)
   useEffect(() => {
     if (triggeredMatches.length === 0) return;
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
     const matchesNeedingScores = new Set<string>();
     
     for (const m of triggeredMatches) {
-      if (
-        m.final_score_home == null &&
-        new Date(m.triggered_at).getTime() < twoHoursAgo &&
-        !fetchedFinalScores.has(m.match_id)
-      ) {
+      if (new Date(m.triggered_at).getTime() >= twoHoursAgo) continue;
+      if (fetchedFinalScores.has(m.match_id)) continue;
+
+      const isMissing = m.final_score_home == null;
+      // Sanity: final goals can never be less than trigger-time goals
+      const triggerTotal = (m.score_home ?? 0) + (m.score_away ?? 0);
+      const finalTotal = (m.final_score_home ?? 0) + (m.final_score_away ?? 0);
+      const isSuspicious = !isMissing && finalTotal < triggerTotal;
+
+      if (isMissing || isSuspicious) {
         matchesNeedingScores.add(m.match_id);
       }
     }
@@ -196,9 +202,9 @@ export default function AnalyticsPage() {
         map.set(key, m);
       }
     }
-    // Apply fetched final scores from match-result API
+    // Apply fetched final scores from match-result API (always prefer fresh data)
     for (const [key, m] of map.entries()) {
-      if (m.final_score_home == null && fetchedFinalScores.has(m.match_id)) {
+      if (fetchedFinalScores.has(m.match_id)) {
         const fetched = fetchedFinalScores.get(m.match_id)!;
         m.final_score_home = fetched.home;
         m.final_score_away = fetched.away;
@@ -227,9 +233,9 @@ export default function AnalyticsPage() {
       if (m.final_score_home != null) g.finalScoreHome = m.final_score_home;
       if (m.final_score_away != null) g.finalScoreAway = m.final_score_away;
     }
-    // Apply fetched final scores from match-result API
+    // Apply fetched final scores from match-result API (always prefer fresh data)
     for (const g of map.values()) {
-      if (g.finalScoreHome == null && fetchedFinalScores.has(g.matchId)) {
+      if (fetchedFinalScores.has(g.matchId)) {
         const fetched = fetchedFinalScores.get(g.matchId)!;
         g.finalScoreHome = fetched.home;
         g.finalScoreAway = fetched.away;
@@ -320,10 +326,10 @@ export default function AnalyticsPage() {
       }
       if (new Date(m.triggered_at) > new Date(g.latestAt)) g.latestAt = m.triggered_at;
     }
-    // Apply fetched final scores from match-result API to each match object
+    // Apply fetched final scores from match-result API (always prefer fresh data)
     for (const g of map.values()) {
       for (const m of g.matches) {
-        if (m.final_score_home == null && fetchedFinalScores.has(m.match_id)) {
+        if (fetchedFinalScores.has(m.match_id)) {
           const fetched = fetchedFinalScores.get(m.match_id)!;
           m.final_score_home = fetched.home;
           m.final_score_away = fetched.away;
@@ -363,9 +369,9 @@ export default function AnalyticsPage() {
         );
       }
 
-      // ✨ Apply fetched final scores from state to export data
+      // ✨ Apply fetched final scores from state to export data (always prefer fresh data)
       triggeredMatches = triggeredMatches.map((m: any) => {
-        if (m.final_score_home == null && fetchedFinalScores.has(m.match_id)) {
+        if (fetchedFinalScores.has(m.match_id)) {
           const fetched = fetchedFinalScores.get(m.match_id)!;
           return { ...m, final_score_home: fetched.home, final_score_away: fetched.away };
         }
