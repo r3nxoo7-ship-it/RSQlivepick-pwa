@@ -87,6 +87,7 @@ export default function LiveMatchesDashboardV2({
   const [leagueDropdownOpen, setLeagueDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMatch, setSelectedMatch] = useState<MatchWithPredictions | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const leagueDropdownRef = useRef<HTMLDivElement>(null);
 
   const dayTabs = useMemo(() => buildDayTabs(), []);
@@ -116,15 +117,64 @@ export default function LiveMatchesDashboardV2({
     return [...liveMatches, ...upcomingMatches, ...scheduledMatches, ...matches];
   }, [liveMatches, upcomingMatches, scheduledMatches, matches]);
 
-  // Extract unique leagues
+  // Classify a match into a category based on league name/code
+  const getMatchCategory = useCallback((m: LiveMatch): string => {
+    const leagueName = (m.league?.name || '').toLowerCase();
+    const leagueId = String(m.league?.id || '').toLowerCase();
+
+    // Friendly
+    if (leagueName.includes('friendly') || leagueId.includes('friendly')) return 'friendly';
+
+    // National team / International
+    if (
+      leagueName.includes('world cup') || leagueName.includes('wcq') ||
+      leagueName.includes('euro qualifying') || leagueName.includes('euro championship') ||
+      leagueName.includes('nations league') || leagueName.includes('copa america') ||
+      leagueName.includes('gold cup') || leagueName.includes('africa cup') ||
+      leagueName.includes('olympic') || leagueName.includes('qualifying') ||
+      leagueId.includes('fifa.world') || leagueId.includes('fifa.olympics') ||
+      leagueId.includes('uefa.euro') || leagueId.includes('uefa.nations') ||
+      leagueId.includes('concacaf.gold') || leagueId.includes('concacaf.nations') ||
+      leagueId.includes('conmebol.america') || leagueId.includes('caf.nations')
+    ) return 'national';
+
+    // Cup competitions
+    if (
+      leagueName.includes('cup') || leagueName.includes('copa') ||
+      leagueName.includes('coupe') || leagueName.includes('coppa') ||
+      leagueName.includes('pokal') || leagueName.includes('beker') ||
+      leagueName.includes('taça') || leagueName.includes('trophy') ||
+      leagueName.includes('shield') || leagueName.includes('super cup') ||
+      leagueName.includes('champions league') || leagueName.includes('europa league') ||
+      leagueName.includes('conference league') || leagueName.includes('libertadores') ||
+      leagueName.includes('sudamericana') || leagueName.includes('club world')
+    ) return 'cup';
+
+    // Default: league (club domestic)
+    return 'league';
+  }, []);
+
+  // Category counts for badges
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0, national: 0, friendly: 0, cup: 0, league: 0 };
+    allMatches.forEach(m => {
+      counts.all++;
+      const cat = getMatchCategory(m);
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [allMatches, getMatchCategory]);
+
+  // Extract unique leagues (filtered by category)
   const leagues = useMemo(() => {
     const leagueSet = new Set<string>();
     allMatches.forEach(m => {
+      if (selectedCategory !== 'all' && getMatchCategory(m) !== selectedCategory) return;
       const name = m.league?.name;
       if (name && name !== 'Soccer') leagueSet.add(name);
     });
     return ['All', ...Array.from(leagueSet).sort()];
-  }, [allMatches]);
+  }, [allMatches, selectedCategory, getMatchCategory]);
 
   // Enhance matches with filter matching info
   const enhanceMatch = useCallback((match: LiveMatch): MatchWithPredictions => {
@@ -176,6 +226,11 @@ export default function LiveMatchesDashboardV2({
     // Enhance with filter matching
     let enhanced = raw.map(enhanceMatch);
 
+    // Apply category filter
+    if (selectedCategory !== 'all') {
+      enhanced = enhanced.filter(m => getMatchCategory(m) === selectedCategory);
+    }
+
     // Apply league filter (multi-select: empty set = all leagues)
     if (selectedLeagues.size > 0) {
       enhanced = enhanced.filter(m => m.league?.name && selectedLeagues.has(m.league.name));
@@ -191,7 +246,7 @@ export default function LiveMatchesDashboardV2({
     }
 
     return enhanced;
-  }, [selectedDay, dayTabs, liveMatches, upcomingMatches, scheduledMatches, matches, selectedLeagues, searchQuery, enhanceMatch]);
+  }, [selectedDay, dayTabs, liveMatches, upcomingMatches, scheduledMatches, matches, selectedLeagues, selectedCategory, searchQuery, enhanceMatch, getMatchCategory]);
 
   // Count matches per day (for tab badges)
   const dayMatchCounts = useMemo(() => {
@@ -252,8 +307,40 @@ export default function LiveMatchesDashboardV2({
         })}
       </div>
 
-      {/* Filter Bar: League dropdown + Search */}
-      <div className="flex gap-2 items-center">
+      {/* Filter Bar: Category chips + League dropdown + Search */}
+      <div className="space-y-2">
+        {/* Category chips */}
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+          {([
+            { key: 'all', label: 'All' },
+            { key: 'league', label: 'League' },
+            { key: 'cup', label: 'Cup' },
+            { key: 'national', label: 'National' },
+            { key: 'friendly', label: 'Friendly' },
+          ] as const).map(cat => {
+            const count = categoryCounts[cat.key] || 0;
+            const isActive = selectedCategory === cat.key;
+            return (
+              <button
+                key={cat.key}
+                onClick={() => { setSelectedCategory(cat.key); setSelectedLeagues(new Set()); }}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition border ${
+                  isActive
+                    ? 'bg-accent-cyan/20 text-accent-cyan border-accent-cyan/40'
+                    : 'bg-glass-light/20 text-text-muted border-glass-light/30 hover:bg-glass-light/40 hover:text-white'
+                }`}
+              >
+                {cat.label}
+                {count > 0 && (
+                  <span className={`ml-1 text-[10px] ${isActive ? 'text-accent-cyan/70' : 'text-text-muted/60'}`}>{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* League dropdown + Search */}
+        <div className="flex gap-2 items-center">
         {/* League multi-select dropdown */}
         <div ref={leagueDropdownRef} className="relative shrink-0">
           <button
@@ -341,6 +428,7 @@ export default function LiveMatchesDashboardV2({
           )}
         </div>
       </div>
+      </div>
 
       {/* Match count summary */}
       <div className="text-xs text-text-muted">
@@ -348,6 +436,7 @@ export default function LiveMatchesDashboardV2({
         {selectedDay === todayKey && liveCount > 0 && (
           <span className="text-accent-red ml-1">({liveCount} live)</span>
         )}
+        {selectedCategory !== 'all' && <span className="capitalize"> • {selectedCategory}</span>}
         {selectedLeagues.size > 0 && <span> in {selectedLeagues.size === 1 ? Array.from(selectedLeagues)[0] : `${selectedLeagues.size} leagues`}</span>}
         {searchQuery && <span> matching &quot;{searchQuery}&quot;</span>}
       </div>

@@ -314,6 +314,33 @@ export const ALL_EUROPEAN_SOCCER_LEAGUES = [
   { sport: 'soccer', league: 'pol.cup', name: 'Polish Cup' },
   { sport: 'soccer', league: 'sco.fa', name: 'Scottish Cup' },
   { sport: 'soccer', league: 'sco.league_cup', name: 'Scottish League Cup' },
+  // ── International / National Teams ──
+  { sport: 'soccer', league: 'fifa.friendly', name: 'International Friendly' },
+  { sport: 'soccer', league: 'club.friendly', name: 'Club Friendly' },
+  { sport: 'soccer', league: 'fifa.world', name: 'FIFA World Cup' },
+  { sport: 'soccer', league: 'fifa.worldq.uefa', name: 'WCQ UEFA' },
+  { sport: 'soccer', league: 'fifa.worldq.conmebol', name: 'WCQ CONMEBOL' },
+  { sport: 'soccer', league: 'fifa.worldq.concacaf', name: 'WCQ CONCACAF' },
+  { sport: 'soccer', league: 'fifa.worldq.afc', name: 'WCQ AFC' },
+  { sport: 'soccer', league: 'fifa.worldq.caf', name: 'WCQ CAF' },
+  { sport: 'soccer', league: 'fifa.worldq.ofc', name: 'WCQ OFC' },
+  { sport: 'soccer', league: 'uefa.euro', name: 'Euro Championship' },
+  { sport: 'soccer', league: 'uefa.euroq', name: 'Euro Qualifying' },
+  { sport: 'soccer', league: 'conmebol.america', name: 'Copa America' },
+  { sport: 'soccer', league: 'concacaf.gold', name: 'Gold Cup' },
+  { sport: 'soccer', league: 'concacaf.nations.league', name: 'CONCACAF Nations League' },
+  { sport: 'soccer', league: 'caf.nations', name: 'Africa Cup of Nations' },
+  { sport: 'soccer', league: 'fifa.olympics', name: 'Olympic Football' },
+  { sport: 'soccer', league: 'fifa.cwc', name: 'Club World Cup' },
+  // ── South America (top leagues) ──
+  { sport: 'soccer', league: 'bra.1', name: 'Brasileirao Serie A' },
+  { sport: 'soccer', league: 'arg.1', name: 'Argentine Primera' },
+  { sport: 'soccer', league: 'conmebol.libertadores', name: 'Copa Libertadores' },
+  { sport: 'soccer', league: 'conmebol.sudamericana', name: 'Copa Sudamericana' },
+  // ── North America ──
+  { sport: 'soccer', league: 'usa.1', name: 'MLS' },
+  { sport: 'soccer', league: 'mex.1', name: 'Liga MX' },
+  { sport: 'soccer', league: 'concacaf.champions', name: 'CONCACAF Champions Cup' },
 ];
 
 export type LeagueConfig = { sport: string; league: string; name: string };
