@@ -446,49 +446,26 @@ export const authHelpers = {
   // keepLoggedIn: when true (default) store user in localStorage; when false use sessionStorage.
   async login(username: string, password: string, keepLoggedIn: boolean = true): Promise<{ user: User | null; error: string | null }> {
     try {
-      // Caută user-ul în database (case-insensitive)
-      const { data: users, error } = await supabase
-        .from('users')
-        .select('*')
-        .ilike('username', username)
-        .eq('is_active', true)
-        .limit(1);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, keepLoggedIn }),
+        credentials: 'same-origin',
+      });
 
-      if (error) {
-        console.error('🔴 Supabase login query error:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        });
-        
-        // Check if it's an RLS policy error
-        if (error.code === 'PGRST100' || error.message?.includes('policy')) {
-          console.error('❌ RLS Policy Error: Login query blocked. Check RLS policies on users table.');
-          return { user: null, error: 'RLS policy error - contact admin' };
-        }
-        
-        return { user: null, error: 'Database error' };
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { user: null, error: result?.error || 'Authentication failed' };
       }
 
-      if (!users || users.length === 0) {
+      const user = result?.user as User | undefined;
+
+      if (!user) {
         return { user: null, error: 'Invalid credentials' };
       }
-
-      const user = users[0] as User;
-
-      // Verifică parola cu bcrypt
-      const isValidPassword = bcrypt.compareSync(password, user.password_hash);
-
-      if (!isValidPassword) {
-        return { user: null, error: 'Invalid credentials' };
-      }
-
-      // Update last_login
-      await supabase
-        .from('users')
-        .update({ last_login: new Date().toISOString() })
-        .eq('id', user.id);
 
       // Persist user according to preference (localStorage vs sessionStorage)
       if (typeof window !== 'undefined') {

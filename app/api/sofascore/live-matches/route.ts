@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server';
 import { getLiveMatchesFromSofascore } from '@/lib/sofascore-api';
 import * as ESPNAPI from '@/lib/espn-api';
 import * as espnSync from '@/lib/espn-sync';
+import { isUEFACompetition, normalizeCompetitionName } from '@/lib/competition-aliases';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -155,7 +156,12 @@ async function fetchFromESPNAPI(): Promise<any[]> {
     })
   );
 
-  const converted = collected.map(({ match, cfg }) => espnMatchToLiveMatch(match, cfg.name));
+  const converted = collected.map(({ match, cfg }) => {
+    const leagueName = cfg.name;
+    const normalizedName = normalizeCompetitionName(leagueName);
+    const displayName = isUEFACompetition(leagueName) ? normalizedName : leagueName;
+    return espnMatchToLiveMatch(match, displayName);
+  });
   const liveCount = collected.filter(({ match }) => match.status === 'in_progress').length;
   console.log(`[ESPN API] ${converted.length} matches (${liveCount} live) from ${activeLeagues.length} active leagues`);
   return converted;

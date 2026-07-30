@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as espnSync from '@/lib/espn-sync';
 import { ALL_EUROPEAN_SOCCER_LEAGUES } from '@/lib/espn-api';
+import { normalizeCompetitionName, isUEFACompetition } from '@/lib/competition-aliases';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 10;
@@ -77,13 +78,16 @@ export async function GET(request: NextRequest) {
       row.away_team_name !== 'Unknown' &&
       row.id;
 
-    const normalizeLeagueName = (name: string) =>
-      name
+    const normalizeLeagueName = (name: string) => {
+      const normalized = normalizeCompetitionName(name);
+      if (normalized) return normalized;
+      return name
         .toLowerCase()
         .replace(/\(.*?\)/g, '')
         .replace(/[^a-z0-9 ]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+    };
 
     // Derive allowed leagues from canonical list and add a few robust aliases
     const allowedLeagues = new Set(
@@ -102,6 +106,9 @@ export async function GET(request: NextRequest) {
       if (!validFilter(row)) return false;
       if (!row.league) return true;
       const normalized = normalizeLeagueName(String(row.league));
+      if (allowedLeagues.has(normalized) || isUEFACompetition(String(row.league))) {
+        return true;
+      }
       return allowedLeagues.has(normalized);
     };
 

@@ -15,6 +15,7 @@ import { getLiveMatches, getMatchStatistics } from '@/lib/api-football';
 import { matchesFilter } from '@/lib/filter-engine';
 import * as espnSync from '@/lib/espn-sync';
 import type { Filter } from '@/lib/supabase';
+import { normalizeCompetitionName, isUEFACompetition } from '@/lib/competition-aliases';
 
 export const maxDuration = 30;
 
@@ -113,6 +114,19 @@ function buildMessage(match: any, filter: Filter, matchedConditions: string[]): 
   return lines.join('\n');
 }
 
+function normalizeMatchLeague(match: any): string {
+  const leagueName = match?.league?.name || match?.league_name || '';
+  const normalized = normalizeCompetitionName(leagueName);
+  if (normalized) return normalized;
+  return leagueName;
+}
+
+function shouldIncludeMatch(match: any): boolean {
+  const leagueName = normalizeMatchLeague(match);
+  if (isUEFACompetition(leagueName)) return true;
+  return Boolean(match.fixture?.status?.short && match.fixture.status.short !== 'NS' && match.fixture.status.short !== 'TBD' && match.fixture.status.short !== 'PST' && match.fixture.status.short !== 'CANC');
+}
+
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -142,10 +156,7 @@ export async function GET(req: NextRequest) {
     // 1b. Enrich matches with stats from API-Football ─────────────────────────
     //     /fixtures?live=all does NOT include statistics; fetch them per-match.
     //     Limit to first 15 live matches to stay within rate limits.
-    const liveOnly = matches.filter(m => {
-      const s = m.fixture?.status?.short;
-      return s && s !== 'NS' && s !== 'TBD' && s !== 'PST' && s !== 'CANC';
-    });
+    const liveOnly = matches.filter(shouldIncludeMatch);
     const statsResults = await Promise.allSettled(
       liveOnly.slice(0, 15).map(async m => {
         if (m.statistics && m.statistics.length > 0) return; // already has stats
@@ -208,7 +219,7 @@ export async function GET(req: NextRequest) {
     // 4. Run filter matching for every match × filter combo ────────────────────
     let notificationsSent = 0;
 
-    for (const match of matches) {
+    for (const match of liveOnly) {
       const status = match.fixture?.status?.short;
       if (!status || status === 'NS' || status === 'TBD' || status === 'PST' || status === 'CANC') continue;
 
@@ -237,7 +248,7 @@ export async function GET(req: NextRequest) {
             filterName: filter.name,
             homeTeam: match.teams?.home?.name ?? '',
             awayTeam: match.teams?.away?.name ?? '',
-            leagueName: match.league?.name ?? '',
+            leagueName: normalizeMatchLeague(match),
             scoreHome: match.goals?.home ?? 0,
             scoreAway: match.goals?.away ?? 0,
             matchTime: match.fixture?.status?.elapsed ?? null,

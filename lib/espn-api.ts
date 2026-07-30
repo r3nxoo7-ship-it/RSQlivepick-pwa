@@ -71,6 +71,8 @@ export const LEAGUES = {
   'soccer-ligue-1': { sport: 'soccer', league: 'fra.1', name: 'Ligue 1' },
   'soccer-mls': { sport: 'soccer', league: 'usa.1', name: 'MLS' },
   'soccer-champions-league': { sport: 'soccer', league: 'uefa.champions', name: 'Champions League' },
+  'soccer-europa-league': { sport: 'soccer', league: 'uefa.europa', name: 'Europa League' },
+  'soccer-conference-league': { sport: 'soccer', league: 'uefa.europa.conf', name: 'Conference League' },
 
   // American Football
   'nfl': { sport: 'football', league: 'nfl', name: 'NFL' },

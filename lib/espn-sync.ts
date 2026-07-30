@@ -7,6 +7,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as ESPNAPI from './espn-api';
 import { registry } from './data-sources';
+import { normalizeCompetitionName, isUEFACompetition } from './competition-aliases';
 
 // Use service role for server-side operations (no RLS restrictions)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -997,6 +998,10 @@ export function convertESPNMatchToLiveMatch(row: any): any {
     elapsed = row.minute || null;
   }
 
+  const leagueName = String(row.league || 'Soccer');
+  const normalizedLeagueName = normalizeCompetitionName(leagueName);
+  const shouldPreserveCompetition = isUEFACompetition(leagueName) || normalizedLeagueName.includes('champions') || normalizedLeagueName.includes('europa') || normalizedLeagueName.includes('conference');
+
   return {
     fixture: {
       id: row.id,
@@ -1010,7 +1015,7 @@ export function convertESPNMatchToLiveMatch(row: any): any {
     },
     league: {
       id: 0, // ESPN data doesn't have league ID, use 0 as placeholder
-      name: row.league || 'Soccer',
+      name: shouldPreserveCompetition ? (normalizedLeagueName || leagueName) : (row.league || 'Soccer'),
       country: '', // Could be extracted from league name
       logo: '', // Not available from ESPN sync
       flag: '', // Not available from ESPN sync
